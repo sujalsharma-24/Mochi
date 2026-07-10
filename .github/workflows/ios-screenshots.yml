@@ -1,0 +1,67 @@
+name: iOS Screenshots
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-screenshots.yml"
+  workflow_dispatch: {}
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Prepare screenshot output dir
+        working-directory: ios
+        run: mkdir -p screenshots
+
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          NAME=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9A-Za-z ]+ \(' | sed 's/ (//' | sort -V | tail -1)
+          if [ -z "$NAME" ]; then
+            echo "No iPhone simulator found" >&2
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator: $NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build and run screenshot UI test
+        working-directory: ios
+        run: |
+          xcodebuild test \
+            -project Mochi.xcodeproj \
+            -scheme MochiApp \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            -resultBundlePath TestResult.xcresult \
+            TEST_RUNNER_SCREENSHOT_DIR="$(pwd)/screenshots"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mochi-ios-screenshots
+          path: ios/screenshots
+          if-no-files-found: warn
+
+      - name: Upload full test result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mochi-ios-test-result
+          path: ios/TestResult.xcresult
+          if-no-files-found: ignore

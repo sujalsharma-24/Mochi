@@ -1,0 +1,58 @@
+name: Mochi
+options:
+  bundleIdPrefix: com.mochi.app
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  MochiApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: MochiApp
+    info:
+      path: MochiApp/App/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+
+  MochiUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: MochiUITests
+    dependencies:
+      - target: MochiApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app.uitests
+
+schemes:
+  MochiApp:
+    build:
+      targets:
+        MochiApp: all
+        MochiUITests: [test]
+    test:
+      targets:
+        - MochiUITests
+    run:
+      config: Debug
