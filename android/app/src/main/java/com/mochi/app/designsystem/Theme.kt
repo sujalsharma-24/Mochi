@@ -1,0 +1,62 @@
+package com.mochi.app.designsystem
+
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+/** Ported from ios/MochiApp/DesignSystem/Theme.swift — keep both in sync until a shared token source exists. */
+object MochiColor {
+    val purple = Color(0xFF8B5CF6)
+    val purpleDark = Color(0xFF7C3AED)
+    val pink = Color(0xFFEC4999)
+    val pinkLight = Color(0xFFF9B6DA)
+    val lavender = Color(0xFFCEBFF9)
+
+    val textPrimary = Color(0xFF251B3C)
+    val textSecondary = Color(0xFF6B617F)
+
+    val cardBackground = Color.White
+    val screenBackgroundFallback = Color(0xFFF9E7F6)
+
+    val freeTag = Color(0xFF8CCA65)
+    val premiumTag = Color(0xFFF9B33C)
+}
+
+object MochiGradient {
+    val background = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFFFACBE5),
+            Color(0xFFD9BAF6),
+            Color(0xFFBEAFF6)
+        )
+    )
+
+    val primaryButton = Brush.horizontalGradient(
+        colors = listOf(MochiColor.pink, MochiColor.purple)
+    )
+
+    val logoText = Brush.horizontalGradient(
+        colors = listOf(MochiColor.purpleDark, MochiColor.pink)
+    )
+
+    val premiumBanner = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF6A34C7),
+            Color(0xFFAA47D0)
+        )
+    )
+}
+
+object MochiRadius {
+    val card = 20.dp
+    val pill = 999.dp
+    val sheet = 28.dp
+}
+
+object MochiSpacing {
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 16.dp
+    val lg = 24.dp
+    val xl = 32.dp
+}

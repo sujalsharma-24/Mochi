@@ -8,6 +8,9 @@ ios/TestResult.xcresult/
 # macOS
 .DS_Store
 
+# Claude Code session state
+.claude/scheduled_tasks.lock
+
 # Android (placeholder — populated when Android work starts)
 android/.gradle/
 android/**/build/

@@ -1,0 +1,41 @@
+package com.mochi.app.mockdata
+
+import com.mochi.app.model.Creator
+import com.mochi.app.model.FontItem
+import com.mochi.app.model.KeyboardTheme
+
+/** Ported from ios/MochiApp/MockData/MockData.swift — placeholder data until Firestore is wired up. */
+object MockData {
+    val popularThemes = listOf(
+        KeyboardTheme("fantasy-castle-night", "Fantasy Castle Night", "Mochi Studio", "theme_fantasy_castle_night", 12_500, true, listOf("fantasy", "night", "purple")),
+        KeyboardTheme("space-vibe", "Space vibe", "sakura", "theme_space_vibe", 9_800, false, listOf("space", "aesthetic")),
+        KeyboardTheme("dreamy-castle", "Dreamy Castle", "Staeey", "theme_dreamy_castle", 9_800, true, listOf("dreamy", "sunset"))
+    )
+
+    val latestCreations = listOf(
+        KeyboardTheme("cozy-sakura-cafe", "Cozy Sakura Café", "Lemonade", "theme_cozy_sakura_cafe", 956, true, listOf("cute", "nature", "green")),
+        KeyboardTheme("space-vibe-2", "Space Vibe", "Dreamer", "theme_space_vibe", 956, false, listOf("blue", "soft", "aesthetic")),
+        KeyboardTheme("dreamy-fantasy", "Dreamy Fantasy", "Kittyk", "theme_dreamy_castle", 956, true, listOf("blue", "soft", "aesthetic"))
+    )
+
+    val allThemes = popularThemes + latestCreations + listOf(
+        KeyboardTheme("pastel-pink-sky", "Pastel Pink Sky", "Meow Themes", "theme_pastel_pink_sky", 11_500, true, listOf("pastel", "sunset")),
+        KeyboardTheme("forest-theme", "Forest Theme", "Galaxy Corp", "theme_forest", 5_800, false, listOf("nature", "green")),
+        KeyboardTheme("pastel-rainbow", "Pastel Rainbow", "Elite Themes", "theme_pastel_rainbow", 12_500, false, listOf("rainbow", "pastel")),
+        KeyboardTheme("kawaii-boba-tea", "kawaii boba tea", "Mochi Studio", "theme_kawaii_boba", 1_800, true, listOf("cute", "boba"))
+    )
+
+    val fonts = listOf(
+        FontItem("bubble-cute", "Bubble Cute", "Rounded & Playful", false, "font_bubble_cute"),
+        FontItem("handwritten-elegant", "Handwritten Elegant", "Smooth & Natural", true, "font_handwritten_elegant"),
+        FontItem("typewriter-classic", "Typewriter Classic", "Clean & Readable", false, "font_typewriter_classic"),
+        FontItem("bold-strong", "Bold Strong", "Bold & Impactful", true, "font_bold_strong")
+    )
+
+    val topCreators = listOf(
+        Creator("mochi-creator", "Mochi Creator", "@mochicreator", "avatar_mochi_creator", 128, 12_500, false, true),
+        Creator("pixel-art-studio", "Pixel Art Studio", "@pixelart.studio", "avatar_pixel_art", 96, 36_500, false, true),
+        Creator("vibe-studio", "Vibe Studio", "@vibestudio", "avatar_vibe_studio", 84, 10_800, false, true),
+        Creator("dreamy-designs", "Dreamy Designs", "@dreamydesigns", "avatar_dreamy_designs", 72, 8_800, true, true)
+    )
+}
