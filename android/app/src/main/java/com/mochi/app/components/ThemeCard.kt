@@ -101,7 +101,7 @@ fun SectionHeader(
         Text(text = title.uppercase(), style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
         if (actionTitle != null) {
             TextButton(onClick = onAction) {
-                Text(text = actionTitle, style = MochiFont.caption(), color = MochiColor.purple)
+                Text(text = actionTitle, style = MochiFont.caption(), color = MochiColor.textPrimary)
             }
         }
     }

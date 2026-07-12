@@ -43,9 +43,9 @@ fun GradientButton(
             horizontalArrangement = Arrangement.spacedBy(MochiSpacing.xs, Alignment.CenterHorizontally)
         ) {
             if (icon != null) {
-                Icon(imageVector = icon, contentDescription = null, tint = Color.White)
+                Icon(imageVector = icon, contentDescription = null, tint = MochiColor.textPrimary)
             }
-            Text(text = title, style = MochiFont.button(), color = Color.White)
+            Text(text = title, style = MochiFont.button(), color = MochiColor.textPrimary)
         }
     }
 }

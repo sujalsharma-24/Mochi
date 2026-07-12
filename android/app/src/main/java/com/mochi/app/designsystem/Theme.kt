@@ -12,6 +12,9 @@ object MochiColor {
     val pinkLight = Color(0xFFF9B6DA)
     val lavender = Color(0xFFCEBFF9)
 
+    /** Sampled directly from docs/figma/1.png — the "Mochi" wordmark is flat, not a gradient. */
+    val logoSolid = Color(0xFF9C28B1)
+
     val textPrimary = Color(0xFF251B3C)
     val textSecondary = Color(0xFF6B617F)
 
@@ -23,11 +26,12 @@ object MochiColor {
 }
 
 object MochiGradient {
+    /** Sampled directly from docs/figma/1.png (top-left / mid / bottom-right) — pink to lavender to peach. */
     val background = Brush.linearGradient(
         colors = listOf(
-            Color(0xFFFACBE5),
-            Color(0xFFD9BAF6),
-            Color(0xFFBEAFF6)
+            Color(0xFFF6A7F2),
+            Color(0xFFD2CAFB),
+            Color(0xFFFDD7D1)
         )
     )
 

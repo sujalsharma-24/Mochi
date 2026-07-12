@@ -1,5 +1,6 @@
 package com.mochi.app.features.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -17,10 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,10 +28,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mochi.app.R
 import com.mochi.app.components.FontArtCard
 import com.mochi.app.components.GradientButton
 import com.mochi.app.components.SectionHeader
@@ -80,18 +79,14 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun Header() {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(text = "Mochi", style = MochiFont.logo(), color = MochiColor.purpleDark)
+        Text(text = "Mochi", style = MochiFont.logo(44.sp), color = MochiColor.logoSolid)
         Spacer(modifier = Modifier.weight(1f))
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MochiGradient.primaryButton),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = "Create Custom", tint = Color.White)
-            }
+            Image(
+                painter = painterResource(R.drawable.icon_create_custom),
+                contentDescription = "Create Custom",
+                modifier = Modifier.size(56.dp).clip(CircleShape)
+            )
             Text(text = "Create Custom", style = MochiFont.caption(11.sp), color = MochiColor.textPrimary)
         }
     }
@@ -125,12 +120,14 @@ private fun RecentlyAppliedRow(themes: List<KeyboardTheme>) {
 private fun QuickActionCards() {
     Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
         ActionCard(
+            iconResId = R.drawable.icon_palette,
             title = "Custom Create",
             subtitle = "Design your own keyboard",
             buttonTitle = "Create",
             modifier = Modifier.weight(1f)
         )
         ActionCard(
+            iconResId = R.drawable.icon_library,
             title = "Choose from Library",
             subtitle = "Pick a created keyboard",
             buttonTitle = "Choose",
@@ -140,7 +137,7 @@ private fun QuickActionCards() {
 }
 
 @Composable
-private fun ActionCard(title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier) {
+private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(MochiRadius.card))
@@ -148,7 +145,11 @@ private fun ActionCard(title: String, subtitle: String, buttonTitle: String, mod
             .padding(MochiSpacing.md),
         verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
     ) {
-        Icon(imageVector = Icons.Filled.Palette, contentDescription = null, tint = MochiColor.purple, modifier = Modifier.size(26.dp))
+        Image(
+            painter = painterResource(iconResId),
+            contentDescription = null,
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+        )
         Text(text = title, style = MochiFont.heading(15.sp), color = MochiColor.textPrimary)
         Text(text = subtitle, style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
         GradientButton(title = buttonTitle) {}
@@ -181,7 +182,7 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
         Text(
             text = title,
             style = MochiFont.button(),
-            color = if (isSelected) Color.White else MochiColor.textPrimary
+            color = MochiColor.textPrimary
         )
     }
 }
