@@ -35,9 +35,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mochi.app.components.FontArtCard
 import com.mochi.app.components.GradientButton
-import com.mochi.app.components.KeyboardPreviewPlaceholder
 import com.mochi.app.components.SectionHeader
+import com.mochi.app.components.ThemeArt
 import com.mochi.app.components.ThemeCard
 import com.mochi.app.designsystem.MochiColor
 import com.mochi.app.designsystem.MochiFont
@@ -107,7 +108,7 @@ private fun RecentlyAppliedRow(themes: List<KeyboardTheme>) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
             ) {
-                KeyboardPreviewPlaceholder(seed = theme.id, modifier = Modifier.size(width = 150.dp, height = 130.dp))
+                ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.size(width = 150.dp, height = 130.dp))
                 Text(
                     text = theme.name,
                     style = MochiFont.body(13.sp),
@@ -202,18 +203,23 @@ private fun FontsRow(fonts: List<FontItem>) {
         horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)
     ) {
         fonts.forEach { font ->
-            Column(
-                modifier = Modifier
-                    .size(width = 120.dp, height = 130.dp)
-                    .clip(RoundedCornerShape(MochiRadius.card))
-                    .background(Color.White)
-                    .padding(6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            FontArtCard(
+                assetName = font.previewAssetName,
+                modifier = Modifier.size(width = 120.dp, height = 130.dp)
             ) {
-                Text(text = "Aa", style = MochiFont.logo(34.sp), color = MochiColor.purple)
-                Text(text = font.name, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center)
-                Text(text = font.styleDescription, style = MochiFont.caption(11.sp), color = MochiColor.textSecondary, textAlign = TextAlign.Center)
+                Column(
+                    modifier = Modifier
+                        .size(width = 120.dp, height = 130.dp)
+                        .clip(RoundedCornerShape(MochiRadius.card))
+                        .background(Color.White)
+                        .padding(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(text = "Aa", style = MochiFont.logo(34.sp), color = MochiColor.purple)
+                    Text(text = font.name, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center)
+                    Text(text = font.styleDescription, style = MochiFont.caption(11.sp), color = MochiColor.textSecondary, textAlign = TextAlign.Center)
+                }
             }
         }
     }

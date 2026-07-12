@@ -38,7 +38,7 @@ fun ThemeCard(theme: KeyboardTheme, modifier: Modifier = Modifier, onTap: () -> 
         verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
     ) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
-            KeyboardPreviewPlaceholder(seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
+            ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
 
             if (theme.isPremium) {
                 Box(
