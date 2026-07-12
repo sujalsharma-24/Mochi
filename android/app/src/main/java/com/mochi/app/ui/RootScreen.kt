@@ -45,13 +45,6 @@ private fun RootScreenPreview() {
     RootScreen()
 }
 
-/** Taller canvas so the whole scrollable Home screen (including Font Collection) shows without needing to scroll. */
-@Preview(showBackground = true, widthDp = 393, heightDp = 1700)
-@Composable
-private fun RootScreenFullLengthPreview() {
-    RootScreen()
-}
-
 /** Placeholder for tabs not yet ported from the iOS SwiftUI build — see project todo list. */
 @Composable
 private fun ComingSoonScreen(tab: MochiTab) {
