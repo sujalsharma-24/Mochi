@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import com.mochi.app.components.MochiTabBar
 import com.mochi.app.designsystem.MochiFont
 import com.mochi.app.designsystem.MochiGradient
@@ -36,6 +37,12 @@ fun RootScreen() {
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
+}
+
+@Preview(showBackground = true, widthDp = 393, heightDp = 852)
+@Composable
+private fun RootScreenPreview() {
+    RootScreen()
 }
 
 /** Placeholder for tabs not yet ported from the iOS SwiftUI build — see project todo list. */
