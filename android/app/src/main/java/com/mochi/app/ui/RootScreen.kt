@@ -16,6 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.mochi.app.components.MochiTabBar
 import com.mochi.app.designsystem.MochiFont
 import com.mochi.app.designsystem.MochiGradient
+import com.mochi.app.features.fonts.FontsScreen
 import com.mochi.app.features.home.HomeScreen
 
 /** Ported from ios/MochiApp/App/RootView.swift */
@@ -27,6 +28,7 @@ fun RootScreen() {
         Box(modifier = Modifier.fillMaxSize()) {
             when (selected) {
                 MochiTab.KEYBOARD -> HomeScreen()
+                MochiTab.FONTS -> FontsScreen()
                 else -> ComingSoonScreen(selected)
             }
         }
