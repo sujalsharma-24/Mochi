@@ -53,7 +53,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Slider
 import com.mochi.app.R
 import com.mochi.app.components.GradientButton
-import com.mochi.app.components.OutlineButton
 import com.mochi.app.designsystem.MochiColor
 import com.mochi.app.designsystem.MochiFont
 import com.mochi.app.designsystem.MochiGradient
@@ -248,8 +247,27 @@ private fun FontShopCard(font: ShopFont, modifier: Modifier = Modifier) {
             }
             PriceTag(isPremium = font.isPremium)
             Text(text = font.description, style = MochiFont.caption(10.sp), color = MochiColor.purple)
-            GradientButton(title = "Apply", modifier = Modifier.height(30.dp)) {}
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                SmallPillButton(title = "Preview", modifier = Modifier.weight(1f), filled = false) {}
+                SmallPillButton(title = "Apply", modifier = Modifier.weight(1f), filled = true) {}
+            }
         }
+    }
+}
+
+@Composable
+private fun SmallPillButton(title: String, modifier: Modifier = Modifier, filled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(MochiRadius.pill))
+            .then(
+                if (filled) Modifier.background(MochiGradient.primaryButton)
+                else Modifier.background(Color.White).border(1.dp, MochiColor.purple.copy(alpha = 0.35f), RoundedCornerShape(MochiRadius.pill))
+            )
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = title, style = MochiFont.caption(9.sp), color = MochiColor.textPrimary)
     }
 }
 
@@ -360,7 +378,7 @@ private fun DownloadedFontsRow() {
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
         ) {
-            shopFonts.forEach { font ->
+            shopFonts.filter { it.name != "Typewriter Classic" }.forEach { font ->
                 Column(
                     modifier = Modifier
                         .width(90.dp)
