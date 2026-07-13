@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -204,7 +205,8 @@ private fun PlanCard(plan: Plan, isSelected: Boolean, onSelect: () -> Unit) {
                 color = Color.White,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = (-8).dp, end = MochiSpacing.md)
+                    .offset(y = (-8).dp)
+                    .padding(end = MochiSpacing.md)
                     .clip(RoundedCornerShape(MochiRadius.pill))
                     .background(MochiGradient.primaryButton)
                     .padding(horizontal = 10.dp, vertical = 4.dp)
