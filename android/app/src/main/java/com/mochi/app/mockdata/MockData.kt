@@ -60,4 +60,13 @@ object MockData {
         Creator("starry", "Starry", "@starry", "avatar_starry", 15, 21_000, false, true),
         Creator("pastel-craft", "Pastel Craft", "@pastelcraft", "avatar_pastel_craft", 12, 15_000, false, true)
     )
+
+    /** Ranked Creators leaderboard (screen 9) — a distinct creator set/order from Popular Creators. */
+    val rankedCreators = listOf(
+        Creator("mochi-creator", "Mochi Creator", "@mochicreator", "avatar_mochi_creator", 128, 12_500, false, true),
+        Creator("pixel-art-studio", "Pixel Art Studio", "@pixelart.studio", "avatar_pixel_art", 96, 36_500, false, true),
+        Creator("vibe-studio", "Vibe Studio", "@vibestudio", "avatar_vibe_studio", 84, 10_800, false, true),
+        Creator("dreamy-designs", "Dreamy Designs", "@dreamydesigns", "avatar_dreamy_designs", 72, 8_800, true, true),
+        Creator("techy-keys", "Techy Keys", "@techy.keys", "avatar_techy_keys", 63, 68_800, false, true)
+    )
 }

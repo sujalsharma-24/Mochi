@@ -41,7 +41,12 @@ private val knownAvatarArt: Map<String, Int> = mapOf(
     "avatar_mochi_studio" to R.drawable.avatar_mochi_studio,
     "avatar_sakura" to R.drawable.avatar_sakura,
     "avatar_starry" to R.drawable.avatar_starry,
-    "avatar_pastel_craft" to R.drawable.avatar_pastel_craft
+    "avatar_pastel_craft" to R.drawable.avatar_pastel_craft,
+    "avatar_mochi_creator" to R.drawable.avatar_mochi_creator,
+    "avatar_pixel_art" to R.drawable.avatar_pixel_art,
+    "avatar_vibe_studio" to R.drawable.avatar_vibe_studio,
+    "avatar_dreamy_designs" to R.drawable.avatar_dreamy_designs,
+    "avatar_techy_keys" to R.drawable.avatar_techy_keys
 )
 
 @Composable
