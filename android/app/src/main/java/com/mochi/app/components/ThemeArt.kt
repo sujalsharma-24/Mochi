@@ -1,6 +1,7 @@
 package com.mochi.app.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -35,6 +36,30 @@ private val knownFontArt: Map<String, Int> = mapOf(
     "font_typewriter_classic" to R.drawable.font_typewriter_classic,
     "font_bold_strong" to R.drawable.font_bold_strong
 )
+
+private val knownAvatarArt: Map<String, Int> = mapOf(
+    "avatar_mochi_studio" to R.drawable.avatar_mochi_studio,
+    "avatar_sakura" to R.drawable.avatar_sakura,
+    "avatar_starry" to R.drawable.avatar_starry,
+    "avatar_pastel_craft" to R.drawable.avatar_pastel_craft
+)
+
+@Composable
+fun CreatorAvatar(assetName: String, modifier: Modifier = Modifier) {
+    val resId = knownAvatarArt[assetName]
+    if (resId != null) {
+        Image(
+            painter = painterResource(resId),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
+    } else {
+        androidx.compose.foundation.layout.Box(
+            modifier = modifier.background(androidx.compose.ui.graphics.Color(0xFFE0D4F7))
+        )
+    }
+}
 
 @Composable
 fun ThemeArt(assetName: String, seed: String, modifier: Modifier = Modifier, cornerRadius: Dp = MochiRadius.card) {

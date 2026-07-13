@@ -13,9 +13,16 @@ object MockData {
     )
 
     val latestCreations = listOf(
-        KeyboardTheme("cozy-sakura-cafe", "Cozy Sakura Café", "Lemonade", "theme_cozy_sakura_cafe", 956, true, listOf("cute", "nature", "green")),
-        KeyboardTheme("space-vibe-2", "Space Vibe", "Dreamer", "theme_space_vibe", 956, false, listOf("blue", "soft", "aesthetic")),
-        KeyboardTheme("dreamy-fantasy", "Dreamy Fantasy", "Kittyk", "theme_dreamy_castle", 956, true, listOf("blue", "soft", "aesthetic"))
+        KeyboardTheme("cozy-sakura-cafe", "Cozy Sakura Café", "Lemonade", "theme_cozy_sakura_cafe", 956, true, listOf("cute", "nature", "green"), "A Soft Green Theme With Cute Frogs And Nature Vibes"),
+        KeyboardTheme("space-vibe-2", "Space Vibe", "Dreamer", "theme_space_vibe", 956, false, listOf("blue", "soft", "aesthetic"), "Fluffy Clouds And Calm Sky For A Peaceful Typing"),
+        KeyboardTheme("dreamy-fantasy", "Dreamy Fantasy", "Kittyk", "theme_dreamy_castle", 956, true, listOf("blue", "soft", "aesthetic"), "Cozy Cafe Cats To Keep You Company While Typing")
+    )
+
+    /** Community "Top Themes" ranking (screen 2) — same catalog entries, different order/medal ranks. */
+    val topRankedThemes = listOf(
+        KeyboardTheme("kawaii-boba-tea", "kawaii boba tea", "Mochi Studio", "theme_kawaii_boba", 12_500, true, listOf("cute", "boba")),
+        KeyboardTheme("sakura-train", "Sakura Train", "sakura", "theme_sakura_train", 9_800, true, listOf("sakura", "night")),
+        KeyboardTheme("pastel-pink-sky", "Pastel Pink Sky", "Staeey", "theme_pastel_pink_sky", 9_800, true, listOf("pastel", "sunset"))
     )
 
     val shopThemes = listOf(
@@ -46,10 +53,11 @@ object MockData {
         FontItem("bold-strong", "Bold Strong", "Bold & Impactful", true, "font_bold_strong")
     )
 
+    /** Popular Creators (screen 2) — matches Figma exactly (names, theme counts). */
     val topCreators = listOf(
-        Creator("mochi-creator", "Mochi Creator", "@mochicreator", "avatar_mochi_creator", 128, 12_500, false, true),
-        Creator("pixel-art-studio", "Pixel Art Studio", "@pixelart.studio", "avatar_pixel_art", 96, 36_500, false, true),
-        Creator("vibe-studio", "Vibe Studio", "@vibestudio", "avatar_vibe_studio", 84, 10_800, false, true),
-        Creator("dreamy-designs", "Dreamy Designs", "@dreamydesigns", "avatar_dreamy_designs", 72, 8_800, true, true)
+        Creator("mochi-studio", "Mochi Studio", "@mochistudio", "avatar_mochi_studio", 24, 45_000, false, true),
+        Creator("sakura", "Sakura", "@sakura", "avatar_sakura", 18, 32_000, false, true),
+        Creator("starry", "Starry", "@starry", "avatar_starry", 15, 21_000, false, true),
+        Creator("pastel-craft", "Pastel Craft", "@pastelcraft", "avatar_pastel_craft", 12, 15_000, false, true)
     )
 }

@@ -7,7 +7,8 @@ data class KeyboardTheme(
     val imageAssetName: String,
     val likeCount: Int,
     val isPremium: Boolean,
-    val hashtags: List<String>
+    val hashtags: List<String>,
+    val description: String = ""
 ) {
     val likeCountFormatted: String get() = likeCount.formattedCompact()
 }
