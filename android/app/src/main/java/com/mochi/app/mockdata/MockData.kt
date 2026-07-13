@@ -18,12 +18,26 @@ object MockData {
         KeyboardTheme("dreamy-fantasy", "Dreamy Fantasy", "Kittyk", "theme_dreamy_castle", 956, true, listOf("blue", "soft", "aesthetic"))
     )
 
-    val allThemes = popularThemes + latestCreations + listOf(
+    val shopThemes = listOf(
+        KeyboardTheme("fantasy-castle-night", "Fantasy Castle Night", "Mochi Studio", "theme_fantasy_castle_night", 12_500, true, listOf("fantasy", "night", "purple")),
+        KeyboardTheme("space-vibe", "Space vibe", "sakura", "theme_space_vibe", 9_800, false, listOf("space", "aesthetic")),
+        KeyboardTheme("dreamy-castle", "Dreamy Castle", "Staeey", "theme_dreamy_castle", 9_800, true, listOf("dreamy", "sunset")),
         KeyboardTheme("pastel-pink-sky", "Pastel Pink Sky", "Meow Themes", "theme_pastel_pink_sky", 11_500, true, listOf("pastel", "sunset")),
         KeyboardTheme("forest-theme", "Forest Theme", "Galaxy Corp", "theme_forest", 5_800, false, listOf("nature", "green")),
-        KeyboardTheme("pastel-rainbow", "Pastel Rainbow", "Elite Themes", "theme_pastel_rainbow", 12_500, false, listOf("rainbow", "pastel")),
+        KeyboardTheme("cozy-sakura-cafe-shop", "Cozy Sakura Café", "Vibe Studio", "theme_cozy_sakura_cafe", 3_800, true, listOf("cute", "nature", "green")),
+        KeyboardTheme("pastel-rainbow", "Pastel Rainbow", "Elite Themes", "theme_pastel_rainbow", 8_200, false, listOf("rainbow", "pastel")),
+        KeyboardTheme("sakura-train", "Sakura Train", "Lemonade", "theme_sakura_train", 7_400, true, listOf("sakura", "night")),
         KeyboardTheme("kawaii-boba-tea", "kawaii boba tea", "Mochi Studio", "theme_kawaii_boba", 1_800, true, listOf("cute", "boba"))
     )
+
+    val downloadedThemes = listOf(
+        shopThemes.first { it.id == "pastel-rainbow" },
+        shopThemes.first { it.id == "kawaii-boba-tea" },
+        shopThemes.first { it.id == "forest-theme" },
+        shopThemes.first { it.id == "pastel-pink-sky" }
+    )
+
+    val allThemes = popularThemes + latestCreations + shopThemes
 
     val fonts = listOf(
         FontItem("bubble-cute", "Bubble Cute", "Rounded & Playful", false, "font_bubble_cute"),

@@ -18,6 +18,7 @@ import com.mochi.app.designsystem.MochiFont
 import com.mochi.app.designsystem.MochiGradient
 import com.mochi.app.features.fonts.FontsScreen
 import com.mochi.app.features.home.HomeScreen
+import com.mochi.app.features.themes.ThemesScreen
 
 /** Ported from ios/MochiApp/App/RootView.swift */
 @Composable
@@ -29,6 +30,7 @@ fun RootScreen() {
             when (selected) {
                 MochiTab.KEYBOARD -> HomeScreen()
                 MochiTab.FONTS -> FontsScreen()
+                MochiTab.THEMES -> ThemesScreen()
                 else -> ComingSoonScreen(selected)
             }
         }

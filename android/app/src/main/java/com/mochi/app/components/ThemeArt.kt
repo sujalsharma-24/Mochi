@@ -20,7 +20,13 @@ import com.mochi.app.designsystem.MochiRadius
 private val knownThemeArt: Map<String, Int> = mapOf(
     "theme_fantasy_castle_night" to R.drawable.theme_fantasy_castle_night,
     "theme_space_vibe" to R.drawable.theme_space_vibe,
-    "theme_dreamy_castle" to R.drawable.theme_dreamy_castle
+    "theme_dreamy_castle" to R.drawable.theme_dreamy_castle,
+    "theme_pastel_pink_sky" to R.drawable.theme_pastel_pink_sky,
+    "theme_forest" to R.drawable.theme_forest,
+    "theme_cozy_sakura_cafe" to R.drawable.theme_cozy_sakura_cafe,
+    "theme_pastel_rainbow" to R.drawable.theme_pastel_rainbow,
+    "theme_sakura_train" to R.drawable.theme_sakura_train,
+    "theme_kawaii_boba" to R.drawable.theme_kawaii_boba
 )
 
 private val knownFontArt: Map<String, Int> = mapOf(
