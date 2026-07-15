@@ -253,3 +253,11 @@ private fun FontsRow(fonts: List<FontItem>) {
 private fun HomeScreenPreview() {
     HomeScreen()
 }
+
+/** Taller canvas so the full scrollable screen (including Font Collection) renders in one static
+ * preview — @Preview doesn't scroll, so the 852dp phone-height preview above cuts content off. */
+@Preview(showBackground = true, widthDp = 393, heightDp = 1150)
+@Composable
+private fun HomeScreenFullLengthPreview() {
+    HomeScreen()
+}
