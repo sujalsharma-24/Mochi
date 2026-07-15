@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,7 +53,12 @@ import com.mochi.app.designsystem.MochiSpacing
  * visual language (gradient background, Baloo 2 rounded type, solid purple logo, pink-purple
  * gradient buttons) per the locked feature spec instead of blocking on the client. */
 @Composable
-fun SplashScreen(modifier: Modifier = Modifier) {
+fun SplashScreen(modifier: Modifier = Modifier, onTimeout: () -> Unit = {}) {
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1200)
+        onTimeout()
+    }
+
     val transition = rememberInfiniteTransition(label = "splash-pulse")
     val scale by transition.animateFloat(
         initialValue = 0.96f,

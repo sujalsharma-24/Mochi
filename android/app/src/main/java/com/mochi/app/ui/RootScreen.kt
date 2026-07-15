@@ -21,19 +21,36 @@ import com.mochi.app.features.create.CreateThemeScreen
 import com.mochi.app.features.fonts.FontsScreen
 import com.mochi.app.features.home.HomeScreen
 import com.mochi.app.features.themes.ThemesScreen
+import com.mochi.app.model.KeyboardTheme
 
 /** Ported from ios/MochiApp/App/RootView.swift */
 @Composable
-fun RootScreen() {
+fun RootScreen(
+    modifier: Modifier = Modifier,
+    onThemeClick: (KeyboardTheme) -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
+    onLeaderboardClick: () -> Unit = {},
+    onWallpapersClick: () -> Unit = {}
+) {
     var selected by remember { mutableStateOf(MochiTab.KEYBOARD) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
             when (selected) {
-                MochiTab.KEYBOARD -> HomeScreen()
-                MochiTab.FONTS -> FontsScreen()
-                MochiTab.THEMES -> ThemesScreen()
-                MochiTab.COMMUNITY -> CommunityScreen()
+                MochiTab.KEYBOARD -> HomeScreen(
+                    onThemeClick = onThemeClick,
+                    onCreateTabClick = { selected = MochiTab.CREATE },
+                    onChooseTabClick = { selected = MochiTab.THEMES }
+                )
+                MochiTab.FONTS -> FontsScreen(onSearchClick = onSearchClick)
+                MochiTab.THEMES -> ThemesScreen(onSearchClick = onSearchClick, onWallpapersClick = onWallpapersClick)
+                MochiTab.COMMUNITY -> CommunityScreen(
+                    onProfileClick = onProfileClick,
+                    onSearchClick = onSearchClick,
+                    onThemeClick = onThemeClick,
+                    onLeaderboardClick = onLeaderboardClick
+                )
                 MochiTab.CREATE -> CreateThemeScreen()
                 else -> ComingSoonScreen(selected)
             }

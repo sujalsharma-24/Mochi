@@ -68,7 +68,11 @@ private val medalColors = listOf(Color(0xFFDDA935), Color(0xFFB8B8C8), Color(0xF
 
 /** Ported from docs/figma/9.png */
 @Composable
-fun LeaderboardScreen(modifier: Modifier = Modifier) {
+fun LeaderboardScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
+) {
     var selectedPeriod by remember { mutableStateOf("This Week") }
     val followState = remember { mutableStateOf(MockData.rankedCreators.associate { it.id to it.isFollowing }.toMutableMap()) }
 
@@ -81,7 +85,7 @@ fun LeaderboardScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            LeaderboardHeader()
+            LeaderboardHeader(onBack, onSearchClick)
             PeriodTabsRow(selectedPeriod) { selectedPeriod = it }
             FollowCreatorsBanner()
             MockData.rankedCreators.forEachIndexed { index, creator ->
@@ -99,9 +103,9 @@ fun LeaderboardScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun LeaderboardHeader() {
+private fun LeaderboardHeader(onBack: () -> Unit, onSearchClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        CircleIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack)
+        CircleIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack, onClick = onBack)
         Column(modifier = Modifier.weight(1f).padding(horizontal = MochiSpacing.sm), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(
@@ -114,14 +118,14 @@ private fun LeaderboardHeader() {
             }
             Text(text = "Discover the most popular theme makers", style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
         }
-        CircleIconButton(icon = Icons.Filled.Search)
+        CircleIconButton(icon = Icons.Filled.Search, onClick = onSearchClick)
     }
 }
 
 @Composable
-private fun CircleIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector) {
+private fun CircleIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit = {}) {
     Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton),
+        modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = Color.White)

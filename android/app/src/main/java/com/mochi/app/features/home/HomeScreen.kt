@@ -52,7 +52,12 @@ private enum class LibraryTab { FONTS, THEMES }
 
 /** Ported from ios/MochiApp/Features/Home/HomeView.swift */
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onThemeClick: (KeyboardTheme) -> Unit = {},
+    onCreateTabClick: () -> Unit = {},
+    onChooseTabClick: () -> Unit = {}
+) {
     var libraryTab by remember { mutableStateOf(LibraryTab.THEMES) }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
@@ -64,12 +69,12 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 90.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            Header()
-            RecentlyAppliedRow(MockData.popularThemes)
-            QuickActionCards()
+            Header(onCreateTabClick)
+            RecentlyAppliedRow(MockData.popularThemes, onThemeClick)
+            QuickActionCards(onCreateTabClick, onChooseTabClick)
             LibraryToggle(libraryTab) { libraryTab = it }
             SectionHeader(title = "Popular Themes")
-            ThemesRow(MockData.popularThemes)
+            ThemesRow(MockData.popularThemes, onThemeClick)
             SectionHeader(title = "Font Collection")
             FontsRow(MockData.fonts)
         }
@@ -77,11 +82,15 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Header() {
+private fun Header(onCreateTabClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(text = "Mochi", style = MochiFont.logo(44.sp), color = MochiColor.logoSolid)
         Spacer(modifier = Modifier.weight(1f))
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.clickable(onClick = onCreateTabClick)
+        ) {
             Image(
                 painter = painterResource(R.drawable.icon_create_custom),
                 contentDescription = "Create Custom",
@@ -93,7 +102,7 @@ private fun Header() {
 }
 
 @Composable
-private fun RecentlyAppliedRow(themes: List<KeyboardTheme>) {
+private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)
@@ -101,7 +110,8 @@ private fun RecentlyAppliedRow(themes: List<KeyboardTheme>) {
         themes.forEach { theme ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+                verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm),
+                modifier = Modifier.clickable { onThemeClick(theme) }
             ) {
                 ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.size(width = 150.dp, height = 130.dp))
                 Text(
@@ -117,27 +127,29 @@ private fun RecentlyAppliedRow(themes: List<KeyboardTheme>) {
 }
 
 @Composable
-private fun QuickActionCards() {
+private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
         ActionCard(
             iconResId = R.drawable.icon_palette,
             title = "Custom Create",
             subtitle = "Design your own keyboard",
             buttonTitle = "Create",
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            onButtonClick = onCreateTabClick
         )
         ActionCard(
             iconResId = R.drawable.icon_library,
             title = "Choose from Library",
             subtitle = "Pick a created keyboard",
             buttonTitle = "Choose",
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            onButtonClick = onChooseTabClick
         )
     }
 }
 
 @Composable
-private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier) {
+private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier, onButtonClick: () -> Unit = {}) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(MochiRadius.card))
@@ -152,7 +164,7 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
         )
         Text(text = title, style = MochiFont.heading(15.sp), color = MochiColor.textPrimary)
         Text(text = subtitle, style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
-        GradientButton(title = buttonTitle) {}
+        GradientButton(title = buttonTitle, onClick = onButtonClick)
     }
 }
 
@@ -188,12 +200,12 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
 }
 
 @Composable
-private fun ThemesRow(themes: List<KeyboardTheme>) {
+private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)
     ) {
-        themes.forEach { theme -> ThemeCard(theme = theme, modifier = Modifier.width(150.dp)) }
+        themes.forEach { theme -> ThemeCard(theme = theme, modifier = Modifier.width(150.dp), onTap = { onThemeClick(theme) }) }
     }
 }
 

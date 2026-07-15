@@ -80,7 +80,7 @@ private val categories = listOf("All", "Cute", "Handwritten", "Minimal", "Bold",
 
 /** Ported from docs/figma/5.png */
 @Composable
-fun FontsScreen(modifier: Modifier = Modifier) {
+fun FontsScreen(modifier: Modifier = Modifier, onSearchClick: () -> Unit = {}) {
     var selectedCategory by remember { mutableStateOf("All") }
     var previewText by remember { mutableStateOf("") }
     var previewSize by remember { mutableFloatStateOf(0.5f) }
@@ -94,7 +94,7 @@ fun FontsScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            FontsHeader()
+            FontsHeader(onSearchClick)
             CategoryChips(selectedCategory) { selectedCategory = it }
             SortFilterRow()
             FontShopGrid()
@@ -106,7 +106,7 @@ fun FontsScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun FontsHeader() {
+private fun FontsHeader(onSearchClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         CircleIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack, background = MochiGradient.primaryButton)
         Column(modifier = Modifier.weight(1f).padding(horizontal = MochiSpacing.sm), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -121,14 +121,14 @@ private fun FontsHeader() {
             }
             Text(text = "Choose the perfect font for your keyboard", style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
         }
-        CircleIconButton(icon = Icons.Filled.Search, background = MochiGradient.primaryButton)
+        CircleIconButton(icon = Icons.Filled.Search, background = MochiGradient.primaryButton, onClick = onSearchClick)
     }
 }
 
 @Composable
-private fun CircleIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, background: androidx.compose.ui.graphics.Brush) {
+private fun CircleIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, background: androidx.compose.ui.graphics.Brush, onClick: () -> Unit = {}) {
     Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background(background),
+        modifier = Modifier.size(44.dp).clip(CircleShape).background(background).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White)

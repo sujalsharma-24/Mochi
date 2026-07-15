@@ -59,7 +59,8 @@ import com.mochi.app.model.KeyboardTheme
 fun ThemeDetailScreen(
     theme: KeyboardTheme,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    onUnlockPremium: () -> Unit = {}
 ) {
     var isLiked by remember { mutableStateOf(false) }
     var likeCount by remember { mutableStateOf(theme.likeCount) }
@@ -144,8 +145,9 @@ fun ThemeDetailScreen(
                 OutlineButton(title = "Preview", modifier = Modifier.weight(1f)) {}
                 GradientButton(
                     title = if (theme.isPremium) "Unlock Premium" else "Apply Theme",
-                    modifier = Modifier.weight(1f)
-                ) {}
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (theme.isPremium) onUnlockPremium() }
+                )
             }
         }
     }

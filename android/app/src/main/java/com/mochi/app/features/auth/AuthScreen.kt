@@ -51,7 +51,7 @@ private enum class AuthMethod { EMAIL, PHONE }
 /** No Figma source — see OnboardingScreen.kt header note. Login methods per locked spec: Email +
  * Password, Google, Apple (mandatory alongside Google on iOS), Phone + OTP. No guest mode. */
 @Composable
-fun AuthScreen(modifier: Modifier = Modifier) {
+fun AuthScreen(modifier: Modifier = Modifier, onAuthenticated: () -> Unit = {}) {
     var mode by remember { mutableStateOf(AuthMode.SIGN_IN) }
     var method by remember { mutableStateOf(AuthMethod.EMAIL) }
     var email by remember { mutableStateOf("") }
@@ -104,16 +104,17 @@ fun AuthScreen(modifier: Modifier = Modifier) {
                     method == AuthMethod.PHONE -> "Send OTP"
                     mode == AuthMode.SIGN_IN -> "Sign In"
                     else -> "Create Account"
-                }
-            ) {}
+                },
+                onClick = onAuthenticated
+            )
 
             Spacer(modifier = Modifier.height(MochiSpacing.md))
             DividerWithLabel(text = "or continue with")
             Spacer(modifier = Modifier.height(MochiSpacing.md))
 
-            SocialButton(label = "Continue with Google", background = Color.White, contentColor = MochiColor.textPrimary, badge = "G", badgeColor = MochiColor.purple)
+            SocialButton(label = "Continue with Google", background = Color.White, contentColor = MochiColor.textPrimary, badge = "G", badgeColor = MochiColor.purple, onClick = onAuthenticated)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
-            SocialButton(label = "Continue with Apple", background = MochiColor.textPrimary, contentColor = Color.White)
+            SocialButton(label = "Continue with Apple", background = MochiColor.textPrimary, contentColor = Color.White, onClick = onAuthenticated)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
 
             val phoneToggleLabel = if (method == AuthMethod.EMAIL) "Use phone number instead" else "Use email instead"
@@ -221,7 +222,8 @@ private fun SocialButton(
     modifier: Modifier = Modifier,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     badge: String? = null,
-    badgeColor: Color = Color.Unspecified
+    badgeColor: Color = Color.Unspecified,
+    onClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -229,7 +231,7 @@ private fun SocialButton(
             .clip(CircleShape)
             .background(background)
             .then(if (background == Color.White) Modifier.border(1.dp, MochiColor.textSecondary.copy(alpha = 0.15f), CircleShape) else Modifier)
-            .clickable {}
+            .clickable(onClick = onClick)
             .padding(vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically

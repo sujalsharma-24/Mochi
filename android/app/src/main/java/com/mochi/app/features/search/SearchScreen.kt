@@ -95,7 +95,7 @@ private val searchResults = listOf(
 
 /** Ported from docs/figma/6.png */
 @Composable
-fun SearchScreen(modifier: Modifier = Modifier) {
+fun SearchScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
     var query by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("All") }
 
@@ -108,7 +108,7 @@ fun SearchScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            SearchHeader(query) { query = it }
+            SearchHeader(query, onQueryChange = { query = it }, onBack = onBack)
             TypeFilterChips(selectedType) { selectedType = it }
             RecentSearchesSection()
             TrendingSearchesSection()
@@ -121,10 +121,10 @@ fun SearchScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SearchHeader(query: String, onQueryChange: (String) -> Unit) {
+private fun SearchHeader(query: String, onQueryChange: (String) -> Unit, onBack: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         Box(
-            modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton),
+            modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton).clickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
             Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -89,7 +90,12 @@ private val likedThemes = listOf(
 
 /** Ported from docs/figma/3.png */
 @Composable
-fun ProfileScreen(modifier: Modifier = Modifier) {
+fun ProfileScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
+    onPaywallClick: () -> Unit = {}
+) {
     var downloadsTab by remember { mutableStateOf("Theme") }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
@@ -101,27 +107,35 @@ fun ProfileScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            BackButton()
+            TopBar(onBack, onSettingsClick)
             ProfileHeader()
-            PremiumBanner(title = "Mochi Pro", subtitle = "You're on Premium Plan  Enjoy all premium features and unlimited creations.", buttonTitle = "Upgrade Plan")
+            PremiumBanner(title = "Mochi Pro", subtitle = "You're on Premium Plan  Enjoy all premium features and unlimited creations.", buttonTitle = "Upgrade Plan", onClick = onPaywallClick)
             MyCreationsSection()
             MyDownloadsSection(downloadsTab) { downloadsTab = it }
             Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
                 LikedThemesCard(modifier = Modifier.weight(1f))
                 FollowStatsCard(modifier = Modifier.weight(1f))
             }
-            PremiumBanner(title = "Go Premium", subtitle = "Unlock all premium themes, fonts, and features.", buttonTitle = "Upgrade Plan")
+            PremiumBanner(title = "Go Premium", subtitle = "Unlock all premium themes, fonts, and features.", buttonTitle = "Upgrade Plan", onClick = onPaywallClick)
         }
     }
 }
 
 @Composable
-private fun BackButton() {
-    Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+private fun TopBar(onBack: () -> Unit, onSettingsClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Box(
+            modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton).clickable(onClick = onBack),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+        }
+        Box(
+            modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White).clickable(onClick = onSettingsClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = Icons.Filled.Settings, contentDescription = "Settings", tint = MochiColor.purple)
+        }
     }
 }
 
@@ -185,7 +199,7 @@ private fun StatColumn(value: String, label: String) {
 }
 
 @Composable
-private fun PremiumBanner(title: String, subtitle: String, buttonTitle: String) {
+private fun PremiumBanner(title: String, subtitle: String, buttonTitle: String, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -207,6 +221,7 @@ private fun PremiumBanner(title: String, subtitle: String, buttonTitle: String) 
             modifier = Modifier
                 .clip(RoundedCornerShape(MochiRadius.pill))
                 .background(MochiGradient.primaryButton)
+                .clickable(onClick = onClick)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)

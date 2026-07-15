@@ -65,7 +65,7 @@ private fun SettingsScreenPreview() {
 
 /** Ported from docs/figma/7.png */
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
     var isDark by remember { mutableStateOf(false) }
     var notificationsOn by remember { mutableStateOf(true) }
 
@@ -78,7 +78,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            SettingsHeader()
+            SettingsHeader(onBack)
             KeyboardSetupBanner()
 
             SettingsSection("APPEARANCE") {
@@ -134,7 +134,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SettingsHeader() {
+private fun SettingsHeader(onBack: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Box(
@@ -142,7 +142,8 @@ private fun SettingsHeader() {
                     .align(Alignment.CenterStart)
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MochiGradient.primaryButton),
+                    .background(MochiGradient.primaryButton)
+                    .clickable(onClick = onBack),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)

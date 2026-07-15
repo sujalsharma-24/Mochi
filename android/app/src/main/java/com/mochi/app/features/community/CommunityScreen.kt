@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -67,9 +66,14 @@ private val medalColors = listOf(Color(0xFFDDA935), Color(0xFFB8B8C8), Color(0xF
 
 /** Ported from docs/figma/2.png */
 @Composable
-fun CommunityScreen(modifier: Modifier = Modifier) {
+fun CommunityScreen(
+    modifier: Modifier = Modifier,
+    onProfileClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
+    onThemeClick: (KeyboardTheme) -> Unit = {},
+    onLeaderboardClick: () -> Unit = {}
+) {
     var selectedFeed by remember { mutableStateOf("For you") }
-    var searchText by remember { mutableStateOf("") }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
@@ -80,50 +84,45 @@ fun CommunityScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            CommunityHeader()
-            SearchBar(searchText) { searchText = it }
+            CommunityHeader(onProfileClick)
+            SearchBar(onSearchClick)
             FeedTabs(selectedFeed) { selectedFeed = it }
-            TopThemesSection()
-            PopularCreatorsSection()
-            LatestCreationsSection()
+            TopThemesSection(onThemeClick)
+            PopularCreatorsSection(onLeaderboardClick)
+            LatestCreationsSection(onThemeClick)
         }
     }
 }
 
 @Composable
-private fun CommunityHeader() {
+private fun CommunityHeader(onProfileClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(text = "Mochi", style = MochiFont.logo(38.sp), color = MochiColor.logoSolid)
         Spacer(modifier = Modifier.weight(1f))
         Image(
             painter = painterResource(R.drawable.avatar_header_user),
             contentDescription = "Profile",
-            modifier = Modifier.size(52.dp).clip(CircleShape)
+            modifier = Modifier.size(52.dp).clip(CircleShape).clickable(onClick = onProfileClick)
         )
     }
 }
 
 @Composable
-private fun SearchBar(text: String, onTextChange: (String) -> Unit) {
+private fun SearchBar(onSearchClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(MochiRadius.pill))
             .background(Color.White)
+            .clickable(onClick = onSearchClick)
             .padding(horizontal = MochiSpacing.md, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        BasicTextField(
-            value = text,
-            onValueChange = onTextChange,
-            textStyle = MochiFont.body(14.sp).copy(color = MochiColor.textPrimary),
-            modifier = Modifier.weight(1f),
-            decorationBox = { inner ->
-                if (text.isEmpty()) {
-                    Text(text = "Search themes, creators..", style = MochiFont.body(14.sp), color = MochiColor.textSecondary)
-                }
-                inner()
-            }
+        Text(
+            text = "Search themes, creators..",
+            style = MochiFont.body(14.sp),
+            color = MochiColor.textSecondary,
+            modifier = Modifier.weight(1f)
         )
         Icon(imageVector = Icons.Filled.Search, contentDescription = "Search", tint = MochiColor.textPrimary)
     }
@@ -154,7 +153,7 @@ private fun FeedTabs(selected: String, onSelect: (String) -> Unit) {
 }
 
 @Composable
-private fun TopThemesSection() {
+private fun TopThemesSection(onThemeClick: (KeyboardTheme) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = "TOP THEMES", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
@@ -162,16 +161,16 @@ private fun TopThemesSection() {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
             MockData.topRankedThemes.forEachIndexed { index, theme ->
-                TopThemeCard(theme, index + 1, Modifier.weight(1f))
+                TopThemeCard(theme, index + 1, Modifier.weight(1f)) { onThemeClick(theme) }
             }
         }
     }
 }
 
 @Composable
-private fun TopThemeCard(theme: KeyboardTheme, rank: Int, modifier: Modifier = Modifier) {
+private fun TopThemeCard(theme: KeyboardTheme, rank: Int, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Column(
-        modifier = modifier.clip(RoundedCornerShape(MochiRadius.card)).background(Color.White),
+        modifier = modifier.clip(RoundedCornerShape(MochiRadius.card)).background(Color.White).clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box {
@@ -208,11 +207,11 @@ private fun TopThemeCard(theme: KeyboardTheme, rank: Int, modifier: Modifier = M
 }
 
 @Composable
-private fun PopularCreatorsSection() {
+private fun PopularCreatorsSection(onSeeAllClick: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = "POPULAR CREATORS", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-            Text(text = "see all", style = MochiFont.caption(13.sp), color = MochiColor.textPrimary)
+            Text(text = "see all", style = MochiFont.caption(13.sp), color = MochiColor.textPrimary, modifier = Modifier.clickable(onClick = onSeeAllClick))
         }
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -250,7 +249,7 @@ private fun CreatorCard(creator: Creator) {
 }
 
 @Composable
-private fun LatestCreationsSection() {
+private fun LatestCreationsSection(onThemeClick: (KeyboardTheme) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = "LATEST CREATIONS", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
@@ -258,19 +257,20 @@ private fun LatestCreationsSection() {
         }
         Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
             MockData.latestCreations.forEach { theme ->
-                LatestCreationCard(theme)
+                LatestCreationCard(theme) { onThemeClick(theme) }
             }
         }
     }
 }
 
 @Composable
-private fun LatestCreationCard(theme: KeyboardTheme) {
+private fun LatestCreationCard(theme: KeyboardTheme, onClick: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(MochiRadius.card))
             .background(Color.White)
+            .clickable(onClick = onClick)
             .padding(MochiSpacing.sm),
         verticalArrangement = Arrangement.spacedBy(MochiSpacing.xs)
     ) {

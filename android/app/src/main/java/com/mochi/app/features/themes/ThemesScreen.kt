@@ -63,7 +63,11 @@ private val categories = listOf("All", "Cute", "Handwritten", "Minimal", "Bold",
 
 /** Ported from docs/figma/8.png */
 @Composable
-fun ThemesScreen(modifier: Modifier = Modifier) {
+fun ThemesScreen(
+    modifier: Modifier = Modifier,
+    onSearchClick: () -> Unit = {},
+    onWallpapersClick: () -> Unit = {}
+) {
     var selectedCategory by remember { mutableStateOf("All") }
     var modalTheme by remember { mutableStateOf<KeyboardTheme?>(null) }
 
@@ -76,10 +80,11 @@ fun ThemesScreen(modifier: Modifier = Modifier) {
                 .padding(top = MochiSpacing.md, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            ThemesHeader()
+            ThemesHeader(onSearchClick)
             CategoryChips(selectedCategory) { selectedCategory = it }
             FilterRow()
             ThemeShopGrid { modalTheme = it }
+            LiveWallpapersBanner(onWallpapersClick)
             DownloadedThemesRow()
         }
 
@@ -90,7 +95,7 @@ fun ThemesScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ThemesHeader() {
+private fun ThemesHeader(onSearchClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         CircleIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack)
         Column(modifier = Modifier.weight(1f).padding(horizontal = MochiSpacing.sm), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -105,17 +110,42 @@ private fun ThemesHeader() {
             }
             Text(text = "Browse and apply beautiful themes", style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
         }
-        CircleIconButton(icon = Icons.Filled.Search)
+        CircleIconButton(icon = Icons.Filled.Search, onClick = onSearchClick)
     }
 }
 
 @Composable
-private fun CircleIconButton(icon: ImageVector) {
+private fun CircleIconButton(icon: ImageVector, onClick: () -> Unit = {}) {
     Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton),
+        modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = Color.White)
+    }
+}
+
+@Composable
+private fun LiveWallpapersBanner(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(MochiRadius.card))
+            .background(Color.White)
+            .clickable(onClick = onClick)
+            .padding(MochiSpacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MochiGradient.primaryButton),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = "🌌", style = MochiFont.heading(18.sp))
+        }
+        Column(modifier = Modifier.weight(1f).padding(horizontal = MochiSpacing.sm)) {
+            Text(text = "Live Wallpapers", style = MochiFont.heading(14.sp), color = MochiColor.purple)
+            Text(text = "5 animated wallpapers · Premium", style = MochiFont.caption(11.sp), color = MochiColor.textSecondary)
+        }
+        Text(text = "›", style = MochiFont.heading(18.sp), color = MochiColor.purple)
     }
 }
 
