@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +49,7 @@ import com.mochi.app.designsystem.MochiFont
 import com.mochi.app.designsystem.MochiGradient
 import com.mochi.app.designsystem.MochiRadius
 import com.mochi.app.designsystem.MochiSpacing
+import kotlinx.coroutines.launch
 
 /** No Figma source for splash/onboarding/auth/theme-detail — designed to match the established
  * visual language (gradient background, Baloo 2 rounded type, solid purple logo, pink-purple
@@ -103,6 +105,7 @@ private val pages = listOf(
 @Composable
 fun OnboardingScreen(modifier: Modifier = Modifier, onFinished: () -> Unit = {}) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
+    val coroutineScope = rememberCoroutineScope()
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
@@ -129,7 +132,11 @@ fun OnboardingScreen(modifier: Modifier = Modifier, onFinished: () -> Unit = {})
 
             val isLastPage = pagerState.currentPage == pages.lastIndex
             GradientButton(title = if (isLastPage) "Get Started" else "Next") {
-                onFinished()
+                if (isLastPage) {
+                    onFinished()
+                } else {
+                    coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                }
             }
         }
     }
