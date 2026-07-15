@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -66,16 +68,22 @@ fun HomeScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = MochiSpacing.md)
-                .padding(top = MochiSpacing.md, bottom = 90.dp),
-            verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
+                .padding(top = MochiSpacing.md, bottom = 90.dp)
         ) {
             Header(onCreateTabClick)
+            Spacer(modifier = Modifier.height(MochiSpacing.md))
             RecentlyAppliedRow(MockData.popularThemes, onThemeClick)
+            Spacer(modifier = Modifier.height(MochiSpacing.lg))
             QuickActionCards(onCreateTabClick, onChooseTabClick)
+            Spacer(modifier = Modifier.height(MochiSpacing.lg))
             LibraryToggle(libraryTab) { libraryTab = it }
+            Spacer(modifier = Modifier.height(MochiSpacing.lg))
             SectionHeader(title = "Popular Themes")
+            Spacer(modifier = Modifier.height(MochiSpacing.sm))
             ThemesRow(MockData.popularThemes, onThemeClick)
+            Spacer(modifier = Modifier.height(MochiSpacing.lg))
             SectionHeader(title = "Font Collection")
+            Spacer(modifier = Modifier.height(MochiSpacing.sm))
             FontsRow(MockData.fonts)
         }
     }
@@ -101,25 +109,26 @@ private fun Header(onCreateTabClick: () -> Unit) {
     }
 }
 
+/** Figma shows exactly 3 recently-applied cards filling the row edge-to-edge with no scrolling
+ * (measured ~1.34:1 art aspect ratio from docs/figma/13.png) — not a horizontally-scrolling row
+ * of fixed-width cards, which only ever showed ~2.3 of them. */
 @Composable
 private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)
-    ) {
+    Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         themes.forEach { theme ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm),
-                modifier = Modifier.clickable { onThemeClick(theme) }
+                modifier = Modifier.weight(1f).clickable { onThemeClick(theme) }
             ) {
-                ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.size(width = 150.dp, height = 130.dp))
+                ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1.34f))
                 Text(
                     text = theme.name,
                     style = MochiFont.body(13.sp),
                     color = MochiColor.textPrimary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.width(150.dp)
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
@@ -160,7 +169,7 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
         Image(
             painter = painterResource(iconResId),
             contentDescription = null,
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+            modifier = Modifier.size(64.dp)
         )
         Text(text = title, style = MochiFont.heading(15.sp), color = MochiColor.textPrimary)
         Text(text = subtitle, style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
@@ -199,39 +208,40 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
     }
 }
 
+/** Figma shows ~2.5 popular-theme cards peeking at the row edge (a scroll affordance), measured
+ * at ~36% of screen width each — narrower than the previous fixed 150dp, which only fit ~2.3. */
 @Composable
 private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)
+        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
     ) {
-        themes.forEach { theme -> ThemeCard(theme = theme, modifier = Modifier.width(150.dp), onTap = { onThemeClick(theme) }) }
+        themes.forEach { theme -> ThemeCard(theme = theme, modifier = Modifier.width(140.dp), onTap = { onThemeClick(theme) }) }
     }
 }
 
+/** Figma fits all 4 font cards fully on screen with no scrolling. */
 @Composable
 private fun FontsRow(fonts: List<FontItem>) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)
-    ) {
+    Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         fonts.forEach { font ->
             FontArtCard(
                 assetName = font.previewAssetName,
-                modifier = Modifier.size(width = 120.dp, height = 130.dp)
+                modifier = Modifier.weight(1f).aspectRatio(0.92f)
             ) {
                 Column(
                     modifier = Modifier
-                        .size(width = 120.dp, height = 130.dp)
+                        .fillMaxWidth()
+                        .aspectRatio(0.92f)
                         .clip(RoundedCornerShape(MochiRadius.card))
                         .background(Color.White)
                         .padding(6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(text = "Aa", style = MochiFont.logo(34.sp), color = MochiColor.purple)
-                    Text(text = font.name, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center)
-                    Text(text = font.styleDescription, style = MochiFont.caption(11.sp), color = MochiColor.textSecondary, textAlign = TextAlign.Center)
+                    Text(text = "Aa", style = MochiFont.logo(28.sp), color = MochiColor.purple)
+                    Text(text = font.name, style = MochiFont.heading(11.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center, maxLines = 1)
+                    Text(text = font.styleDescription, style = MochiFont.caption(9.sp), color = MochiColor.textSecondary, textAlign = TextAlign.Center, maxLines = 1)
                 }
             }
         }
