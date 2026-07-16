@@ -160,7 +160,7 @@ private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (Keybo
 private fun KeyboardPreviewCard(theme: KeyboardTheme, onTap: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm),
         modifier = modifier.clickable(onClick = onTap)
     ) {
         ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1.35f))
@@ -219,7 +219,7 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
             .padding(MochiSpacing.sm),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+        Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(iconResId),
                 contentDescription = null,
