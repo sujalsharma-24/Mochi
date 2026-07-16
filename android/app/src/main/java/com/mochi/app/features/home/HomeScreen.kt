@@ -2,6 +2,7 @@ package com.mochi.app.features.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -181,22 +182,29 @@ private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () 
     }
 }
 
+/** Figma lays these out icon-left / text-right (not icon-on-top-of-text), inside a card with a
+ * visible border outline rather than a plain shadowed white box. */
 @Composable
 private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier, onButtonClick: () -> Unit = {}) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(MochiRadius.card))
             .background(Color.White)
-            .padding(horizontal = MochiSpacing.sm, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), RoundedCornerShape(MochiRadius.card))
+            .padding(MochiSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Image(
-            painter = painterResource(iconResId),
-            contentDescription = null,
-            modifier = Modifier.size(36.dp)
-        )
-        Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-        Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(iconResId),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
+                Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2)
+            }
+        }
         GradientButton(title = buttonTitle, onClick = onButtonClick)
     }
 }
@@ -214,7 +222,7 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
     val background = if (isSelected) {
         Modifier.background(MochiGradient.primaryButton, CircleShape)
     } else {
-        Modifier.background(Color.White, CircleShape)
+        Modifier.background(Color.White, CircleShape).border(1.dp, MochiColor.purple.copy(alpha = 0.4f), CircleShape)
     }
     Box(
         modifier = modifier
@@ -247,13 +255,13 @@ private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme)
                     .clickable { onThemeClick(theme) }
             ) {
                 ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().weight(1f))
-                Column(
-                    modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp, bottom = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(text = theme.name, style = MochiFont.heading(12.sp), color = MochiColor.textPrimary, maxLines = 1)
-                    Text(text = "by ${theme.creatorName}", style = MochiFont.caption(10.sp), color = MochiColor.purple, maxLines = 1)
-                }
+                Text(
+                    text = theme.name,
+                    style = MochiFont.heading(12.sp),
+                    color = MochiColor.textPrimary,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp, bottom = 8.dp)
+                )
             }
         }
     }
