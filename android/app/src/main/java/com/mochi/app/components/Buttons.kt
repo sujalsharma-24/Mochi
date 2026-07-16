@@ -43,7 +43,7 @@ fun GradientButton(
             .clip(CircleShape)
             .background(gradient),
         contentPadding = if (compact) {
-            androidx.compose.foundation.layout.PaddingValues(horizontal = MochiSpacing.md, vertical = 8.dp)
+            androidx.compose.foundation.layout.PaddingValues(horizontal = MochiSpacing.sm, vertical = 5.dp)
         } else {
             androidx.compose.foundation.layout.PaddingValues(vertical = 14.dp)
         }
@@ -54,7 +54,7 @@ fun GradientButton(
             if (icon != null) {
                 Icon(imageVector = icon, contentDescription = null, tint = MochiColor.textPrimary)
             }
-            Text(text = title, style = if (compact) MochiFont.button(13.sp) else MochiFont.button(), color = MochiColor.textPrimary)
+            Text(text = title, style = if (compact) MochiFont.button(12.sp) else MochiFont.button(), color = MochiColor.textPrimary)
         }
     }
 }

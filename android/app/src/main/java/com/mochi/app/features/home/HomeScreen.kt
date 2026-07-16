@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -220,25 +222,27 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
             Image(
                 painter = painterResource(iconResId),
                 contentDescription = null,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(64.dp)
             )
             Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Start)
                 Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2, textAlign = TextAlign.Start)
             }
         }
-        GradientButton(
-            title = buttonTitle,
-            fillMaxWidth = false,
-            compact = true,
-            gradient = MochiGradient.softButton,
-            modifier = Modifier.width(ActionButtonMinWidth),
-            onClick = onButtonClick
-        )
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            GradientButton(
+                title = buttonTitle,
+                fillMaxWidth = false,
+                compact = true,
+                gradient = MochiGradient.softButton,
+                modifier = Modifier.width(ActionButtonMinWidth),
+                onClick = onButtonClick
+            )
+        }
     }
 }
 
-private val ActionButtonMinWidth = 96.dp
+private val ActionButtonMinWidth = 88.dp
 
 @Composable
 private fun LibraryToggle(selected: LibraryTab, onSelect: (LibraryTab) -> Unit) {
@@ -260,24 +264,28 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
             .clip(CircleShape)
             .then(background)
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(vertical = 9.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = title.uppercase(),
-            style = MochiFont.button(19.sp),
+            style = MochiFont.button(16.sp),
             color = MochiColor.textPrimary
         )
     }
 }
 
-/** Fixed layout has no scrolling, so all 3 popular themes render fully rather than Figma's
- * scroll-peeked 2.5 — same KeyboardPreviewCard as RecentlyAppliedRow, sized identically. */
+/** Figma shows Popular Themes at a bigger fixed card size than Recently Applied, with the row
+ * horizontally scrollable so ~2.5 cards are visible (the 3rd peeking at the edge as a scroll
+ * affordance) rather than 3 equal-weight cards shrunk to fit fully on screen. */
 @Composable
 private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+    ) {
         themes.forEach { theme ->
-            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f))
+            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.width(148.dp))
         }
     }
 }
