@@ -235,7 +235,7 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
                 Text(
                     text = subtitle,
                     style = MochiFont.caption(9.sp).copy(lineHeight = 10.sp),
-                    color = MochiColor.textSecondary,
+                    color = MochiColor.textPrimary,
                     maxLines = 2,
                     textAlign = TextAlign.Start
                 )
@@ -290,7 +290,7 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
             .clip(CircleShape)
             .then(background)
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
