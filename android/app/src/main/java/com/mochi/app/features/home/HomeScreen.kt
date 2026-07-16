@@ -181,7 +181,7 @@ private fun KeyboardPreviewCard(theme: KeyboardTheme, onTap: () -> Unit, modifie
  * simpler: both cards are the same size by construction, not by matching each other's content. */
 @Composable
 private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         ActionCard(
             iconResId = R.drawable.icon_palette,
             title = "Custom Create",
@@ -202,16 +202,17 @@ private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () 
 }
 
 /** Figma lays these out icon-left / text-right (not icon-on-top-of-text), inside a card with a
- * visible border outline rather than a plain shadowed white box. Loosened from the measured
- * 1.83:1 to 1.55:1 — at the bigger 56dp icon this feedback round asked for, plus a 2-line title
- * ("Choose from Library") and 2-line subtitle, 1.83:1 didn't leave enough vertical room and the
- * subtitle clipped at the card's rounded-corner boundary. Arrangement.SpaceBetween still pins the
- * button to the bottom regardless of the 1- vs 2-line title. */
+ * visible border outline rather than a plain shadowed white box. Re-measured directly from a tight
+ * crop of docs/figma/13.png (card border box 974x534px): true aspect ratio is 1.83:1 — restored
+ * here now that the icon (48dp, ~28% of card width) and text sizes below are also re-measured down
+ * to their correct proportions, which is what actually fixes the overflow that previously forced a
+ * loosened 1.55:1 ratio (the ratio wasn't the bug; oversized content was). Arrangement.SpaceBetween
+ * still pins the button to the bottom regardless of the 1- vs 2-line title. */
 @Composable
 private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier, onButtonClick: () -> Unit = {}) {
     Column(
         modifier = modifier
-            .aspectRatio(1.55f)
+            .aspectRatio(1.83f)
             .clip(RoundedCornerShape(MochiRadius.card))
             .background(Color.White)
             .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), RoundedCornerShape(MochiRadius.card))
@@ -222,18 +223,18 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
             Image(
                 painter = painterResource(iconResId),
                 contentDescription = null,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(48.dp)
             )
             Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 Text(
                     text = title,
-                    style = MochiFont.heading(13.sp).copy(lineHeight = 15.sp),
+                    style = MochiFont.heading(10.sp).copy(lineHeight = 12.sp),
                     color = MochiColor.textPrimary,
                     textAlign = TextAlign.Start
                 )
                 Text(
                     text = subtitle,
-                    style = MochiFont.caption(10.sp).copy(lineHeight = 11.sp),
+                    style = MochiFont.caption(9.sp).copy(lineHeight = 10.sp),
                     color = MochiColor.textSecondary,
                     maxLines = 2,
                     textAlign = TextAlign.Start
@@ -254,14 +255,14 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
 private fun SlimPillButton(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier = modifier
-            .width(72.dp)
+            .width(64.dp)
             .height(22.dp)
             .clip(CircleShape)
             .background(MochiGradient.softButton)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = title, style = MochiFont.button(11.sp), color = MochiColor.textPrimary)
+        Text(text = title, style = MochiFont.button(10.sp), color = MochiColor.textPrimary)
     }
 }
 
@@ -273,6 +274,10 @@ private fun LibraryToggle(selected: LibraryTab, onSelect: (LibraryTab) -> Unit) 
     }
 }
 
+/** Pixel-measured from docs/figma/13.png: the "FONTS"/"THEMES" pill text has a cap-height ~1.6x
+ * the action-card title's cap-height (59px vs 37px in the source crop) and fills a much larger
+ * fraction of the pill's own height than a typical button label — bold, chunky, dominant text is
+ * the actual Figma look, not a small label inside generous padding. */
 @Composable
 private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val background = if (isSelected) {
@@ -285,12 +290,12 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
             .clip(CircleShape)
             .then(background)
             .clickable(onClick = onClick)
-            .padding(vertical = 5.dp),
+            .padding(vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = title.uppercase(),
-            style = MochiFont.button(14.sp),
+            style = MochiFont.button(16.sp),
             color = MochiColor.textPrimary
         )
     }
