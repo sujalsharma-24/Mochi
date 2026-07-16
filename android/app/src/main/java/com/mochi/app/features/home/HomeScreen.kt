@@ -91,7 +91,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             SectionHeader(title = "Popular Themes")
             Spacer(modifier = Modifier.height(4.dp))
-            ThemesRow(MockData.popularThemes, onThemeClick, modifier = Modifier.weight(1f))
+            ThemesRow(MockData.homePopularThemes, onThemeClick, modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             SectionHeader(title = "Font Collection")
             Spacer(modifier = Modifier.height(4.dp))

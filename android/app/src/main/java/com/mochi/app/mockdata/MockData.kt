@@ -44,6 +44,14 @@ object MockData {
         shopThemes.first { it.id == "pastel-pink-sky" }
     )
 
+    /** Home screen's "Popular Themes" row (docs/figma/1.png / 13.png) — a distinct trio from the
+     * Recently Applied row above it, not the same popularThemes list reused. */
+    val homePopularThemes = listOf(
+        shopThemes.first { it.id == "cozy-sakura-cafe-shop" },
+        shopThemes.first { it.id == "sakura-train" },
+        shopThemes.first { it.id == "pastel-rainbow" }
+    )
+
     val allThemes = popularThemes + latestCreations + shopThemes
 
     val fonts = listOf(
