@@ -66,7 +66,7 @@ fun HomeScreen(
     onCreateTabClick: () -> Unit = {},
     onChooseTabClick: () -> Unit = {}
 ) {
-    var libraryTab by remember { mutableStateOf(LibraryTab.THEMES) }
+    var libraryTab by remember { mutableStateOf(LibraryTab.FONTS) }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         // Drawn behind the content column on purpose: these are background flourishes (matching
@@ -83,7 +83,7 @@ fun HomeScreen(
         ) {
             Header(onCreateTabClick)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
-            RecentlyAppliedRow(MockData.popularThemes, onThemeClick, modifier = Modifier.weight(1f))
+            RecentlyAppliedRow(MockData.popularThemes, onThemeClick)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             QuickActionCards(onCreateTabClick, onChooseTabClick)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
@@ -91,11 +91,12 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             SectionHeader(title = "Popular Themes")
             Spacer(modifier = Modifier.height(4.dp))
-            ThemesRow(MockData.homePopularThemes, onThemeClick, modifier = Modifier.weight(1f))
+            ThemesRow(MockData.homePopularThemes, onThemeClick)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             SectionHeader(title = "Font Collection")
             Spacer(modifier = Modifier.height(4.dp))
             FontsRow(MockData.fonts)
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -145,13 +146,15 @@ private fun Header(onCreateTabClick: () -> Unit) {
 private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         themes.forEach { theme ->
-            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f).fillMaxHeight())
+            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f))
         }
     }
 }
 
 /** Single shared card for any row of equal-size keyboard preview thumbnails (Recently Applied,
- * Popular Themes): art fills the remaining height after the name label, transparent background
+ * Popular Themes): a fixed 1.35:1 landscape aspect ratio (matching the real keyboard art's own
+ * proportions, measured from docs/figma/13.png) so the full mini keyboard scene is visible instead
+ * of being cropped to whatever height a weighted row happened to allocate. Transparent background
  * behind the text (no white card box), matching Figma. */
 @Composable
 private fun KeyboardPreviewCard(theme: KeyboardTheme, onTap: () -> Unit, modifier: Modifier = Modifier) {
@@ -160,7 +163,7 @@ private fun KeyboardPreviewCard(theme: KeyboardTheme, onTap: () -> Unit, modifie
         verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier.clickable(onClick = onTap)
     ) {
-        ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().weight(1f))
+        ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1.35f))
         Text(
             text = theme.name,
             style = MochiFont.heading(12.sp),
@@ -213,21 +216,22 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
             .padding(MochiSpacing.sm),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
             Image(
                 painter = painterResource(iconResId),
                 contentDescription = null,
                 modifier = Modifier.size(56.dp)
             )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-                Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2)
+            Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Start)
+                Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2, textAlign = TextAlign.Start)
             }
         }
         GradientButton(
             title = buttonTitle,
             fillMaxWidth = false,
             compact = true,
+            gradient = MochiGradient.softButton,
             modifier = Modifier.width(ActionButtonMinWidth),
             onClick = onButtonClick
         )
@@ -273,7 +277,7 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
 private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         themes.forEach { theme ->
-            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f).fillMaxHeight())
+            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f))
         }
     }
 }

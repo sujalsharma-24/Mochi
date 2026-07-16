@@ -39,6 +39,13 @@ object MochiGradient {
         colors = listOf(MochiColor.pink, MochiColor.purple)
     )
 
+    /** Softer pink-to-purple for small pill buttons (e.g. Home's Create/Choose) — primaryButton's
+     * saturated pink/purple reads as near-solid magenta at small sizes; this pastel-shifted pair
+     * keeps the same hue direction but shows a visible, gentler gradient. */
+    val softButton = Brush.horizontalGradient(
+        colors = listOf(Color(0xFFF48FB1), Color(0xFFAB8CE8))
+    )
+
     val logoText = Brush.horizontalGradient(
         colors = listOf(MochiColor.purpleDark, MochiColor.pink)
     )

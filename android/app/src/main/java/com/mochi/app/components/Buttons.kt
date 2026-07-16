@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,7 @@ fun GradientButton(
     icon: ImageVector? = null,
     fillMaxWidth: Boolean = true,
     compact: Boolean = false,
+    gradient: Brush = MochiGradient.primaryButton,
     onClick: () -> Unit
 ) {
     TextButton(
@@ -39,7 +41,7 @@ fun GradientButton(
         modifier = modifier
             .then(if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier)
             .clip(CircleShape)
-            .background(MochiGradient.primaryButton),
+            .background(gradient),
         contentPadding = if (compact) {
             androidx.compose.foundation.layout.PaddingValues(horizontal = MochiSpacing.md, vertical = 8.dp)
         } else {
