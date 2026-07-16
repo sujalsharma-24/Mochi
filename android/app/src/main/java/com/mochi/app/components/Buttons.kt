@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mochi.app.designsystem.MochiColor
 import com.mochi.app.designsystem.MochiFont
 import com.mochi.app.designsystem.MochiGradient
@@ -29,15 +30,21 @@ fun GradientButton(
     title: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    fillMaxWidth: Boolean = true,
+    compact: Boolean = false,
     onClick: () -> Unit
 ) {
     TextButton(
         onClick = onClick,
         modifier = modifier
-            .fillMaxWidth()
+            .then(if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier)
             .clip(CircleShape)
             .background(MochiGradient.primaryButton),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 14.dp)
+        contentPadding = if (compact) {
+            androidx.compose.foundation.layout.PaddingValues(horizontal = MochiSpacing.md, vertical = 8.dp)
+        } else {
+            androidx.compose.foundation.layout.PaddingValues(vertical = 14.dp)
+        }
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(MochiSpacing.xs, Alignment.CenterHorizontally)
@@ -45,7 +52,7 @@ fun GradientButton(
             if (icon != null) {
                 Icon(imageVector = icon, contentDescription = null, tint = MochiColor.textPrimary)
             }
-            Text(text = title, style = MochiFont.button(), color = MochiColor.textPrimary)
+            Text(text = title, style = if (compact) MochiFont.button(13.sp) else MochiFont.button(), color = MochiColor.textPrimary)
         }
     }
 }

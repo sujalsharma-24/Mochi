@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,11 +91,11 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             SectionHeader(title = "Popular Themes")
             Spacer(modifier = Modifier.height(4.dp))
-            ThemesRow(MockData.popularThemes, onThemeClick, modifier = Modifier.weight(1.3f))
+            ThemesRow(MockData.popularThemes, onThemeClick, modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             SectionHeader(title = "Font Collection")
             Spacer(modifier = Modifier.height(4.dp))
-            FontsRow(MockData.fonts, modifier = Modifier.weight(0.9f))
+            FontsRow(MockData.fonts)
         }
     }
 }
@@ -160,15 +162,18 @@ private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (Keybo
     }
 }
 
+/** IntrinsicSize.Min on the row + fillMaxHeight on each card makes both cards match the taller
+ * card's height — without it, "Custom Create" (1-line title) and "Choose from Library" (2-line
+ * title) sized to their own content and came out visibly different heights. */
 @Composable
 private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
+    Row(modifier = modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
         ActionCard(
             iconResId = R.drawable.icon_palette,
             title = "Custom Create",
             subtitle = "Design your own keyboard",
             buttonTitle = "Create",
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             onButtonClick = onCreateTabClick
         )
         ActionCard(
@@ -176,14 +181,15 @@ private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () 
             title = "Choose from Library",
             subtitle = "Pick a created keyboard",
             buttonTitle = "Choose",
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             onButtonClick = onChooseTabClick
         )
     }
 }
 
 /** Figma lays these out icon-left / text-right (not icon-on-top-of-text), inside a card with a
- * visible border outline rather than a plain shadowed white box. */
+ * visible border outline rather than a plain shadowed white box, and the button is a small
+ * content-sized pill (not stretched to the card's full width). */
 @Composable
 private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier, onButtonClick: () -> Unit = {}) {
     Column(
@@ -205,7 +211,7 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
                 Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2)
             }
         }
-        GradientButton(title = buttonTitle, onClick = onButtonClick)
+        GradientButton(title = buttonTitle, fillMaxWidth = false, compact = true, onClick = onButtonClick)
     }
 }
 
@@ -241,40 +247,39 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
 }
 
 /** Fixed layout has no scrolling, so all 3 popular themes render fully rather than Figma's
- * scroll-peeked 2.5 — sized by weight() the same way as RecentlyAppliedRow. */
+ * scroll-peeked 2.5 — sized by weight() the same way as RecentlyAppliedRow. Figma shows the name
+ * directly on the page background below the art (no white card box behind it, unlike the Shop
+ * screen's theme cards) — same transparent-text treatment as RecentlyAppliedRow above. */
 @Composable
 private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         themes.forEach { theme ->
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(MochiRadius.card))
-                    .background(Color.White)
-                    .clickable { onThemeClick(theme) }
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.weight(1f).fillMaxHeight().clickable { onThemeClick(theme) }
             ) {
                 ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().weight(1f))
                 Text(
                     text = theme.name,
                     style = MochiFont.heading(12.sp),
                     color = MochiColor.textPrimary,
-                    maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp, bottom = 8.dp)
+                    maxLines = 1
                 )
             }
         }
     }
 }
 
-/** Figma fits all 4 font cards fully on screen with no scrolling. */
+/** Figma fits all 4 font cards fully on screen with no scrolling. Cards are a landscape rectangle
+ * (~1.23:1 measured from docs/figma/13.png), not the near-square shape weight-based height gave
+ * them — fixed aspectRatio here instead, so the row is intrinsic-height like ActionCards. */
 @Composable
 private fun FontsRow(fonts: List<FontItem>, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         fonts.forEach { font ->
             FontArtCard(
                 assetName = font.previewAssetName,
-                modifier = Modifier.weight(1f).fillMaxHeight()
+                modifier = Modifier.weight(1f).aspectRatio(1.23f)
             ) {
                 Column(
                     modifier = Modifier
