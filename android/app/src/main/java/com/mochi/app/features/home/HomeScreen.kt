@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -177,18 +176,19 @@ private fun KeyboardPreviewCard(theme: KeyboardTheme, onTap: () -> Unit, modifie
     }
 }
 
-/** IntrinsicSize.Min on the row + fillMaxHeight on each card makes both cards match the taller
- * card's height — without it, "Custom Create" (1-line title) and "Choose from Library" (2-line
- * title) sized to their own content and came out visibly different heights. */
+/** Pixel-measured from docs/figma/13.png (card1_isolated.png: 995x545px) — the card is a ~1.83:1
+ * landscape rectangle, not a square/tall shape. Fixed aspectRatio on both cards (rather than the
+ * previous IntrinsicSize.Min content-matching) guarantees identical dimensions directly, and is
+ * simpler: both cards are the same size by construction, not by matching each other's content. */
 @Composable
 private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
         ActionCard(
             iconResId = R.drawable.icon_palette,
             title = "Custom Create",
             subtitle = "Design your own keyboard",
             buttonTitle = "Create",
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(1f),
             onButtonClick = onCreateTabClick
         )
         ActionCard(
@@ -196,22 +196,22 @@ private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () 
             title = "Choose from Library",
             subtitle = "Pick a created keyboard",
             buttonTitle = "Choose",
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(1f),
             onButtonClick = onChooseTabClick
         )
     }
 }
 
 /** Figma lays these out icon-left / text-right (not icon-on-top-of-text), inside a card with a
- * visible border outline rather than a plain shadowed white box. Arrangement.SpaceBetween pins
- * the button to the bottom of the card regardless of how many lines the title/description wrap
- * to, so — combined with QuickActionCards' IntrinsicSize.Min stretch — both buttons always land
- * at the same vertical position. Both buttons share one fixed min-width so "Create" and "Choose"
- * render identically sized instead of shrinking to their own text. */
+ * visible border outline rather than a plain shadowed white box. Icon at 48dp (measured ~28.6% of
+ * card width) and a slim, centered, fixed-size button (measured ~36% width / ~19% height of the
+ * card) — both far smaller than earlier attempts at this. Arrangement.SpaceBetween still pins the
+ * button to the bottom regardless of the 1- vs 2-line title. */
 @Composable
 private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier, onButtonClick: () -> Unit = {}) {
     Column(
         modifier = modifier
+            .aspectRatio(1.83f)
             .clip(RoundedCornerShape(MochiRadius.card))
             .background(Color.White)
             .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), RoundedCornerShape(MochiRadius.card))
@@ -222,11 +222,17 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
             Image(
                 painter = painterResource(iconResId),
                 contentDescription = null,
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(48.dp)
             )
-            Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Start)
-                Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2, textAlign = TextAlign.Start)
+            Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(text = title, style = MochiFont.heading(12.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Start)
+                Text(
+                    text = subtitle,
+                    style = MochiFont.caption(9.sp).copy(lineHeight = 11.sp),
+                    color = MochiColor.textSecondary,
+                    maxLines = 2,
+                    textAlign = TextAlign.Start
+                )
             }
         }
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -235,14 +241,14 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
                 fillMaxWidth = false,
                 compact = true,
                 gradient = MochiGradient.softButton,
-                modifier = Modifier.width(ActionButtonMinWidth),
+                modifier = Modifier.width(ActionButtonMinWidth).height(24.dp),
                 onClick = onButtonClick
             )
         }
     }
 }
 
-private val ActionButtonMinWidth = 88.dp
+private val ActionButtonMinWidth = 68.dp
 
 @Composable
 private fun LibraryToggle(selected: LibraryTab, onSelect: (LibraryTab) -> Unit) {
@@ -264,20 +270,22 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
             .clip(CircleShape)
             .then(background)
             .clickable(onClick = onClick)
-            .padding(vertical = 9.dp),
+            .padding(vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = title.uppercase(),
-            style = MochiFont.button(16.sp),
+            style = MochiFont.button(14.sp),
             color = MochiColor.textPrimary
         )
     }
 }
 
 /** Figma shows Popular Themes at a bigger fixed card size than Recently Applied, with the row
- * horizontally scrollable so ~2.5 cards are visible (the 3rd peeking at the edge as a scroll
- * affordance) rather than 3 equal-weight cards shrunk to fit fully on screen. */
+ * horizontally scrollable so exactly 2.5 cards are visible (the 3rd peeking at the edge as a
+ * scroll affordance) rather than 3 equal-weight cards shrunk to fit fully on screen. 138dp solves
+ * screenContentWidth(361dp) = 2*cardWidth + 2*gap(8dp) + 0.5*cardWidth for exactly a half-peek —
+ * 148dp only left ~33% of the 3rd card visible. */
 @Composable
 private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
     Row(
@@ -285,21 +293,24 @@ private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme)
         horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
     ) {
         themes.forEach { theme ->
-            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.width(148.dp))
+            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.width(138.dp))
         }
     }
 }
 
-/** Figma fits all 4 font cards fully on screen with no scrolling. Cards are a landscape rectangle
- * (~1.23:1 measured from docs/figma/13.png), not the near-square shape weight-based height gave
- * them — fixed aspectRatio here instead, so the row is intrinsic-height like ActionCards. */
+/** Figma sizes these bigger than "4 equal columns dividing the screen width" allows — the 4th
+ * card visibly pokes past the screen edge, cut off, as a scroll affordance. Fixed 90dp width
+ * (up from the ~84dp that 4-equal-columns produced) with horizontal scroll instead of weight(1f). */
 @Composable
 private fun FontsRow(fonts: List<FontItem>, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+    ) {
         fonts.forEach { font ->
             FontArtCard(
                 assetName = font.previewAssetName,
-                modifier = Modifier.weight(1f).aspectRatio(1.23f)
+                modifier = Modifier.width(90.dp).aspectRatio(1.23f)
             ) {
                 Column(
                     modifier = Modifier

@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,6 +85,10 @@ fun ThemeCard(theme: KeyboardTheme, modifier: Modifier = Modifier, onTap: () -> 
     }
 }
 
+/** actionTitle used a TextButton, which carries Material's ~40dp minimum touch-target height —
+ * far taller than the actual text, so it silently padded out every SectionHeader row (and
+ * whatever gap sat below it) across every screen that uses this. A plain clickable Text has no
+ * such minimum, so the header hugs the title's real height instead. */
 @Composable
 fun SectionHeader(
     title: String,
@@ -100,9 +103,12 @@ fun SectionHeader(
     ) {
         Text(text = title.uppercase(), style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
         if (actionTitle != null) {
-            TextButton(onClick = onAction) {
-                Text(text = actionTitle, style = MochiFont.caption(), color = MochiColor.textPrimary)
-            }
+            Text(
+                text = actionTitle,
+                style = MochiFont.caption(),
+                color = MochiColor.textPrimary,
+                modifier = Modifier.clickable(onClick = onAction)
+            )
         }
     }
 }
