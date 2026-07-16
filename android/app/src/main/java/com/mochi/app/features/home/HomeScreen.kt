@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -76,7 +77,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             RecentlyAppliedRow(MockData.popularThemes, onThemeClick, modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
-            QuickActionCards(onCreateTabClick, onChooseTabClick, modifier = Modifier.weight(1.5f))
+            QuickActionCards(onCreateTabClick, onChooseTabClick)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             LibraryToggle(libraryTab) { libraryTab = it }
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
@@ -86,9 +87,29 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             SectionHeader(title = "Font Collection")
             Spacer(modifier = Modifier.height(4.dp))
-            FontsRow(MockData.fonts, modifier = Modifier.weight(0.85f))
+            FontsRow(MockData.fonts, modifier = Modifier.weight(0.9f))
         }
+
+        SparkleDecorations()
     }
+}
+
+/** Small decorative sparkles scattered on the background gradient, matching the accent stars
+ * visible near the action-cards area in docs/figma/1.png / 13.png. */
+@Composable
+private fun BoxScope.SparkleDecorations() {
+    Text(
+        text = "✦",
+        style = MochiFont.body(14.sp),
+        color = Color.White.copy(alpha = 0.7f),
+        modifier = Modifier.padding(end = 28.dp, top = 300.dp).align(Alignment.TopEnd)
+    )
+    Text(
+        text = "✦",
+        style = MochiFont.body(10.sp),
+        color = Color.White.copy(alpha = 0.6f),
+        modifier = Modifier.padding(end = 60.dp, top = 330.dp).align(Alignment.TopEnd)
+    )
 }
 
 @Composable
@@ -143,7 +164,7 @@ private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () 
             title = "Custom Create",
             subtitle = "Design your own keyboard",
             buttonTitle = "Create",
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(1f),
             onButtonClick = onCreateTabClick
         )
         ActionCard(
@@ -151,7 +172,7 @@ private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () 
             title = "Choose from Library",
             subtitle = "Pick a created keyboard",
             buttonTitle = "Choose",
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(1f),
             onButtonClick = onChooseTabClick
         )
     }
@@ -163,19 +184,17 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
         modifier = modifier
             .clip(RoundedCornerShape(MochiRadius.card))
             .background(Color.White)
-            .padding(MochiSpacing.sm),
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = MochiSpacing.sm, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Image(
-                painter = painterResource(iconResId),
-                contentDescription = null,
-                modifier = Modifier.size(52.dp)
-            )
-            Text(text = title, style = MochiFont.heading(14.sp), color = MochiColor.textPrimary)
-            Text(text = subtitle, style = MochiFont.caption(11.sp), color = MochiColor.textSecondary, maxLines = 2)
-        }
-        GradientButton(title = buttonTitle, onClick = onButtonClick)
+        Image(
+            painter = painterResource(iconResId),
+            contentDescription = null,
+            modifier = Modifier.size(36.dp)
+        )
+        Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
+        Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2)
+        GradientButton(title = buttonTitle, modifier = Modifier.height(34.dp), onClick = onButtonClick)
     }
 }
 
@@ -199,12 +218,12 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
             .clip(CircleShape)
             .then(background)
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = title,
-            style = MochiFont.button(14.sp),
+            text = title.uppercase(),
+            style = MochiFont.button(19.sp),
             color = MochiColor.textPrimary
         )
     }
@@ -222,11 +241,13 @@ private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(MochiRadius.card))
                     .background(Color.White)
-                    .clickable { onThemeClick(theme) },
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                    .clickable { onThemeClick(theme) }
             ) {
                 ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().weight(1f))
-                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp).padding(top = 8.dp, bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(text = theme.name, style = MochiFont.heading(12.sp), color = MochiColor.textPrimary, maxLines = 1)
                     Text(text = "by ${theme.creatorName}", style = MochiFont.caption(10.sp), color = MochiColor.purple, maxLines = 1)
                 }
