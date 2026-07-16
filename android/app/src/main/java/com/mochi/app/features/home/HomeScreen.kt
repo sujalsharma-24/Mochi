@@ -66,6 +66,11 @@ fun HomeScreen(
     var libraryTab by remember { mutableStateOf(LibraryTab.THEMES) }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
+        // Drawn behind the content column on purpose: these are background flourishes (matching
+        // the little accent stars in docs/figma/1.png / 13.png), so any card/button on top of a
+        // sparkle's position simply covers it rather than the sparkle floating over content.
+        SparkleDecorations()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -89,8 +94,6 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(4.dp))
             FontsRow(MockData.fonts, modifier = Modifier.weight(0.9f))
         }
-
-        SparkleDecorations()
     }
 }
 
@@ -102,13 +105,13 @@ private fun BoxScope.SparkleDecorations() {
         text = "✦",
         style = MochiFont.body(14.sp),
         color = Color.White.copy(alpha = 0.7f),
-        modifier = Modifier.padding(end = 28.dp, top = 300.dp).align(Alignment.TopEnd)
+        modifier = Modifier.padding(end = 20.dp, top = 90.dp).align(Alignment.TopEnd)
     )
     Text(
         text = "✦",
         style = MochiFont.body(10.sp),
         color = Color.White.copy(alpha = 0.6f),
-        modifier = Modifier.padding(end = 60.dp, top = 330.dp).align(Alignment.TopEnd)
+        modifier = Modifier.padding(end = 48.dp, top = 110.dp).align(Alignment.TopEnd)
     )
 }
 
@@ -194,7 +197,7 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
         )
         Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
         Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2)
-        GradientButton(title = buttonTitle, modifier = Modifier.height(34.dp), onClick = onButtonClick)
+        GradientButton(title = buttonTitle, onClick = onButtonClick)
     }
 }
 
