@@ -138,27 +138,37 @@ private fun Header(onCreateTabClick: () -> Unit) {
     }
 }
 
-/** Figma shows exactly 3 recently-applied cards filling the row edge-to-edge with no scrolling. */
+/** Figma shows exactly 3 recently-applied cards filling the row edge-to-edge with no scrolling.
+ * Shares KeyboardPreviewCard with the Popular Themes row below so both rows are guaranteed
+ * pixel-identical sizing/styling rather than two independently-tuned card implementations. */
 @Composable
 private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         themes.forEach { theme ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.weight(1f).fillMaxHeight().clickable { onThemeClick(theme) }
-            ) {
-                ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().weight(1f))
-                Text(
-                    text = theme.name,
-                    style = MochiFont.body(12.sp),
-                    color = MochiColor.textPrimary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f).fillMaxHeight())
         }
+    }
+}
+
+/** Single shared card for any row of equal-size keyboard preview thumbnails (Recently Applied,
+ * Popular Themes): art fills the remaining height after the name label, transparent background
+ * behind the text (no white card box), matching Figma. */
+@Composable
+private fun KeyboardPreviewCard(theme: KeyboardTheme, onTap: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.clickable(onClick = onTap)
+    ) {
+        ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().weight(1f))
+        Text(
+            text = theme.name,
+            style = MochiFont.heading(12.sp),
+            color = MochiColor.textPrimary,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -188,8 +198,11 @@ private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () 
 }
 
 /** Figma lays these out icon-left / text-right (not icon-on-top-of-text), inside a card with a
- * visible border outline rather than a plain shadowed white box, and the button is a small
- * content-sized pill (not stretched to the card's full width). */
+ * visible border outline rather than a plain shadowed white box. Arrangement.SpaceBetween pins
+ * the button to the bottom of the card regardless of how many lines the title/description wrap
+ * to, so — combined with QuickActionCards' IntrinsicSize.Min stretch — both buttons always land
+ * at the same vertical position. Both buttons share one fixed min-width so "Create" and "Choose"
+ * render identically sized instead of shrinking to their own text. */
 @Composable
 private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier, onButtonClick: () -> Unit = {}) {
     Column(
@@ -198,22 +211,30 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
             .background(Color.White)
             .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), RoundedCornerShape(MochiRadius.card))
             .padding(MochiSpacing.sm),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(iconResId),
                 contentDescription = null,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(56.dp)
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(text = title, style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
                 Text(text = subtitle, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, maxLines = 2)
             }
         }
-        GradientButton(title = buttonTitle, fillMaxWidth = false, compact = true, onClick = onButtonClick)
+        GradientButton(
+            title = buttonTitle,
+            fillMaxWidth = false,
+            compact = true,
+            modifier = Modifier.width(ActionButtonMinWidth),
+            onClick = onButtonClick
+        )
     }
 }
+
+private val ActionButtonMinWidth = 96.dp
 
 @Composable
 private fun LibraryToggle(selected: LibraryTab, onSelect: (LibraryTab) -> Unit) {
@@ -247,25 +268,12 @@ private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier 
 }
 
 /** Fixed layout has no scrolling, so all 3 popular themes render fully rather than Figma's
- * scroll-peeked 2.5 — sized by weight() the same way as RecentlyAppliedRow. Figma shows the name
- * directly on the page background below the art (no white card box behind it, unlike the Shop
- * screen's theme cards) — same transparent-text treatment as RecentlyAppliedRow above. */
+ * scroll-peeked 2.5 — same KeyboardPreviewCard as RecentlyAppliedRow, sized identically. */
 @Composable
 private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         themes.forEach { theme ->
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.weight(1f).fillMaxHeight().clickable { onThemeClick(theme) }
-            ) {
-                ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().weight(1f))
-                Text(
-                    text = theme.name,
-                    style = MochiFont.heading(12.sp),
-                    color = MochiColor.textPrimary,
-                    maxLines = 1
-                )
-            }
+            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f).fillMaxHeight())
         }
     }
 }
