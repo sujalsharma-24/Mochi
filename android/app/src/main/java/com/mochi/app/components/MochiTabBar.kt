@@ -1,6 +1,7 @@
 package com.mochi.app.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,6 +79,7 @@ fun MochiTabBar(selected: MochiTab, onSelect: (MochiTab) -> Unit, modifier: Modi
                 .fillMaxWidth()
                 .shadow(12.dp, barShape)
                 .background(Color.White, barShape)
+                .border(1.dp, TabBarSelected, barShape)
                 .padding(horizontal = MochiSpacing.md, vertical = MochiSpacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
