@@ -1,5 +1,6 @@
 package com.mochi.app.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,15 +24,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mochi.app.R
 import com.mochi.app.designsystem.MochiFont
-import com.mochi.app.designsystem.MochiGradient
 import com.mochi.app.designsystem.MochiSpacing
 import com.mochi.app.ui.MochiTab
 
@@ -71,7 +75,7 @@ private class NotchedBarShape(private val cornerRadius: androidx.compose.ui.unit
 /** Ported from ios/MochiApp/Components/MochiTabBar.swift */
 @Composable
 fun MochiTabBar(selected: MochiTab, onSelect: (MochiTab) -> Unit, modifier: Modifier = Modifier) {
-    val barShape = NotchedBarShape(cornerRadius = 28.dp, notchRadius = 38.dp)
+    val barShape = NotchedBarShape(cornerRadius = 28.dp, notchRadius = 22.dp)
 
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -80,7 +84,7 @@ fun MochiTabBar(selected: MochiTab, onSelect: (MochiTab) -> Unit, modifier: Modi
                 .shadow(12.dp, barShape)
                 .background(Color.White, barShape)
                 .border(1.dp, TabBarSelected, barShape)
-                .padding(horizontal = MochiSpacing.md, vertical = MochiSpacing.sm),
+                .padding(horizontal = MochiSpacing.md, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             TabButton(MochiTab.KEYBOARD, selected, onSelect, Modifier.weight(1f))
@@ -90,19 +94,17 @@ fun MochiTabBar(selected: MochiTab, onSelect: (MochiTab) -> Unit, modifier: Modi
             TabButton(MochiTab.COMMUNITY, selected, onSelect, Modifier.weight(1f))
         }
 
-        Box(
+        Image(
+            painter = painterResource(R.drawable.icon_tab_create),
+            contentDescription = "Create",
+            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-22).dp)
-                .size(64.dp)
-                .shadow(10.dp, CircleShape)
+                .offset(y = (-20).dp)
+                .size(40.dp)
                 .clip(CircleShape)
-                .background(MochiGradient.primaryButton)
-                .clickable { onSelect(MochiTab.CREATE) },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "Create", style = MochiFont.button(13.sp), color = Color.White)
-        }
+                .clickable { onSelect(MochiTab.CREATE) }
+        )
     }
 }
 
@@ -119,20 +121,26 @@ private fun RowScope.TabButton(
     Column(
         modifier = modifier.clickable { onSelect(tab) },
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         if (tab == MochiTab.FONTS) {
             Text(text = "Aa", style = MochiFont.heading(20.sp), color = tint)
         } else if (isSelected && tab == MochiTab.KEYBOARD) {
-            Box(
+            Image(
+                painter = painterResource(R.drawable.icon_tab_keyboard),
+                contentDescription = tab.title,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MochiGradient.primaryButton),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = tab.icon, contentDescription = tab.title, tint = Color.White, modifier = Modifier.size(22.dp))
-            }
+                    .size(width = 33.dp, height = 24.dp)
+                    .clip(RoundedCornerShape(7.dp))
+            )
+        } else if (tab == MochiTab.COMMUNITY) {
+            Image(
+                painter = painterResource(R.drawable.icon_tab_community),
+                contentDescription = tab.title,
+                colorFilter = ColorFilter.tint(tint),
+                modifier = Modifier.size(24.dp)
+            )
         } else {
             Icon(imageVector = tab.icon, contentDescription = tab.title, tint = tint)
         }

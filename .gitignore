@@ -14,6 +14,7 @@ ios/TestResult.xcresult/
 # Android (placeholder — populated when Android work starts)
 android/.gradle/
 android/**/build/
+android/.kotlin/
 android/local.properties
 *.iml
 .idea/

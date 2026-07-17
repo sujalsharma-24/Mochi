@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -35,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -68,27 +70,29 @@ fun HomeScreen(
 ) {
     var libraryTab by remember { mutableStateOf(LibraryTab.FONTS) }
 
-    Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
-        // Drawn behind the content column on purpose: these are background flourishes (matching
-        // the little accent stars in docs/figma/1.png / 13.png), so any card/button on top of a
-        // sparkle's position simply covers it rather than the sparkle floating over content.
-        SparkleDecorations()
+    Box(modifier = modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(R.drawable.home_background),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = MochiSpacing.md)
-                .padding(top = MochiSpacing.sm, bottom = 84.dp)
+                .padding(top = 24.dp, bottom = 84.dp)
         ) {
             Header(onCreateTabClick)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             RecentlyAppliedRow(MockData.popularThemes, onThemeClick)
             Spacer(modifier = Modifier.height(MochiSpacing.sm))
             QuickActionCards(onCreateTabClick, onChooseTabClick)
-            Spacer(modifier = Modifier.height(MochiSpacing.sm))
+            Spacer(modifier = Modifier.height(20.dp))
             LibraryToggle(libraryTab) { libraryTab = it }
-            Spacer(modifier = Modifier.height(MochiSpacing.sm))
+            Spacer(modifier = Modifier.height(MochiSpacing.lg))
             SectionHeader(title = "Popular Themes")
             Spacer(modifier = Modifier.height(4.dp))
             ThemesRow(MockData.homePopularThemes, onThemeClick)
@@ -101,28 +105,15 @@ fun HomeScreen(
     }
 }
 
-/** Small decorative sparkles scattered on the background gradient, matching the accent stars
- * visible near the action-cards area in docs/figma/1.png / 13.png. */
-@Composable
-private fun BoxScope.SparkleDecorations() {
-    Text(
-        text = "✦",
-        style = MochiFont.body(14.sp),
-        color = Color.White.copy(alpha = 0.7f),
-        modifier = Modifier.padding(end = 20.dp, top = 90.dp).align(Alignment.TopEnd)
-    )
-    Text(
-        text = "✦",
-        style = MochiFont.body(10.sp),
-        color = Color.White.copy(alpha = 0.6f),
-        modifier = Modifier.padding(end = 48.dp, top = 110.dp).align(Alignment.TopEnd)
-    )
-}
-
 @Composable
 private fun Header(onCreateTabClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(text = "Mochi", style = MochiFont.logo(40.sp), color = MochiColor.logoSolid)
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(
+            text = "Mochi",
+            style = MochiFont.logo(63.sp),
+            color = MochiColor.logoSolid,
+            modifier = Modifier.offset(y = (-15).dp)
+        )
         Spacer(modifier = Modifier.weight(1f))
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -134,7 +125,11 @@ private fun Header(onCreateTabClick: () -> Unit) {
                 contentDescription = "Create Custom",
                 modifier = Modifier.size(48.dp).clip(CircleShape)
             )
-            Text(text = "Create Custom", style = MochiFont.caption(10.sp), color = MochiColor.textPrimary)
+            Text(
+                text = "Create Custom",
+                style = MochiFont.caption(10.sp).copy(fontWeight = FontWeight.Bold),
+                color = MochiColor.textPrimary
+            )
         }
     }
 }
@@ -219,11 +214,11 @@ private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTi
             .padding(MochiSpacing.sm),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md), verticalAlignment = Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md), verticalAlignment = Alignment.Top) {
             Image(
                 painter = painterResource(iconResId),
                 contentDescription = null,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(56.dp)
             )
             Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 Text(
@@ -266,9 +261,16 @@ private fun SlimPillButton(title: String, modifier: Modifier = Modifier, onClick
     }
 }
 
+/** Pixel-measured from docs/figma/1.png: the FONTS/THEMES pills don't span the full card-row
+ * width — they sit inset with roughly double the standard screen margin on each side (~32dp vs
+ * the usual 16dp), so this row needs its own extra horizontal padding on top of the outer
+ * Column's padding, not just weight(1f) filling the full available width. */
 @Composable
 private fun LibraryToggle(selected: LibraryTab, onSelect: (LibraryTab) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier.padding(horizontal = 16.dp)
+    ) {
         ToggleButton("Fonts", selected == LibraryTab.FONTS, Modifier.weight(1f)) { onSelect(LibraryTab.FONTS) }
         ToggleButton("Themes", selected == LibraryTab.THEMES, Modifier.weight(1f)) { onSelect(LibraryTab.THEMES) }
     }
