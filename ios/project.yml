@@ -2,7 +2,7 @@ name: Mochi
 options:
   bundleIdPrefix: com.mochi.app
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "16.0"
   createIntermediateGroups: true
 
 settings:
@@ -22,6 +22,16 @@ targets:
       path: MochiApp/App/Info.plist
       properties:
         UILaunchScreen: {}
+        UIAppFonts:
+          - Fredoka.ttf
+          - Baloo2.ttf
+          - Inter-Regular.ttf
+          - Inter-Medium.ttf
+          - Inter-SemiBold.ttf
+          - Inter-Bold.ttf
+          # The face the Fonts page's letter grid previews (Figma: Kaushan Script Regular 22).
+          # OFL, like the other three — see ios/licenses/KaushanScript-OFL.txt.
+          - KaushanScript-Regular.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
@@ -33,6 +43,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app
         TARGETED_DEVICE_FAMILY: "1,2"
+        # No AppIcon.appiconset exists yet (client hasn't delivered a square app icon asset,
+        # only docs/figma/mochi_wordmark_reference.png which is a wordmark, not an icon) — turn
+        # off the requirement rather than fabricate a placeholder icon. Set this back to "AppIcon"
+        # once a real appiconset is added to Assets.xcassets.
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
 
   MochiUITests:
     type: bundle.ui-testing
@@ -44,6 +59,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: MochiApp
 
 schemes:
   MochiApp:

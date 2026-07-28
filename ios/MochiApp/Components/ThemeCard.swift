@@ -40,23 +40,31 @@ struct ThemeCard: View {
     }
 }
 
+/// Sizes solved by rendering the real Inter TTFs and matching against the measured glyph runs in
+/// docs/figma/1.png: "POPULAR THEMES" is 439px wide with a 37px cap height on a 2169px-wide frame,
+/// which at 402pt of screen is Inter Bold ~9pt — noticeably smaller than the 13pt this carried
+/// before. "see all" solves to Inter Regular ~8.8pt.
 struct SectionHeader: View {
     let title: String
     var actionTitle: String? = "see all"
+    /// Defaults are the Figma-measured sizes; Home passes its live-tuned values in.
+    var titleSize: CGFloat = 9
+    var actionSize: CGFloat = 9
     var action: () -> Void = {}
 
     var body: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline) {
             Text(title.uppercased())
-                .font(MochiFont.heading(13))
+                .font(MochiFont.title(titleSize))
                 .foregroundStyle(MochiColor.textPrimary)
             Spacer()
             if let actionTitle {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(MochiFont.caption(13))
-                        .foregroundStyle(MochiColor.purple)
+                        .font(MochiFont.body(actionSize))
+                        .foregroundStyle(MochiColor.textPrimary) // black in Figma, not purple
                 }
+                .padding(.trailing, 2)
             }
         }
     }
