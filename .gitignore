@@ -4,6 +4,7 @@ ios/**/xcuserdata/
 ios/DerivedData/
 ios/screenshots/
 ios/TestResult.xcresult/
+/build/
 
 # macOS
 .DS_Store
@@ -23,3 +24,6 @@ android/local.properties
 .env
 *.env.local
 serviceAccountKey.json
+firestore/tests/node_modules/
+*-debug.log
+firestore-export/

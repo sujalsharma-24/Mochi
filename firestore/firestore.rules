@@ -1,0 +1,162 @@
+rules_version = '2';
+
+// Mochi Firestore Security Rules
+// Schema reference: docs/TRD.md §3, docs/project-memory/project_mochi_trd.md
+//
+// Baseline posture (per architecture advisory review, 2026-07-24): deny-by-default.
+// Every collection is closed unless explicitly opened below, so a new sensitive field
+// or a forgotten collection is safe-by-omission rather than safe-by-remembering-to-deny-it.
+//
+// Privileged fields (counters, subscriptionStatus, moderationStatus, denormalized creator
+// identity) are never client-writable — they exist only to be written by Cloud Functions
+// using the Admin SDK, which bypasses these rules entirely. The `hasOnly(...)` allowlists
+// below are what actually prevents a client from granting itself premium or inflating a
+// like count; that is the single most important property in this file.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ---- Deny-by-default baseline ----
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---- users/{uid} ----
+    match /users/{uid} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['uid', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == uid
+        // server-owned fields must start at safe defaults, never client-chosen
+        && request.resource.data.subscriptionStatus == 'free'
+        && request.resource.data.get('followerCount', 0) == 0
+        && request.resource.data.get('followingCount', 0) == 0
+        && request.resource.data.get('themeCount', 0) == 0
+        && request.resource.data.get('likesGivenCount', 0) == 0
+        && request.resource.data.get('likesReceivedCount', 0) == 0
+        && request.resource.data.get('isDeleted', false) == false;
+
+      // Client may only ever touch its own profile-editable fields. Everything else
+      // (subscriptionStatus, subscriptionExpiresAt, the *Count fields, isDeleted/deletedAt,
+      // username itself — reserved via the checkUsernameAvailable/reserveUsername callables)
+      // is absent from this list and therefore rejected by default.
+      allow update: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'avatarUrl', 'bio', 'languagePreference',
+          'settings', 'updatedAt'
+        ]);
+
+      allow delete: if false; // deletion goes through the onAccountDelete callable only
+    }
+
+    // ---- themes/{themeId} ----
+    match /themes/{themeId} {
+      allow read: if resource.data.isPublished == true && resource.data.moderationStatus == 'approved'
+        || (isSignedIn() && resource.data.creatorUid == request.auth.uid);
+
+      allow create: if isSignedIn() && request.resource.data.creatorUid == request.auth.uid
+        && request.resource.data.moderationStatus == 'pending'
+        && request.resource.data.get('likeCount', 0) == 0
+        && request.resource.data.get('downloadCount', 0) == 0
+        && request.resource.data.get('reportCount', 0) == 0;
+
+      // Owner may edit their own theme's creative content, never the denormalized
+      // creator identity fields (onProfileUpdate-maintained), moderation status, or counters.
+      allow update: if isSignedIn() && resource.data.creatorUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'description', 'hashtags',
+          'backgroundType', 'backgroundConfig', 'keysConfig', 'fontsConfig', 'effectsConfig',
+          'isPublished', 'previewImageUrl', 'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() && resource.data.creatorUid == request.auth.uid;
+    }
+
+    // ---- likes/{uid}_{themeId} ----
+    // Composite doc ID doubles as the uniqueness constraint (prevents double-likes) and is
+    // itself verified below so a client can't like on someone else's behalf.
+    match /likes/{likeId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && likeId == request.auth.uid + '_' + request.resource.data.themeId;
+
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      allow update: if false; // likes are create/delete only, never mutated
+    }
+
+    // ---- follows/{followerId}_{followeeId} ----
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.followerId == request.auth.uid
+        && request.resource.data.followeeId != request.auth.uid
+        && followId == request.auth.uid + '_' + request.resource.data.followeeId;
+
+      allow delete: if isSignedIn() && resource.data.followerId == request.auth.uid;
+
+      allow update: if false;
+    }
+
+    // ---- reports/{reportId} ----
+    match /reports/{reportId} {
+      allow read: if false; // moderation-only surface, not client-readable
+
+      allow create: if isSignedIn()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.status == 'open';
+
+      allow update, delete: if false; // onReportThreshold + manual review own this collection
+    }
+
+    // ---- blocks/{blockerUid}_{blockedUid} ----
+    match /blocks/{blockId} {
+      allow read: if isSignedIn() && resource.data.blockerUid == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.blockerUid == request.auth.uid
+        && request.resource.data.blockedUid != request.auth.uid
+        && blockId == request.auth.uid + '_' + request.resource.data.blockedUid;
+
+      allow delete: if isSignedIn() && resource.data.blockerUid == request.auth.uid;
+
+      allow update: if false;
+    }
+
+    // ---- collections/{collectionId} ----
+    // Admin-curated, not user-generated — read-only for clients.
+    match /collections/{collectionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- liveWallpapers/{wallpaperId} ----
+    match /liveWallpapers/{wallpaperId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- weeklyStats/{weekId}/creators/{uid} ----
+    // Written only by the onLikeWrite Cloud Function trigger (Admin SDK). Public leaderboard read.
+    match /weeklyStats/{weekId}/creators/{uid} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- usernames/{username} ----
+    // Reservation is performed inside the reserveUsername callable (Admin SDK, transactional).
+    // Client may read to support an optimistic "is this taken?" UI check; never writes directly.
+    match /usernames/{username} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
