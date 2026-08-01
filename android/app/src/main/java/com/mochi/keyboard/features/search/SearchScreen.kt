@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.Palette
@@ -80,17 +81,21 @@ private val trendingSearches = listOf("pastel theme", "cute font", "aesthetic ke
 private val suggestions = listOf("Cute Themes", "Dark Themes", "Handwritten Fonts", "Pixel Art Themes")
 private val filterDropdowns = listOf(Triple("All Types", Icons.Filled.GridView, true), Triple("Free Only", Icons.Filled.CalendarMonth, false), Triple("Premium", Icons.Filled.WorkspacePremium, false), Triple("Newest", Icons.Filled.Schedule, false))
 
-private data class ResultItem(val name: String, val label: String, val likeCount: String, val downloadCount: String, val assetName: String, val isFont: Boolean = false)
+private data class ResultItem(val name: String, val label: String, val likeCount: String, val downloadCount: String, val assetName: String, val isFont: Boolean = false, val showMoreBadge: Boolean = false)
 
+/** Figma (docs/figma/6.png) shows a 4-column grid, not 2 — verified by cropping and inspecting
+ * the export directly. Asset names point at the same knownFontArt/knownThemeArt keys the rest of
+ * the app uses ("font_gothic_dark" is deliberately absent from that map, same as iOS, so Gothic
+ * Dark falls back to the plain placeholder tile rather than real art). */
 private val searchResults = listOf(
-    ResultItem("Pastel Rainbow", "Theme", "12.5K", "3.4K", "theme_pastel_rainbow"),
-    ResultItem("Forest Theme", "Theme", "908", "2.6K", "theme_forest"),
-    ResultItem("Pastel Pink Sky", "Theme", "12.5K", "3.1K", "theme_pastel_pink_sky"),
-    ResultItem("Typewriter Classic", "Font", "755", "1.8K", "font_shop_typewriter_classic", isFont = true),
+    ResultItem("Pastel Rainbow", "Theme", "12.5K", "3.4K", "theme_pastel_rainbow", showMoreBadge = true),
+    ResultItem("Forest Theme", "Theme", "908", "2.6K", "theme_forest", showMoreBadge = true),
+    ResultItem("Pastel Pink Sky", "Theme", "12.5K", "3.1K", "theme_pastel_pink_sky", showMoreBadge = true),
+    ResultItem("Sweet Handwriting", "Font", "755", "1.8K", "font_typewriter_classic", isFont = true, showMoreBadge = true),
     ResultItem("Sakura Train", "Theme", "10K", "2.4K", "theme_sakura_train"),
     ResultItem("Space vibe", "Theme", "805", "1.6K", "theme_space_vibe"),
-    ResultItem("Bold Strong", "Font", "10K", "2.1K", "font_shop_bold_strong", isFont = true),
-    ResultItem("Gothic Dark", "Font", "650", "1K", "font_shop_gothic_dark", isFont = true)
+    ResultItem("Bold Strong", "Font", "10K", "2.1K", "font_bold_strong", isFont = true),
+    ResultItem("Gothic Dark", "Font", "650", "1K", "font_gothic_dark", isFont = true)
 )
 
 /** Ported from docs/figma/6.png */
@@ -174,14 +179,19 @@ private fun TypeFilterChips(selected: String, onSelect: (String) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val icon: ImageVector? = when (type) {
-                    "Theme" -> Icons.Filled.Palette
-                    "Font" -> Icons.Filled.TextFields
-                    "Creators" -> Icons.Filled.Person
-                    else -> null
-                }
-                if (icon != null) {
-                    Icon(imageVector = icon, contentDescription = null, tint = if (isSelected) Color.White else MochiColor.textPrimary, modifier = Modifier.size(14.dp))
+                if (type == "Font") {
+                    // Figma draws "Aa" text here, not an icon.
+                    Text(text = "Aa", style = MochiFont.heading(14.sp), color = if (isSelected) Color.White else MochiColor.textPrimary)
+                } else {
+                    val icon: ImageVector? = when (type) {
+                        "All" -> Icons.Filled.GridView
+                        "Theme" -> Icons.Filled.Palette
+                        "Creators" -> Icons.Filled.Person
+                        else -> null
+                    }
+                    if (icon != null) {
+                        Icon(imageVector = icon, contentDescription = null, tint = if (isSelected) Color.White else MochiColor.textPrimary, modifier = Modifier.size(14.dp))
+                    }
                 }
                 Text(text = type, style = MochiFont.heading(13.sp), color = if (isSelected) Color.White else MochiColor.textPrimary)
             }
@@ -280,7 +290,7 @@ private fun FiltersSection() {
                 ) {
                     Icon(imageVector = icon, contentDescription = null, tint = if (isSelected) Color.White else MochiColor.textPrimary, modifier = Modifier.size(13.dp))
                     Text(text = label, style = MochiFont.caption(12.sp), color = if (isSelected) Color.White else MochiColor.textPrimary)
-                    Text(text = "⌄", style = MochiFont.caption(12.sp), color = if (isSelected) Color.White else MochiColor.textPrimary)
+                    Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = if (isSelected) Color.White else MochiColor.textPrimary, modifier = Modifier.size(14.dp))
                 }
             }
         }
@@ -295,10 +305,10 @@ private fun SearchResultsSection() {
             Text(text = "128 Results", style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
         }
         Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
-            searchResults.chunked(2).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
+            searchResults.chunked(4).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
                     row.forEach { item -> ResultCard(item, Modifier.weight(1f)) }
-                    repeat(2 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+                    repeat(4 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -320,22 +330,22 @@ private fun ResultCard(item: ResultItem, modifier: Modifier = Modifier) {
                 ThemeArt(assetName = item.assetName, seed = item.name, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
             }
             Icon(
-                imageVector = Icons.Filled.MoreVert,
+                imageVector = if (item.showMoreBadge) Icons.Filled.MoreVert else Icons.Filled.Download,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.3f)).size(22.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.3f)).size(22.dp).padding(4.dp)
             )
         }
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(text = item.name, style = MochiFont.heading(12.sp), color = MochiColor.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(text = item.label, style = MochiFont.caption(11.sp), color = MochiColor.purple)
+        Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text = item.name, style = MochiFont.heading(11.sp), color = MochiColor.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(text = item.label, style = MochiFont.caption(10.sp), color = MochiColor.purple)
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Filled.Favorite, contentDescription = null, tint = MochiColor.pink, modifier = Modifier.size(10.dp))
-                Spacer(modifier = Modifier.width(3.dp))
-                Text(text = item.likeCount, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary, modifier = Modifier.weight(1f))
-                Icon(imageVector = Icons.Filled.Download, contentDescription = null, tint = MochiColor.textSecondary, modifier = Modifier.size(11.dp))
+                Icon(imageVector = Icons.Filled.Favorite, contentDescription = null, tint = MochiColor.pink, modifier = Modifier.size(9.dp))
                 Spacer(modifier = Modifier.width(2.dp))
-                Text(text = item.downloadCount, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary)
+                Text(text = item.likeCount, style = MochiFont.caption(9.sp), color = MochiColor.textSecondary, modifier = Modifier.weight(1f), maxLines = 1)
+                Icon(imageVector = Icons.Filled.Download, contentDescription = null, tint = MochiColor.textSecondary, modifier = Modifier.size(9.dp))
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(text = item.downloadCount, style = MochiFont.caption(9.sp), color = MochiColor.textSecondary, maxLines = 1)
             }
         }
     }
@@ -356,7 +366,8 @@ private fun NoResultsCard() {
         Text(
             text = "Try different keywords or browse categories instead.",
             style = MochiFont.caption(12.sp),
-            color = MochiColor.textSecondary
+            color = MochiColor.textSecondary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Row(
             modifier = Modifier
