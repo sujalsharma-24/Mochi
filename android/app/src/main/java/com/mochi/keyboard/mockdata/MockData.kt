@@ -3,6 +3,10 @@ package com.mochi.keyboard.mockdata
 import com.mochi.keyboard.model.Creator
 import com.mochi.keyboard.model.FontItem
 import com.mochi.keyboard.model.KeyboardTheme
+import com.mochi.keyboard.model.ProfileCreation
+import com.mochi.keyboard.model.ProfileFollowRow
+import com.mochi.keyboard.model.ProfileLikedTheme
+import com.mochi.keyboard.model.ProfileSummary
 
 /** Ported from ios/MochiApp/MockData/MockData.swift — placeholder data until Firestore is wired up. */
 object MockData {
@@ -76,5 +80,47 @@ object MockData {
         Creator("vibe-studio", "Vibe Studio", "@vibestudio", "avatar_vibe_studio", 84, 10_800, false, true),
         Creator("dreamy-designs", "Dreamy Designs", "@dreamydesigns", "avatar_dreamy_designs", 72, 8_800, true, true),
         Creator("techy-keys", "Techy Keys", "@techy.keys", "avatar_techy_keys", 63, 68_800, false, true)
+    )
+
+    // Profile tab (docs/figma/3.png)
+
+    val profile = ProfileSummary(
+        displayName = "Mochi Creator",
+        handle = "@mochicreator",
+        bio = "Creating cute & colorful keyboard themes to make typing more fun!",
+        avatarAssetName = "avatar_mochi_creator",
+        isVerified = true,
+        stats = listOf(
+            ProfileSummary.Stat("128", "Creations"),
+            ProfileSummary.Stat("2.4K", "Followers"),
+            ProfileSummary.Stat("156", "Following")
+        )
+    )
+
+    /** MY CREATIONS strip, in Figma's order. The fourth tile is a Font, not a theme. */
+    val profileCreations = listOf(
+        ProfileCreation("creation-pastel-rainbow", "Pastel Rainbow", "Theme", "profile_art_pastel_rainbow", "12.5K", "3.4K"),
+        ProfileCreation("creation-forest", "Forest Theme", "Theme", "theme_forest", "908", "2.6K"),
+        ProfileCreation("creation-pastel-pink-sky", "Pastel Pink Sky", "Theme", "theme_pastel_pink_sky", "12.5K", "3.1K"),
+        ProfileCreation("creation-sweet-handwriting", "Sweet Handwriting", "Font", "font_typewriter_classic", "755", "1.8K")
+    )
+
+    /** MY DOWNLOADS strip — only the like count shows on these tiles. */
+    val profileDownloads = listOf(
+        ProfileCreation("download-fantasy-castle-night", "Fantasy Castle Night", "Theme", "theme_fantasy_castle_night", "825", ""),
+        ProfileCreation("download-forest", "Forest Theme", "Theme", "theme_forest", "500", ""),
+        ProfileCreation("download-kawaii-boba", "kawaii boba tea", "Theme", "theme_kawaii_boba", "10K", ""),
+        ProfileCreation("download-cozy-sakura-cafe", "Cozy Sakura Café", "Theme", "theme_cozy_sakura_cafe", "12.5K", "")
+    )
+
+    val profileLikedThemes = listOf(
+        ProfileLikedTheme("liked-pastel-pink-sky", "Pastel Pink Sky", "Vibe Studio", "liked_pastel_pink_sky", "2.1K"),
+        ProfileLikedTheme("liked-pastel-dream", "Pastel Dream", "Dreamy Designs", "liked_pastel_dream", "1.6K"),
+        ProfileLikedTheme("liked-pastel-rainbow", "Pastel Rainbow", "Clean Keys", "liked_pastel_rainbow", "2.3K")
+    )
+
+    val profileFollowRows = listOf(
+        ProfileFollowRow("followers", "Followers", "2.1K"),
+        ProfileFollowRow("following", "Following", "126")
     )
 }
