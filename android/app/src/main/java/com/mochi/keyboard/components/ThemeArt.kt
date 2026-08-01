@@ -7,10 +7,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.mochi.keyboard.R
+import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiRadius
 
 /**
@@ -69,27 +72,31 @@ fun CreatorAvatar(assetName: String, modifier: Modifier = Modifier) {
 @Composable
 fun ThemeArt(assetName: String, seed: String, modifier: Modifier = Modifier, cornerRadius: Dp = MochiRadius.card) {
     val resId = knownThemeArt[assetName]
+    val shape = RoundedCornerShape(cornerRadius)
+    val shadowed = modifier.shadow(6.dp, shape, ambientColor = MochiColor.purpleDark.copy(alpha = 0.14f), spotColor = MochiColor.purpleDark.copy(alpha = 0.14f))
     if (resId != null) {
         Image(
             painter = painterResource(resId),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = modifier.fillMaxSize().clip(RoundedCornerShape(cornerRadius))
+            modifier = shadowed.fillMaxSize().clip(shape)
         )
     } else {
-        KeyboardPreviewPlaceholder(seed = seed, modifier = modifier, cornerRadius = cornerRadius)
+        KeyboardPreviewPlaceholder(seed = seed, modifier = shadowed, cornerRadius = cornerRadius)
     }
 }
 
 @Composable
 fun FontArtCard(assetName: String, modifier: Modifier = Modifier, cornerRadius: Dp = MochiRadius.card, content: @Composable () -> Unit) {
     val resId = knownFontArt[assetName]
+    val shape = RoundedCornerShape(cornerRadius)
+    val shadowed = modifier.shadow(5.dp, shape, ambientColor = MochiColor.purpleDark.copy(alpha = 0.12f), spotColor = MochiColor.purpleDark.copy(alpha = 0.12f))
     if (resId != null) {
         Image(
             painter = painterResource(resId),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = modifier.clip(RoundedCornerShape(cornerRadius))
+            modifier = shadowed.clip(shape)
         )
     } else {
         content()

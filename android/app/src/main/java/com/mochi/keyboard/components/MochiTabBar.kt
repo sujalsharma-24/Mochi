@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -30,40 +32,62 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mochi.keyboard.R
+import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
+import com.mochi.keyboard.designsystem.MochiGradient
 import com.mochi.keyboard.designsystem.MochiSpacing
 import com.mochi.keyboard.ui.MochiTab
 
-private val TabBarUnselected = Color(0xFF918989)
-private val TabBarSelected = Color(0xFF9C28B1)
+private val TabIconSize = 18.dp
+private val TabKeyboardWidth = 23.dp
+private val TabLabelSize = 9.sp
+private val TabCreateSize = 50.dp
 
-/** Shallow "cradle" cut into the top edge so the Create circle looks nested into the bar, matching Figma. */
-private class NotchedBarShape(private val cornerRadius: androidx.compose.ui.unit.Dp, private val notchRadius: androidx.compose.ui.unit.Dp) : Shape {
+/**
+ * Figma's tab bar is one continuous vector path: a mostly straight top edge with sharp outer
+ * corners and a wide symmetrical concave valley in the center that the floating Create button
+ * overlaps into — confirmed against the Figma layer (fill FFFFFF, stroke 9C28B1 weight 1, corner
+ * radius 0). Ported from ios/MochiApp/Components/MochiTabBar.swift's NotchedTabBarShape; each
+ * cubic's control points share their own endpoint's y so the curve meets the flat top and the
+ * opposite curve with a horizontal tangent (no kink, no cusp at the valley floor).
+ */
+private class NotchedTabBarShape(
+    private val cornerRadius: androidx.compose.ui.unit.Dp = 4.dp,
+    private val notchHalfWidth: androidx.compose.ui.unit.Dp = 50.dp,
+    private val notchDepth: androidx.compose.ui.unit.Dp = 26.dp
+) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val corner = with(density) { cornerRadius.toPx() }
-        val notch = with(density) { notchRadius.toPx() }
-        val centerX = size.width / 2f
+        val halfWidth = with(density) { notchHalfWidth.toPx() }
+        val depth = with(density) { notchDepth.toPx() }
+        val cx = size.width / 2f
+        val notchBottomY = depth
+
         val path = Path().apply {
             moveTo(0f, corner)
             quadraticTo(0f, 0f, corner, 0f)
-            lineTo(centerX - notch * 1.7f, 0f)
+
+            lineTo(cx - halfWidth, 0f)
             cubicTo(
-                centerX - notch * 0.9f, 0f,
-                centerX - notch, notch * 1.15f,
-                centerX, notch * 1.15f
+                cx - halfWidth * 0.5f, 0f,
+                cx - halfWidth * 0.5f, notchBottomY,
+                cx, notchBottomY
             )
             cubicTo(
-                centerX + notch, notch * 1.15f,
-                centerX + notch * 0.9f, 0f,
-                centerX + notch * 1.7f, 0f
+                cx + halfWidth * 0.5f, notchBottomY,
+                cx + halfWidth * 0.5f, 0f,
+                cx + halfWidth, 0f
             )
+
             lineTo(size.width - corner, 0f)
             quadraticTo(size.width, 0f, size.width, corner)
+
             lineTo(size.width, size.height)
             lineTo(0f, size.height)
             close()
@@ -75,34 +99,37 @@ private class NotchedBarShape(private val cornerRadius: androidx.compose.ui.unit
 /** Ported from ios/MochiApp/Components/MochiTabBar.swift */
 @Composable
 fun MochiTabBar(selected: MochiTab, onSelect: (MochiTab) -> Unit, modifier: Modifier = Modifier) {
-    val barShape = NotchedBarShape(cornerRadius = 28.dp, notchRadius = 22.dp)
+    val barShape = NotchedTabBarShape()
 
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(12.dp, barShape)
-                .background(Color.White, barShape)
-                .border(1.dp, TabBarSelected, barShape)
-                .padding(horizontal = MochiSpacing.md, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .shadow(14.dp, barShape, ambientColor = Color.Black.copy(alpha = 0.06f), spotColor = Color.Black.copy(alpha = 0.06f))
+                .clip(barShape)
+                .background(Color.White)
+                .border(1.dp, MochiColor.logoSolid, barShape)
+                .padding(horizontal = MochiSpacing.md),
+            verticalAlignment = Alignment.Top
         ) {
             TabButton(MochiTab.KEYBOARD, selected, onSelect, Modifier.weight(1f))
             TabButton(MochiTab.FONTS, selected, onSelect, Modifier.weight(1f))
-            Box(modifier = Modifier.weight(1f))
+            Box(modifier = Modifier.width(64.dp))
             TabButton(MochiTab.THEMES, selected, onSelect, Modifier.weight(1f))
             TabButton(MochiTab.COMMUNITY, selected, onSelect, Modifier.weight(1f))
         }
 
+        // Drawn 40dp above the bar so most of the circle sits outside the Box's own bounds.
         Image(
             painter = painterResource(R.drawable.icon_tab_create),
             contentDescription = "Create",
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-20).dp)
-                .size(40.dp)
+                .offset(y = (-40).dp)
+                .size(TabCreateSize)
                 .clip(CircleShape)
+                .shadow(6.dp, CircleShape, ambientColor = MochiColor.purpleDark.copy(alpha = 0.25f), spotColor = MochiColor.purpleDark.copy(alpha = 0.25f))
                 .clickable { onSelect(MochiTab.CREATE) }
         )
     }
@@ -116,34 +143,70 @@ private fun RowScope.TabButton(
     modifier: Modifier = Modifier
 ) {
     val isSelected = tab == selected
-    val tint = if (isSelected) TabBarSelected else TabBarUnselected
+    val tint = if (isSelected) MochiColor.purple else MochiColor.textSecondary.copy(alpha = 0.6f)
 
     Column(
-        modifier = modifier.clickable { onSelect(tab) },
+        modifier = modifier
+            .clickable { onSelect(tab) }
+            .padding(top = 6.dp, bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (tab == MochiTab.FONTS) {
-            Text(text = "Aa", style = MochiFont.heading(20.sp), color = tint)
-        } else if (isSelected && tab == MochiTab.KEYBOARD) {
-            Image(
-                painter = painterResource(R.drawable.icon_tab_keyboard),
-                contentDescription = tab.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(width = 33.dp, height = 24.dp)
-                    .clip(RoundedCornerShape(7.dp))
-            )
-        } else if (tab == MochiTab.COMMUNITY) {
-            Image(
-                painter = painterResource(R.drawable.icon_tab_community),
-                contentDescription = tab.title,
-                colorFilter = ColorFilter.tint(tint),
-                modifier = Modifier.size(24.dp)
-            )
-        } else {
-            Icon(imageVector = tab.icon, contentDescription = tab.title, tint = tint)
-        }
-        Text(text = tab.title, style = MochiFont.caption(), color = tint)
+        TabIcon(tab, isSelected, tint)
+        Text(text = tab.title, style = MochiFont.caption(TabLabelSize), color = tint)
+    }
+}
+
+/**
+ * Figma renders Fonts as literal "Aa" text (not an icon), the selected Keyboard tab as a real
+ * cropped badge image, and Themes/Community as real cropped icons tinted to the current
+ * selection state — not system glyphs, whose silhouettes don't match the design's.
+ */
+@Composable
+private fun TabIcon(tab: MochiTab, isSelected: Boolean, tint: Color) {
+    when {
+        tab == MochiTab.FONTS -> Text(
+            text = "Aa",
+            style = if (isSelected) {
+                TextStyle(
+                    brush = MochiGradient.fontsAccent,
+                    fontSize = MochiFont.body(TabIconSize.value.sp).fontSize,
+                    fontWeight = MochiFont.body().fontWeight,
+                    fontFamily = MochiFont.body().fontFamily
+                )
+            } else {
+                MochiFont.body(TabIconSize.value.sp).copy(color = tint)
+            },
+            modifier = Modifier.height(TabIconSize)
+        )
+        tab == MochiTab.KEYBOARD && isSelected -> Image(
+            painter = painterResource(R.drawable.icon_tab_keyboard),
+            contentDescription = tab.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .width(TabKeyboardWidth)
+                .height(TabKeyboardWidth / 1.43f)
+                .clip(RoundedCornerShape(5.dp))
+        )
+        tab == MochiTab.THEMES -> Image(
+            painter = painterResource(R.drawable.icon_tab_themes),
+            contentDescription = tab.title,
+            contentScale = ContentScale.Fit,
+            colorFilter = ColorFilter.tint(tint),
+            modifier = Modifier.size(TabIconSize)
+        )
+        tab == MochiTab.COMMUNITY -> Image(
+            painter = painterResource(R.drawable.icon_tab_community),
+            contentDescription = tab.title,
+            contentScale = ContentScale.Fit,
+            colorFilter = ColorFilter.tint(tint),
+            modifier = Modifier.size(TabIconSize)
+        )
+        else -> Icon(
+            imageVector = tab.icon,
+            contentDescription = tab.title,
+            tint = tint,
+            modifier = Modifier.size(TabIconSize)
+        )
     }
 }

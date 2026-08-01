@@ -1,5 +1,6 @@
 package com.mochi.keyboard.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,17 +14,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mochi.keyboard.R
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiSpacing
@@ -48,10 +51,10 @@ fun ThemeCard(theme: KeyboardTheme, modifier: Modifier = Modifier, onTap: () -> 
                         .background(MochiColor.premiumTag)
                         .padding(6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
+                    Image(
+                        painter = painterResource(R.drawable.icon_premium_crown),
                         contentDescription = "Premium",
-                        tint = Color.White,
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier.size(12.dp)
                     )
                 }
@@ -85,29 +88,35 @@ fun ThemeCard(theme: KeyboardTheme, modifier: Modifier = Modifier, onTap: () -> 
     }
 }
 
-/** actionTitle used a TextButton, which carries Material's ~40dp minimum touch-target height —
- * far taller than the actual text, so it silently padded out every SectionHeader row (and
- * whatever gap sat below it) across every screen that uses this. A plain clickable Text has no
- * such minimum, so the header hugs the title's real height instead. */
+/**
+ * Ported from ios/MochiApp/Components/ThemeCard.swift's SectionHeader. Sizes solved by rendering
+ * the real Inter TTFs and matching against measured glyph runs in docs/figma/1.png — defaults are
+ * the Figma-measured sizes, screens pass their own live-tuned values in (see each screen's
+ * Metrics). actionTitle previously used a TextButton, which carries Material's ~40dp minimum
+ * touch-target height — far taller than the actual text — so a plain clickable Text is used
+ * instead, letting the header hug the title's real height.
+ */
 @Composable
 fun SectionHeader(
     title: String,
     actionTitle: String? = "see all",
     modifier: Modifier = Modifier,
+    titleSize: TextUnit = 9.sp,
+    actionSize: TextUnit = 9.sp,
     onAction: () -> Unit = {}
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Bottom
     ) {
-        Text(text = title.uppercase(), style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
+        Text(text = title.uppercase(), style = MochiFont.title(titleSize), color = MochiColor.textPrimary)
         if (actionTitle != null) {
             Text(
                 text = actionTitle,
-                style = MochiFont.caption(),
+                style = MochiFont.body(actionSize),
                 color = MochiColor.textPrimary,
-                modifier = Modifier.clickable(onClick = onAction)
+                modifier = Modifier.clickable(onClick = onAction).padding(end = 2.dp)
             )
         }
     }
