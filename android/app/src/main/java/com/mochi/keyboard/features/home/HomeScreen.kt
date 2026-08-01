@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,12 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,12 +48,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mochi.keyboard.R
 import com.mochi.keyboard.components.FontArtCard
 import com.mochi.keyboard.components.SectionHeader
+import com.mochi.keyboard.components.SparkleField
 import com.mochi.keyboard.components.ThemeArt
 import com.mochi.keyboard.data.rememberMochiViewModelFactory
+import com.mochi.keyboard.designsystem.ActionCardTuning
+import com.mochi.keyboard.designsystem.HomeMetrics
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiGradient
-import com.mochi.keyboard.designsystem.MochiRadius
 import com.mochi.keyboard.designsystem.MochiSpacing
 import com.mochi.keyboard.mockdata.MockData
 import com.mochi.keyboard.model.FontItem
@@ -60,10 +63,11 @@ import com.mochi.keyboard.model.KeyboardTheme
 
 private enum class LibraryTab { FONTS, THEMES }
 
-/** Ported from ios/MochiApp/Features/Home/HomeView.swift. Figma's Home screen is a single fixed
- * viewport with no scrolling — every section below sizes itself by weight() against the available
- * height instead of a fixed dp, so the whole screen always fits exactly with no cut-off content
- * and no scrollbar, matching docs/figma/1.png / 13.png. */
+/** Ported from ios/MochiApp/Features/Home/HomeView.swift. Layout numbers live in HomeMetrics /
+ * ActionCardTuning, not here — see that file for where each came from. A single fixed viewport,
+ * no scrolling: every gap between sections is a flexible Spacer with a floor (heightIn(min=)),
+ * matching iOS's `Spacer(minLength:)` so any leftover height from a taller-than-16:9 screen is
+ * spent evenly across the gaps instead of pooling as dead space at the bottom. */
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
@@ -78,8 +82,7 @@ fun HomeScreen(
 
 /** Real Firestore data only replaces the two theme rows once it's actually loaded (HomeUiState.Data)
  * — Loading/Empty/Error fall back to MockData rather than collapsing or reflowing this screen's
- * carefully pixel-tuned fixed-viewport layout (see class doc above). Once the emulator has themes
- * seeded (firestore/seed/seed.mjs), this renders real data; until then it looks identical to before. */
+ * fixed-viewport layout. */
 @Composable
 private fun HomeScreenContent(
     modifier: Modifier = Modifier,
@@ -99,32 +102,52 @@ private fun HomeScreenContent(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+        SparkleField(modifier = Modifier.fillMaxSize())
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = MochiSpacing.md)
-                .padding(top = 24.dp, bottom = 84.dp)
+                .padding(bottom = 84.dp) // reserves space for MochiTabBar, which overlays on top edge-to-edge
+                // Compose's padding() rejects negative values (unlike SwiftUI); offset() shifts
+                // the whole column up the same way without that restriction.
+                .offset(y = HomeMetrics.headerTopPadding)
         ) {
             Header(onCreateTabClick)
-            Spacer(modifier = Modifier.height(MochiSpacing.sm))
+
+            FlexGap(HomeMetrics.gapHeaderCarousel)
             RecentlyAppliedRow(recentlyApplied, onThemeClick)
-            Spacer(modifier = Modifier.height(MochiSpacing.sm))
+
+            FlexGap(HomeMetrics.gapCarouselCards)
             QuickActionCards(onCreateTabClick, onChooseTabClick)
-            Spacer(modifier = Modifier.height(20.dp))
+
+            FlexGap(HomeMetrics.gapCardsPills)
             LibraryToggle(libraryTab) { libraryTab = it }
-            Spacer(modifier = Modifier.height(MochiSpacing.lg))
-            SectionHeader(title = "Popular Themes")
-            Spacer(modifier = Modifier.height(4.dp))
+
+            FlexGap(HomeMetrics.gapPillsSection)
+            SectionHeader(title = "Popular Themes", titleSize = HomeMetrics.sectionHeaderSize, actionSize = HomeMetrics.seeAllSize)
+            Spacer(modifier = Modifier.height(HomeMetrics.sectionHeaderGap))
             ThemesRow(popularThemes, onThemeClick)
-            Spacer(modifier = Modifier.height(MochiSpacing.sm))
-            SectionHeader(title = "Font Collection")
-            Spacer(modifier = Modifier.height(4.dp))
+
+            FlexGap(HomeMetrics.gapThemesFonts)
+            SectionHeader(title = "Font Collection", titleSize = HomeMetrics.sectionHeaderSize, actionSize = HomeMetrics.seeAllSize)
+            Spacer(modifier = Modifier.height(HomeMetrics.sectionHeaderGap))
             FontsRow(MockData.fonts)
-            Spacer(modifier = Modifier.weight(1f))
+
+            // Fixed, so leftover height from a taller-than-16:9 screen lands in the FlexGaps
+            // above rather than pooling here as dead space.
+            Spacer(modifier = Modifier.height(HomeMetrics.bottomGap))
         }
     }
+}
+
+/** A flexible gap with a floor, mirroring SwiftUI's `Spacer(minLength:)` inside a non-scrolling
+ * column: shares leftover column height evenly with every other FlexGap while never collapsing
+ * below `min`. */
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.FlexGap(min: Dp) {
+    Spacer(modifier = Modifier.weight(1f).heightIn(min = min))
 }
 
 @Composable
@@ -132,278 +155,261 @@ private fun Header(onCreateTabClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Text(
             text = "Mochi",
-            // Pixel-measured as a fraction of docs/figma/1.png's own frame width (device-
-            // independent: wordmark height is ~8.07% of screen width there) then applied to this
-            // device's REAL density (`adb shell wm density` = 300dpi = 1.875px/dp, 384dp logical
-            // width) rather than assuming a dp figure - two earlier passes both guessed the wrong
-            // px/dp scale (once via the Create Custom icon's assumed-vs-actual Figma size, once via
-            // an assumed 393dp device width) and overshot. Target: ~31dp height -> 42sp measured
-            // against this device's actual rendering. Offset scales with font size since Fredoka's
-            // internal leading (the gap above the cap-height) grows with it too.
-            style = MochiFont.logo(42.sp),
-            color = MochiColor.logoSolid,
-            modifier = Modifier.offset(y = (-10).dp)
+            style = MochiFont.logo(HomeMetrics.logoSize),
+            color = MochiColor.logoSolid // flat color, not a gradient
         )
         Spacer(modifier = Modifier.weight(1f))
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
             modifier = Modifier.clickable(onClick = onCreateTabClick)
         ) {
-            Box(modifier = Modifier.size(48.dp)) {
-                Image(
-                    painter = painterResource(R.drawable.icon_create_custom),
-                    contentDescription = "Create Custom",
-                    modifier = Modifier.size(48.dp).clip(CircleShape)
-                )
-                // Pixel-measured from docs/figma/1.png: a single sparkle sits ~31dp right / ~11dp
-                // above the icon's center, overlapping its top-right edge. Extracted as its own
-                // sprite (ic_star_sparkle) rather than baked into home_background.png, since the
-                // background's own baked-in stars were measurably misplaced relative to this icon.
-                Image(
-                    painter = painterResource(R.drawable.ic_star_sparkle),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(width = 24.dp, height = 28.dp)
-                        .offset(x = 43.dp, y = (-1).dp)
-                )
-            }
+            // Single sparkle: home_background.png already bakes in an ambient sparkle near this
+            // corner, so no extra overlay is added here — matches iOS 1:1.
+            Image(
+                painter = painterResource(R.drawable.icon_create_custom),
+                contentDescription = "Create Custom",
+                modifier = Modifier.size(HomeMetrics.createCustomIcon).clip(CircleShape)
+            )
             Text(
                 text = "Create Custom",
-                style = MochiFont.caption(10.sp).copy(fontWeight = FontWeight.Bold),
+                style = MochiFont.caption(HomeMetrics.createCustomLabel),
                 color = MochiColor.textPrimary
             )
         }
     }
 }
 
-/** Figma shows exactly 3 recently-applied cards filling the row edge-to-edge with no scrolling.
- * Shares KeyboardPreviewCard with the Popular Themes row below so both rows are guaranteed
- * pixel-identical sizing/styling rather than two independently-tuned card implementations. */
+/** Figma shows exactly 3 recently-applied cards filling the row edge-to-edge, no scrolling —
+ * weight(1f) on each card equalizes their widths across the row regardless of name length,
+ * standing in for iOS's explicit `contentWidth`-derived card width. */
 @Composable
-private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+private fun RecentlyAppliedRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(HomeMetrics.carouselGap)) {
         themes.forEach { theme ->
-            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.weight(1f))
+            ThemeCardWithName(
+                theme,
+                artRadius = HomeMetrics.carouselArtRadius,
+                artRatio = HomeMetrics.carouselArtRatio,
+                onClick = { onThemeClick(theme) },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
 
-/** Single shared card for any row of equal-size keyboard preview thumbnails (Recently Applied,
- * Popular Themes): a fixed 1.35:1 landscape aspect ratio (matching the real keyboard art's own
- * proportions, measured from docs/figma/13.png) so the full mini keyboard scene is visible instead
- * of being cropped to whatever height a weighted row happened to allocate. Transparent background
- * behind the text (no white card box), matching Figma. */
+/** Transparent background behind the text, no white card box, and deliberately NO crown/like
+ * count — those belong to the dedicated Themes tab's card, not Home's. Shared by the Recently
+ * Applied row and the Popular Themes row so both stay pixel-identical in styling. */
 @Composable
-private fun KeyboardPreviewCard(theme: KeyboardTheme, onTap: () -> Unit, modifier: Modifier = Modifier) {
+private fun ThemeCardWithName(theme: KeyboardTheme, artRadius: Dp, artRatio: Float, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm),
-        modifier = modifier.clickable(onClick = onTap)
+        verticalArrangement = Arrangement.spacedBy(HomeMetrics.carouselNameGap),
+        modifier = modifier.clickable(onClick = onClick)
     ) {
-        ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1.35f))
+        Box(modifier = Modifier.fillMaxWidth().aspectRatio(artRatio)) {
+            ThemeArt(assetName = theme.imageAssetName, seed = theme.id, cornerRadius = artRadius, modifier = Modifier.fillMaxSize())
+        }
         Text(
             text = theme.name,
-            style = MochiFont.heading(12.sp),
+            style = MochiFont.itemName(HomeMetrics.themeNameSize),
             color = MochiColor.textPrimary,
             textAlign = TextAlign.Center,
-            maxLines = 1,
-            modifier = Modifier.fillMaxWidth()
+            maxLines = 2,
+            modifier = Modifier.fillMaxWidth().heightIn(min = HomeMetrics.carouselNameReserve)
         )
     }
 }
 
-/** Pixel-measured from docs/figma/13.png (card1_isolated.png: 995x545px) — the card is a ~1.83:1
- * landscape rectangle, not a square/tall shape. Fixed aspectRatio on both cards (rather than the
- * previous IntrinsicSize.Min content-matching) guarantees identical dimensions directly, and is
- * simpler: both cards are the same size by construction, not by matching each other's content. */
 @Composable
-private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+private fun QuickActionCards(onCreateTabClick: () -> Unit, onChooseTabClick: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(HomeMetrics.actionCardGap)) {
         ActionCard(
+            tuning = ActionCardTuning.customCreate,
             iconResId = R.drawable.icon_palette,
             title = "Custom Create",
-            subtitle = "Design your own keyboard",
+            subtitle = "Design your own\nkeyboard",
             buttonTitle = "Create",
-            modifier = Modifier.weight(1f),
-            onButtonClick = onCreateTabClick
+            onButtonClick = onCreateTabClick,
+            modifier = Modifier.weight(1f)
         )
         ActionCard(
+            tuning = ActionCardTuning.chooseLibrary,
             iconResId = R.drawable.icon_library,
-            title = "Choose from Library",
-            subtitle = "Pick a created keyboard",
+            title = "Choose from\nLibrary",
+            subtitle = "Pick a created\nkeyboard",
             buttonTitle = "Choose",
-            modifier = Modifier.weight(1f),
-            onButtonClick = onChooseTabClick
+            onButtonClick = onChooseTabClick,
+            modifier = Modifier.weight(1f)
         )
     }
 }
 
-/** Figma lays these out icon-left / text-right (not icon-on-top-of-text), inside a card with a
- * visible border outline rather than a plain shadowed white box. Re-measured directly from a tight
- * crop of docs/figma/13.png (card border box 974x534px): true aspect ratio is 1.83:1 — restored
- * here now that the icon (48dp, ~28% of card width) and text sizes below are also re-measured down
- * to their correct proportions, which is what actually fixes the overflow that previously forced a
- * loosened 1.55:1 ratio (the ratio wasn't the bug; oversized content was). Arrangement.SpaceBetween
- * still pins the button to the bottom regardless of the 1- vs 2-line title. */
+/** Icon on the left, title+subtitle to its right, button BELOW and horizontally CENTERED in the
+ * card. The icon/text row is vertically centered in the space above the button (a weighted Box)
+ * so both cards stay the same height regardless of whether the title wraps to one or two lines.
+ * `aspectRatio` derives the card's height from whatever width the parent Row's weight(1f) gives
+ * it, standing in for iOS's explicit `contentWidth`-derived actionCardWidth. */
 @Composable
-private fun ActionCard(iconResId: Int, title: String, subtitle: String, buttonTitle: String, modifier: Modifier = Modifier, onButtonClick: () -> Unit = {}) {
+private fun ActionCard(
+    tuning: ActionCardTuning,
+    iconResId: Int,
+    title: String,
+    subtitle: String,
+    buttonTitle: String,
+    onButtonClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(HomeMetrics.actionCardRadius)
+
     Column(
         modifier = modifier
-            .aspectRatio(1.83f)
-            .clip(RoundedCornerShape(MochiRadius.card))
+            .aspectRatio(HomeMetrics.actionCardRatio)
+            .shadow(10.dp, shape, ambientColor = MochiColor.purpleDark.copy(alpha = 0.10f), spotColor = MochiColor.purpleDark.copy(alpha = 0.10f))
+            .clip(shape)
             .background(Color.White)
-            .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), RoundedCornerShape(MochiRadius.card))
-            // Grid-measured directly off docs/figma/1.png (5.52px/dp, the frame-width scale, not
-            // the icon): icon sits ~24dp from the card's left edge and ~19dp from its top, while
-            // the button sits only ~13dp above the card's bottom - the flat 8dp (MochiSpacing.sm)
-            // padding this replaced was roughly a third of the real inset on every side. Top/bottom
-            // trimmed back from the raw measurement (18/13dp) to 14/10dp - the full figure clipped
-            // the "Choose from Library" button off the bottom of the card, since its 2-line title
-            // leaves less vertical room than "Custom Create"'s 1-line title at this aspect ratio.
-            .padding(start = 20.dp, top = 14.dp, end = 16.dp, bottom = 10.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), shape)
+            .padding(horizontal = tuning.hPad, vertical = tuning.vPad)
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md), verticalAlignment = Alignment.Top) {
-            Image(
-                painter = painterResource(iconResId),
-                contentDescription = null,
-                // Figma's icon bbox is ~49x39dp (a wide, non-square palette+brush shape) - 56dp
-                // was oversized; 48dp lets Fit scaling land close to the measured max dimension.
-                modifier = Modifier.size(48.dp)
-            )
-            Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = title,
-                    style = MochiFont.heading(10.sp).copy(lineHeight = 12.sp),
-                    color = MochiColor.textPrimary,
-                    textAlign = TextAlign.Start
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+            Row(horizontalArrangement = Arrangement.spacedBy(tuning.iconTextGap), verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(iconResId),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(tuning.iconSize).offset(x = tuning.iconHOffset, y = tuning.iconVOffset)
                 )
-                Text(
-                    text = subtitle,
-                    style = MochiFont.caption(9.sp).copy(lineHeight = 10.sp),
-                    color = MochiColor.textPrimary,
-                    maxLines = 2,
-                    textAlign = TextAlign.Start
-                )
+                Column(
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(tuning.titleGap),
+                    modifier = Modifier.weight(1f).offset(y = tuning.textVOffset)
+                ) {
+                    Text(
+                        text = title,
+                        style = MochiFont.heading(tuning.titleSize),
+                        color = MochiColor.textPrimary,
+                        modifier = Modifier.offset(y = tuning.titleVOffset)
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MochiFont.body(tuning.subtitleSize),
+                        color = MochiColor.textPrimary,
+                        modifier = Modifier.offset(y = tuning.subtitleVOffset)
+                    )
+                }
             }
         }
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            SlimPillButton(title = buttonTitle, onClick = onButtonClick)
+            SlimPillButton(title = buttonTitle, tuning = tuning, onClick = onButtonClick, modifier = Modifier.offset(y = tuning.buttonVOffset))
         }
     }
 }
 
-/** GradientButton wraps Material's TextButton, which enforces a ~40dp minimum touch height no
- * matter what explicit height() is passed in — that silently won over an earlier attempt at a
- * 24dp button here, overflowing the card and clipping the subtitle text below it. This is a plain
- * Box (same pattern as ToggleButton below), so the height is genuinely whatever is set here. */
+/** Deliberately a plain clickable Box, not GradientButton: Material's TextButton enforces a
+ * ~40dp minimum touch height no matter what explicit height is passed, which silently overflowed
+ * the card. Inter Regular (MochiFont.body), not SemiBold — "Create"/"Choose" read as plain weight
+ * in the design and bold made them compete with the card title above. */
 @Composable
-private fun SlimPillButton(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun SlimPillButton(title: String, tuning: ActionCardTuning, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        // Figma-measured (both action-card buttons, "Create" and "Choose"): ~62.5dp wide,
-        // ~19.5dp tall - both pills are already forced identical by this one shared composable,
-        // used the same way by both cards. "Choose" LOOKS more cramped only because its letters
-        // (h, o, o) are wider than "Create"'s at the same font size - true in Figma too (its
-        // Choose text fills ~48% of the pill vs Create's ~45%) - dropping to 9sp gives both words
-        // more breathing room without shrinking the pill itself.
         modifier = modifier
-            .width(63.dp)
-            .height(20.dp)
+            .width(tuning.buttonWidth)
+            .height(tuning.buttonHeight)
             .clip(CircleShape)
             .background(MochiGradient.softButton)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = title, style = MochiFont.button(9.sp), color = MochiColor.textPrimary)
+        Text(text = title, style = MochiFont.body(tuning.buttonTextSize), color = MochiColor.textPrimary)
     }
 }
 
-/** Pixel-measured from docs/figma/1.png: the FONTS/THEMES pills don't span the full card-row
- * width — they sit inset with roughly double the standard screen margin on each side (~32dp vs
- * the usual 16dp), so this row needs its own extra horizontal padding on top of the outer
- * Column's padding, not just weight(1f) filling the full available width. */
+/** The pills sit inset from the screen edges further than the rest of the page (Figma: 154px vs
+ * 82-91px), so this row gets its own extra padding on top of the shared screen margin. */
 @Composable
 private fun LibraryToggle(selected: LibraryTab, onSelect: (LibraryTab) -> Unit) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.padding(horizontal = 16.dp)
+        horizontalArrangement = Arrangement.spacedBy(HomeMetrics.pillGap),
+        modifier = Modifier.padding(horizontal = HomeMetrics.pillExtraInset)
     ) {
         ToggleButton("Fonts", selected == LibraryTab.FONTS, Modifier.weight(1f)) { onSelect(LibraryTab.FONTS) }
         ToggleButton("Themes", selected == LibraryTab.THEMES, Modifier.weight(1f)) { onSelect(LibraryTab.THEMES) }
     }
 }
 
-/** Pixel-measured from docs/figma/13.png: the "FONTS"/"THEMES" pill text has a cap-height ~1.6x
- * the action-card title's cap-height (59px vs 37px in the source crop) and fills a much larger
- * fraction of the pill's own height than a typical button label — bold, chunky, dominant text is
- * the actual Figma look, not a small label inside generous padding. */
 @Composable
 private fun ToggleButton(title: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val background = if (isSelected) {
-        Modifier.background(MochiGradient.primaryButton, CircleShape)
-    } else {
-        Modifier.background(Color.White, CircleShape).border(1.dp, MochiColor.purple.copy(alpha = 0.4f), CircleShape)
-    }
+    val shape = CircleShape
     Box(
         modifier = modifier
-            .clip(CircleShape)
-            .then(background)
-            .clickable(onClick = onClick)
-            .padding(vertical = 3.dp),
+            .height(HomeMetrics.pillHeight)
+            .clip(shape)
+            .then(
+                if (isSelected) {
+                    Modifier.background(MochiGradient.softButton)
+                } else {
+                    Modifier.background(Color.White).border(1.dp, MochiColor.purple.copy(alpha = 0.4f), shape)
+                }
+            )
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = title.uppercase(),
-            style = MochiFont.button(16.sp),
-            color = MochiColor.textPrimary
-        )
+        Text(text = title.uppercase(), style = MochiFont.title(HomeMetrics.pillLabelSize), color = MochiColor.textPrimary)
     }
 }
 
-/** Figma shows Popular Themes at a bigger fixed card size than Recently Applied, with the row
- * horizontally scrollable so exactly 2.5 cards are visible (the 3rd peeking at the edge as a
- * scroll affordance) rather than 3 equal-weight cards shrunk to fit fully on screen. 138dp solves
- * screenContentWidth(361dp) = 2*cardWidth + 2*gap(8dp) + 0.5*cardWidth for exactly a half-peek —
- * 148dp only left ~33% of the 3rd card visible. */
+/** Figma sizes Popular Themes cards bigger than Recently Applied's, horizontally scrollable so
+ * ~2.5 cards are visible (the 3rd peeking as a scroll affordance). */
 @Composable
-private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit, modifier: Modifier = Modifier) {
+private fun ThemesRow(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit) {
     Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(HomeMetrics.popularCardGap)
     ) {
         themes.forEach { theme ->
-            KeyboardPreviewCard(theme = theme, onTap = { onThemeClick(theme) }, modifier = Modifier.width(138.dp))
+            ThemeCardWithName(
+                theme = theme,
+                artRadius = HomeMetrics.popularArtRadius,
+                artRatio = HomeMetrics.carouselArtRatio,
+                onClick = { onThemeClick(theme) },
+                modifier = Modifier.width(HomeMetrics.popularCardWidth)
+            )
         }
     }
 }
 
-/** Figma sizes these bigger than "4 equal columns dividing the screen width" allows — the 4th
- * card visibly pokes past the screen edge, cut off, as a scroll affordance. Fixed 90dp width
- * (up from the ~84dp that 4-equal-columns produced) with horizontal scroll instead of weight(1f). */
+/** Real per-style decorative art rather than a flat system "Aa" glyph — Figma's Font Collection
+ * cards are bespoke illustrations. The "Aa" placeholder (fonts without extracted art) uses the
+ * logo font. */
 @Composable
-private fun FontsRow(fonts: List<FontItem>, modifier: Modifier = Modifier) {
+private fun FontsRow(fonts: List<FontItem>) {
+    val cardWidth = HomeMetrics.fontCardWidth
+    val cardHeight = cardWidth / HomeMetrics.fontCardRatio
     Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(HomeMetrics.fontCardGap)
     ) {
         fonts.forEach { font ->
             FontArtCard(
                 assetName = font.previewAssetName,
-                modifier = Modifier.width(90.dp).aspectRatio(1.23f)
+                cornerRadius = HomeMetrics.fontCardRadius,
+                modifier = Modifier.width(cardWidth).height(cardHeight)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(MochiRadius.card))
-                        .background(Color.White)
-                        .padding(6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .width(cardWidth)
+                        .height(cardHeight)
+                        .clip(RoundedCornerShape(HomeMetrics.fontCardRadius))
+                        .background(Color.White)
+                        .padding(8.dp)
                 ) {
-                    Text(text = "Aa", style = MochiFont.logo(24.sp), color = MochiColor.purple)
-                    Text(text = font.name, style = MochiFont.heading(10.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center, maxLines = 1)
-                    Text(text = font.styleDescription, style = MochiFont.caption(8.sp), color = MochiColor.textSecondary, textAlign = TextAlign.Center, maxLines = 1)
+                    Text(text = "Aa", style = MochiFont.logo((cardWidth.value * 0.27f).sp), color = MochiColor.purple)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(text = font.name, style = MochiFont.heading((cardWidth.value * 0.1f).sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center, maxLines = 1)
+                        Text(text = font.styleDescription, style = MochiFont.body((cardWidth.value * 0.083f).sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center, maxLines = 1)
+                    }
                 }
             }
         }
