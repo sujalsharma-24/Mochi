@@ -1,0 +1,79 @@
+package com.mochi.keyboard.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mochi.keyboard.designsystem.MochiColor
+import com.mochi.keyboard.designsystem.MochiFont
+import com.mochi.keyboard.designsystem.MochiGradient
+import com.mochi.keyboard.designsystem.MochiSpacing
+
+/** Ported from ios/MochiApp/Components/GradientButton.swift */
+@Composable
+fun GradientButton(
+    title: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    fillMaxWidth: Boolean = true,
+    compact: Boolean = false,
+    gradient: Brush = MochiGradient.primaryButton,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier
+            .then(if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier)
+            .clip(CircleShape)
+            .background(gradient),
+        contentPadding = if (compact) {
+            androidx.compose.foundation.layout.PaddingValues(horizontal = MochiSpacing.sm, vertical = 5.dp)
+        } else {
+            androidx.compose.foundation.layout.PaddingValues(vertical = 14.dp)
+        }
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(MochiSpacing.xs, Alignment.CenterHorizontally)
+        ) {
+            if (icon != null) {
+                Icon(imageVector = icon, contentDescription = null, tint = MochiColor.textPrimary)
+            }
+            Text(text = title, style = if (compact) MochiFont.button(12.sp) else MochiFont.button(), color = MochiColor.textPrimary)
+        }
+    }
+}
+
+@Composable
+fun OutlineButton(
+    title: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(1.dp, MochiColor.purple.copy(alpha = 0.35f), CircleShape),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 14.dp)
+    ) {
+        Text(text = title, style = MochiFont.button(), color = MochiColor.textPrimary)
+    }
+}
