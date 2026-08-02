@@ -13,12 +13,16 @@ data class KeyboardTheme(
     val likeCountFormatted: String get() = likeCount.formattedCompact()
 }
 
+/** `previewAssetName` is Home's small font-row tile; `artAssetName` is the larger Fonts-page grid
+ * crop. Nature Flow and Gothic Dark have no composed small tile, so both names point at the same
+ * art crop for them (see MockData.fontCollection). */
 data class FontItem(
     val id: String,
     val name: String,
     val styleDescription: String,
     val isPremium: Boolean,
-    val previewAssetName: String
+    val previewAssetName: String,
+    val artAssetName: String
 )
 
 data class Creator(

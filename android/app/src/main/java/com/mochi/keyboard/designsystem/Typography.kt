@@ -27,9 +27,16 @@ private val fredokaLogo = FontFamily(
     Font(R.font.fredoka, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600)))
 )
 
+/** Kaushan Script — Fonts page's letter-grid preview only (docs/figma/5.png). Figma's Design panel
+ * names it directly; OFL-licensed, see android/licenses/KaushanScript-OFL.txt. */
+private val kaushanScript = FontFamily(Font(R.font.kaushan_script_regular, FontWeight.Normal))
+
 object MochiFont {
     /** Fredoka, wght 600 — the one style that stays off Inter. */
     fun logo(size: TextUnit = 34.sp) = TextStyle(fontSize = size, fontWeight = FontWeight.SemiBold, fontFamily = fredokaLogo)
+
+    /** Kaushan Script Regular — the Fonts page letter-grid preview, not a UI text style. */
+    fun script(size: TextUnit = 20.sp) = TextStyle(fontSize = size, fontWeight = FontWeight.Normal, fontFamily = kaushanScript)
 
     /** Bold — section headings ("POPULAR THEMES") and pill labels ("FONTS" / "THEMES"). */
     fun title(size: TextUnit = 22.sp) = TextStyle(fontSize = size, fontWeight = FontWeight.Bold, fontFamily = interBold)

@@ -58,12 +58,23 @@ object MockData {
 
     val allThemes = popularThemes + latestCreations + shopThemes
 
-    val fonts = listOf(
-        FontItem("bubble-cute", "Bubble Cute", "Rounded & Playful", false, "font_bubble_cute"),
-        FontItem("handwritten-elegant", "Handwritten Elegant", "Smooth & Natural", true, "font_handwritten_elegant"),
-        FontItem("typewriter-classic", "Typewriter Classic", "Clean & Readable", false, "font_typewriter_classic"),
-        FontItem("bold-strong", "Bold Strong", "Bold & Impactful", true, "font_bold_strong")
+    /** The Fonts page's 2x3 grid (docs/figma/5.png). Nature Flow and Gothic Dark exist only here —
+     * they have no composed small `font_*` tile, so their previewAssetName points at the art crop
+     * and they're kept out of `fonts` below rather than shipped to Home with the wrong artwork. */
+    val fontCollection = listOf(
+        FontItem("bubble-cute", "Bubble Cute", "Rounded & Playful", false, "font_bubble_cute", "fontart_bubble_cute"),
+        FontItem("handwritten-elegant", "Handwritten Elegant", "Smooth & Natural", true, "font_handwritten_elegant", "fontart_handwritten_elegant"),
+        FontItem("typewriter-classic", "Typewriter Classic", "Clean & Readable", false, "font_typewriter_classic", "fontart_typewriter_classic"),
+        FontItem("bold-strong", "Bold Strong", "Bold & Impactful", true, "font_bold_strong", "fontart_bold_strong"),
+        FontItem("nature-flow", "Nature Flow", "Fresh & Calm", false, "fontart_nature_flow", "fontart_nature_flow"),
+        FontItem("gothic-dark", "Gothic Dark", "Unique & Stylish", true, "fontart_gothic_dark", "fontart_gothic_dark")
     )
+
+    /** Home's font row, which only has room for four. */
+    val fonts = fontCollection.take(4)
+
+    /** Figma's "MY DOWNLOADED FONTS" strip — the same six minus Typewriter Classic, in Figma's own order. */
+    val downloadedFonts = listOf(fontCollection[0], fontCollection[1], fontCollection[3], fontCollection[4], fontCollection[5])
 
     /** Popular Creators (screen 2) — matches Figma exactly (names, theme counts). */
     val topCreators = listOf(
