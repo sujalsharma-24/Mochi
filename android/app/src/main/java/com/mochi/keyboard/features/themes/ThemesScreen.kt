@@ -1,5 +1,6 @@
 package com.mochi.keyboard.features.themes
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,24 +10,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,321 +42,532 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.mochi.keyboard.components.GradientButton
-import com.mochi.keyboard.components.ThemeArt
+import com.mochi.keyboard.R
+import com.mochi.keyboard.components.DownloadGlyph
+import com.mochi.keyboard.components.FunnelGlyph
+import com.mochi.keyboard.components.PencilGlyph
+import com.mochi.keyboard.components.SlidersGlyph
+import com.mochi.keyboard.components.SparkleField
+import com.mochi.keyboard.components.TripleDot
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiGradient
-import com.mochi.keyboard.designsystem.MochiRadius
-import com.mochi.keyboard.designsystem.MochiSpacing
+import com.mochi.keyboard.designsystem.ThemesMetrics
+import com.mochi.keyboard.designsystem.ThemesType
 import com.mochi.keyboard.mockdata.MockData
 import com.mochi.keyboard.model.KeyboardTheme
 
-@Preview(showBackground = true, widthDp = 393, heightDp = 2100)
+@Preview(showBackground = true, widthDp = 393, heightDp = 2400)
 @Composable
 private fun ThemesScreenPreview() {
     ThemesScreen()
 }
 
-private val categories = listOf("All", "Cute", "Handwritten", "Minimal", "Bold", "Elegant", "Other")
+/** The seven categories the Fonts frame also uses, with the same marks. Widths/icon widths are
+ * measured off the export rather than derived from content, per ThemesView.swift's own Category
+ * enum — letting labels size the pills pushed "Other" off-screen there, so the exact figures are
+ * carried over 1:1 (iOS points == Compose dp). */
+private enum class ThemeCategory(val label: String, val width: Dp, val iconWidth: Dp) {
+    ALL("All", 36.14.dp, 6.12.dp),
+    CUTE("Cute", 37.99.dp, 9.82.dp),
+    HANDWRITTEN("Handwritten", 60.61.dp, 6.86.dp),
+    MINIMAL("Minimal", 45.41.dp, 7.97.dp),
+    BOLD("Bold", 33.55.dp, 3.89.dp),
+    ELEGANT("Elegant", 43.55.dp, 3.52.dp),
+    OTHER("Other", 33.18.dp, 5.75.dp)
+}
 
-/** Ported from docs/figma/8.png */
+/** Same real-art catalog names as ThemeArt's, but drawn flat/clipped instead of with that
+ * component's purple-tinted card shadow — ThemesView.swift applies no shadow anywhere on this
+ * page, unlike Home's theme rows. Mirrors ProfileScreen's profileArt precedent for the same
+ * reason. */
+private val themesArt: Map<String, Int> = mapOf(
+    "theme_fantasy_castle_night" to R.drawable.theme_fantasy_castle_night,
+    "theme_space_vibe" to R.drawable.theme_space_vibe,
+    "theme_dreamy_castle" to R.drawable.theme_dreamy_castle,
+    "theme_pastel_pink_sky" to R.drawable.theme_pastel_pink_sky,
+    "theme_forest" to R.drawable.theme_forest,
+    "theme_cozy_sakura_cafe" to R.drawable.theme_cozy_sakura_cafe,
+    "theme_pastel_rainbow" to R.drawable.theme_pastel_rainbow,
+    "theme_sakura_train" to R.drawable.theme_sakura_train,
+    "theme_kawaii_boba" to R.drawable.theme_kawaii_boba
+)
+
+@Composable
+private fun ThemesArtImage(assetName: String, modifier: Modifier = Modifier) {
+    val resId = themesArt[assetName] ?: return
+    Image(painter = painterResource(resId), contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
+}
+
+/** Ported from ios/MochiApp/Features/Themes/ThemesView.swift against docs/figma/8.png. Geometry
+ * lives in ThemesMetrics/ThemesType (designsystem/ThemesMetrics.kt), not here. iOS wires no
+ * interaction at all on this page beyond the category-pill selection state — Preview/Apply and
+ * the card tap are plain styled Text, not Button — so none is added here either. */
 @Composable
 fun ThemesScreen(
     modifier: Modifier = Modifier,
     onSearchClick: () -> Unit = {},
     onWallpapersClick: () -> Unit = {}
 ) {
-    var selectedCategory by remember { mutableStateOf("All") }
-    var modalTheme by remember { mutableStateOf<KeyboardTheme?>(null) }
+    var category by remember { mutableStateOf(ThemeCategory.ALL) }
 
-    Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(R.drawable.themes_background),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        SparkleField(modifier = Modifier.fillMaxSize())
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = MochiSpacing.md)
-                .padding(top = MochiSpacing.md, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = ThemesMetrics.margin)
+                .padding(bottom = 100.dp)
+                // Compose's padding() rejects negative values (unlike SwiftUI); offset() shifts
+                // the whole column up the same way without that restriction.
+                .offset(y = ThemesMetrics.contentTop)
         ) {
+            Spacer(modifier = Modifier.height(ThemesMetrics.headerTop))
             ThemesHeader(onSearchClick)
-            CategoryChips(selectedCategory) { selectedCategory = it }
-            FilterRow()
-            ThemeShopGrid { modalTheme = it }
-            LiveWallpapersBanner(onWallpapersClick)
-            DownloadedThemesRow()
-        }
 
-        modalTheme?.let { theme ->
-            ApplyThemeModal(theme, onDismiss = { modalTheme = null })
+            Spacer(modifier = Modifier.height(ThemesMetrics.headerToPills))
+            CategoryBar(selected = category, onSelect = { category = it })
+
+            Spacer(modifier = Modifier.height(ThemesMetrics.pillsToFilter))
+            FilterRow()
+
+            Spacer(modifier = Modifier.height(ThemesMetrics.filterToGrid))
+            CardGrid(MockData.shopThemes)
+
+            Spacer(modifier = Modifier.height(ThemesMetrics.gridToHeading))
+            DownloadedSection(MockData.downloadedThemes)
         }
     }
 }
+
+// region Header
 
 @Composable
 private fun ThemesHeader(onSearchClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        CircleIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack)
-        Column(modifier = Modifier.weight(1f).padding(horizontal = MochiSpacing.sm), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().height(ThemesMetrics.circleButton)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            ThemesCircleButton(icon = Icons.AutoMirrored.Filled.ArrowBack)
+            Spacer(modifier = Modifier.weight(1f))
+            ThemesCircleButton(icon = Icons.Filled.Search, onClick = onSearchClick)
+        }
+
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(ThemesMetrics.titleToSubtitle)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.badgeToTitle)
+            ) {
                 Box(
-                    modifier = Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(MochiColor.purple),
+                    modifier = Modifier
+                        .size(ThemesMetrics.badge)
+                        .clip(RoundedCornerShape(ThemesMetrics.badgeRadius))
+                        .background(MochiGradient.themeBadge),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVector = com.mochi.keyboard.ui.MochiTab.THEMES.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Icon(
+                        painter = painterResource(R.drawable.icon_palette_outline),
+                        contentDescription = null,
+                        tint = MochiColor.textPrimary,
+                        modifier = Modifier.size(ThemesMetrics.badgeGlyph)
+                    )
                 }
-                Text(text = "Themes", style = MochiFont.title(26.sp), color = MochiColor.purple)
+                Text(text = "Themes", style = MochiFont.title(ThemesType.pageTitle), color = MochiColor.logoSolid)
             }
-            Text(text = "Browse and apply beautiful themes", style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
+            Text(
+                text = "Browse and apply beautiful themes",
+                style = MochiFont.caption(ThemesType.pageSubtitle),
+                color = MochiColor.textGreyWarm
+            )
         }
-        CircleIconButton(icon = Icons.Filled.Search, onClick = onSearchClick)
     }
 }
 
+/** Both header discs share this ramp under a black glyph — a matched pair, unlike Fonts' search
+ * button which is a flat logoSolid disc with a white glyph. */
 @Composable
-private fun CircleIconButton(icon: ImageVector, onClick: () -> Unit = {}) {
+private fun ThemesCircleButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit = {}) {
     Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.primaryButton).clickable(onClick = onClick),
+        modifier = Modifier
+            .size(ThemesMetrics.circleButton)
+            .clip(CircleShape)
+            .background(MochiGradient.themeCircleButton)
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = Color.White)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MochiColor.textPrimary,
+            modifier = Modifier.size(ThemesMetrics.circleButton * 0.40f)
+        )
     }
 }
 
+// endregion
+
+// region Category bar
+
 @Composable
-private fun LiveWallpapersBanner(onClick: () -> Unit) {
+private fun CategoryBar(selected: ThemeCategory, onSelect: (ThemeCategory) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(MochiRadius.card))
+            .height(ThemesMetrics.pillBarHeight)
+            .clip(CircleShape)
             .background(Color.White)
-            .clickable(onClick = onClick)
-            .padding(MochiSpacing.md),
-        verticalAlignment = Alignment.CenterVertically
+            .border(ThemesMetrics.hairline, MochiColor.logoSolid, CircleShape)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = ThemesMetrics.pillBarInset),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.pillGap)
     ) {
-        Box(
-            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MochiGradient.primaryButton),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "🌌", style = MochiFont.heading(18.sp))
+        ThemeCategory.entries.forEach { item ->
+            CategoryPill(item = item, isSelected = item == selected, onSelect = { onSelect(item) })
         }
-        Column(modifier = Modifier.weight(1f).padding(horizontal = MochiSpacing.sm)) {
-            Text(text = "Live Wallpapers", style = MochiFont.heading(14.sp), color = MochiColor.purple)
-            Text(text = "5 animated wallpapers · Premium", style = MochiFont.caption(11.sp), color = MochiColor.textSecondary)
-        }
-        Text(text = "›", style = MochiFont.heading(18.sp), color = MochiColor.purple)
     }
 }
 
 @Composable
-private fun CategoryChips(selected: String, onSelect: (String) -> Unit) {
+private fun CategoryPill(item: ThemeCategory, isSelected: Boolean, onSelect: () -> Unit) {
     Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+        modifier = Modifier
+            .width(item.width)
+            .height(ThemesMetrics.pillHeight)
+            .clip(CircleShape)
+            .then(
+                if (isSelected) Modifier.background(MochiGradient.themeButton)
+                else Modifier.border(ThemesMetrics.hairline, MochiColor.logoSolid, CircleShape)
+            )
+            .clickable(onClick = onSelect),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.pillIconGap, Alignment.CenterHorizontally)
     ) {
-        categories.forEach { category ->
-            val isSelected = category == selected
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(MochiRadius.pill))
-                    .then(
-                        if (isSelected) Modifier.background(MochiGradient.primaryButton)
-                        else Modifier.background(Color.White).border(1.dp, MochiColor.purple.copy(alpha = 0.25f), RoundedCornerShape(MochiRadius.pill))
-                    )
-                    .clickable { onSelect(category) }
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                Text(text = category, style = MochiFont.body(13.sp), color = MochiColor.textPrimary)
-            }
+        CategoryIcon(item)
+        Text(text = item.label, style = MochiFont.body(ThemesType.pill), color = MochiColor.textPrimary, maxLines = 1)
+    }
+}
+
+/** Figma gives each category a different kind of mark: three are set in type ("Aa", "B", "E"),
+ * two are drawn Path glyphs, "All" is a system-style grid mark, and "Cute" is rendered artwork
+ * (a purple bow) rather than a glyph. */
+@Composable
+private fun CategoryIcon(item: ThemeCategory) {
+    val density = LocalDensity.current
+    val glyphStrokePx = with(density) { ThemesMetrics.glyphStroke.toPx() }
+
+    Box(modifier = Modifier.width(item.iconWidth), contentAlignment = Alignment.Center) {
+        when (item) {
+            ThemeCategory.ALL -> Icon(
+                imageVector = Icons.Filled.GridView,
+                contentDescription = null,
+                tint = MochiColor.textPrimary,
+                modifier = Modifier.size(item.iconWidth * 0.95f)
+            )
+            ThemeCategory.CUTE -> Image(
+                painter = painterResource(R.drawable.icon_bow),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(item.iconWidth)
+            )
+            ThemeCategory.HANDWRITTEN -> PencilGlyph(
+                color = MochiColor.textPrimary,
+                strokeWidth = glyphStrokePx,
+                modifier = Modifier.size(item.iconWidth)
+            )
+            ThemeCategory.MINIMAL -> Text(text = "Aa", style = MochiFont.heading(ThemesType.pill), color = MochiColor.textPrimary)
+            ThemeCategory.BOLD -> Text(text = "B", style = MochiFont.title(ThemesType.pill), color = MochiColor.textPrimary)
+            ThemeCategory.ELEGANT -> Text(text = "E", style = MochiFont.heading(ThemesType.pill), color = MochiColor.textPrimary)
+            ThemeCategory.OTHER -> TripleDot(
+                color = MochiColor.textPrimary,
+                modifier = Modifier.width(item.iconWidth).height(1.48.dp)
+            )
         }
     }
 }
 
+// endregion
+
+// region Filter row
+
+/** Right-aligned; unlike the Fonts frame there is no "Soft by" capsule on the left of it. */
 @Composable
 private fun FilterRow() {
+    val density = LocalDensity.current
+    val glyphStrokePx = with(density) { ThemesMetrics.glyphStroke.toPx() }
+
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(MochiRadius.pill))
-                .border(1.dp, MochiColor.purple.copy(alpha = 0.25f), RoundedCornerShape(MochiRadius.pill))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
+                .width(ThemesMetrics.filterWidth)
+                .height(ThemesMetrics.filterHeight)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(ThemesMetrics.hairline, MochiColor.logoSolid, CircleShape),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.filterHeight * 0.16f, Alignment.CenterHorizontally)
         ) {
-            Text(text = "Filter", style = MochiFont.caption(13.sp), color = MochiColor.textPrimary)
+            FunnelGlyph(
+                color = MochiColor.logoSolid,
+                style = Stroke(width = glyphStrokePx, join = StrokeJoin.Round),
+                modifier = Modifier.size(width = ThemesMetrics.funnelGlyph.width, height = ThemesMetrics.funnelGlyph.height)
+            )
+            Text(text = "Filter", style = MochiFont.caption(ThemesType.filter), color = MochiColor.logoSolid)
         }
-        Spacer(modifier = Modifier.width(8.dp))
+
+        Spacer(modifier = Modifier.width(ThemesMetrics.filterGap))
+
         Box(
-            modifier = Modifier.size(36.dp).clip(CircleShape).border(1.dp, MochiColor.purple.copy(alpha = 0.25f), CircleShape),
+            modifier = Modifier
+                .width(ThemesMetrics.slidersWidth)
+                .height(ThemesMetrics.filterHeight)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(ThemesMetrics.hairline, MochiColor.logoSolid, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(imageVector = Icons.Filled.Tune, contentDescription = "Filter options", tint = MochiColor.textPrimary, modifier = Modifier.size(18.dp))
+            SlidersGlyph(
+                color = MochiColor.logoSolid,
+                strokeWidth = glyphStrokePx,
+                modifier = Modifier.size(width = ThemesMetrics.slidersGlyph.width, height = ThemesMetrics.slidersGlyph.height)
+            )
         }
     }
 }
 
+// endregion
+
+// region Card grid
+
 @Composable
-private fun ThemeShopGrid(onSelect: (KeyboardTheme) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
-        MockData.shopThemes.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
-                row.forEach { theme ->
-                    ThemeShopCard(theme, Modifier.weight(1f)) { onSelect(theme) }
-                }
-                repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+private fun CardGrid(themes: List<KeyboardTheme>) {
+    Column(verticalArrangement = Arrangement.spacedBy(ThemesMetrics.cardGap)) {
+        themes.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.cardGap)) {
+                row.forEach { theme -> ThemeGridCard(theme) }
             }
         }
     }
 }
 
 @Composable
-private fun ThemeShopCard(theme: KeyboardTheme, modifier: Modifier = Modifier, onTap: () -> Unit) {
+private fun ThemeGridCard(theme: KeyboardTheme) {
+    val density = LocalDensity.current
+
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(MochiRadius.card))
-            .background(Color.White)
-            .clickable(onClick = onTap),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = Modifier
+            .width(ThemesMetrics.cardWidth)
+            .clip(RoundedCornerShape(ThemesMetrics.cardRadius))
     ) {
         Box {
-            ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
+            ThemesArtImage(
+                assetName = theme.imageAssetName,
+                modifier = Modifier
+                    .width(ThemesMetrics.cardWidth)
+                    .height(ThemesMetrics.cardWidth / ThemesMetrics.cardArtAspect)
+            )
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .size(22.dp)
+                    .padding(top = ThemesMetrics.downloadTop, end = ThemesMetrics.downloadTrailing)
+                    .size(ThemesMetrics.download)
                     .clip(CircleShape)
                     .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = Icons.Filled.Download, contentDescription = null, tint = MochiColor.purple, modifier = Modifier.size(12.dp))
+                DownloadGlyph(
+                    color = MochiColor.downloadGlyph,
+                    strokeWidth = with(density) { (ThemesMetrics.download * 0.046f).toPx() },
+                    modifier = Modifier.size(width = ThemesMetrics.download * 0.477f, height = ThemesMetrics.download * 0.492f)
+                )
             }
         }
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(text = theme.name, style = MochiFont.heading(12.sp), color = MochiColor.textPrimary, maxLines = 1)
-            Text(text = "by ${theme.creatorName}", style = MochiFont.caption(10.sp), color = MochiColor.purple, maxLines = 1)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                Icon(imageVector = Icons.Filled.Favorite, contentDescription = null, tint = MochiColor.pink, modifier = Modifier.size(10.dp))
-                Text(text = theme.likeCountFormatted, style = MochiFont.caption(10.sp), color = MochiColor.textSecondary)
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                SmallPillButton(title = "Preview", modifier = Modifier.weight(1f), filled = false) {}
-                SmallPillButton(title = "Apply", modifier = Modifier.weight(1f), filled = true, onClick = onTap)
-            }
-        }
-    }
-}
 
-@Composable
-private fun SmallPillButton(title: String, modifier: Modifier = Modifier, filled: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(MochiRadius.pill))
-            .then(
-                if (filled) Modifier.background(MochiGradient.primaryButton)
-                else Modifier.background(Color.White).border(1.dp, MochiColor.purple.copy(alpha = 0.35f), RoundedCornerShape(MochiRadius.pill))
-            )
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = title, style = MochiFont.caption(9.sp), color = MochiColor.textPrimary)
-    }
-}
-
-@Composable
-private fun DownloadedThemesRow() {
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = "MY DOWNLOADED THEMES", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-            Text(text = "see all", style = MochiFont.caption(13.sp), color = MochiColor.textPrimary)
-        }
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
-        ) {
-            MockData.downloadedThemes.forEach { theme ->
-                Column(
-                    modifier = Modifier.width(150.dp).clip(RoundedCornerShape(MochiRadius.card)).background(Color.White),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Box {
-                        ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.fillMaxWidth().aspectRatio(1.4f))
-                        Icon(
-                            imageVector = Icons.Filled.MoreVert,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(4.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.3f))
-                                .size(18.dp)
-                        )
-                    }
-                    Text(
-                        text = theme.name,
-                        style = MochiFont.caption(11.sp),
-                        color = MochiColor.textPrimary,
-                        maxLines = 1,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier.padding(horizontal = 6.dp).padding(bottom = 6.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ApplyThemeModal(theme: KeyboardTheme, onDismiss: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.4f))
-            .clickable(onClick = onDismiss),
-        contentAlignment = Alignment.Center
-    ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = MochiSpacing.lg)
-                .clip(RoundedCornerShape(MochiRadius.sheet))
+                .width(ThemesMetrics.cardWidth)
+                .height(ThemesMetrics.cardBodyHeight)
                 .background(Color.White)
-                .clickable(enabled = false) {}
-                .padding(MochiSpacing.md),
-            verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+                .padding(horizontal = ThemesMetrics.cardPad)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
-                ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.size(90.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(text = theme.name, style = MochiFont.heading(16.sp), color = MochiColor.textPrimary)
-                    Text(text = "by ${theme.creatorName}", style = MochiFont.caption(12.sp), color = MochiColor.purple)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "Apply this theme to your keyboard?", style = MochiFont.body(12.sp), color = MochiColor.textSecondary)
+            Spacer(modifier = Modifier.height(ThemesMetrics.bodyTopToTitle))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(ThemesMetrics.titleToByline)
+                ) {
+                    Text(
+                        text = theme.name,
+                        style = MochiFont.caption(ThemesType.cardTitle),
+                        color = MochiColor.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = theme.creatorName,
+                        style = MochiFont.caption(ThemesType.cardByline),
+                        color = MochiColor.creatorLink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.width(1.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.heartToCount)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Favorite,
+                        contentDescription = null,
+                        tint = MochiColor.heart,
+                        modifier = Modifier.size(width = ThemesMetrics.heart.width, height = ThemesMetrics.heart.height)
+                    )
+                    Text(text = theme.likeCountFormatted, style = MochiFont.caption(ThemesType.likeCount), color = MochiColor.textPrimary)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("Beautiful Design", "Smooth Typing", "Lightweight").forEach { tag ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(MochiRadius.pill))
-                            .border(1.dp, MochiColor.purple.copy(alpha = 0.25f), RoundedCornerShape(MochiRadius.pill))
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text(text = tag, style = MochiFont.caption(9.sp), color = MochiColor.textPrimary)
-                    }
+
+            Spacer(modifier = Modifier.height(ThemesMetrics.bylineToButtons))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.cardButtonGap)) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(ThemesMetrics.cardButtonHeight)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(ThemesMetrics.hairline, MochiColor.logoSolid, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "Preview", style = MochiFont.body(ThemesType.previewButton), color = MochiColor.textPrimary)
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(ThemesMetrics.cardButtonHeight)
+                        .clip(CircleShape)
+                        .background(MochiGradient.themeButton),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "Apply", style = MochiFont.body(ThemesType.applyButton), color = MochiColor.textPrimary)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-                SmallPillButton(title = "Preview", modifier = Modifier.weight(1f).height(40.dp), filled = false, onClick = onDismiss)
-                Box(modifier = Modifier.weight(1f)) {
-                    GradientButton(title = "Download & Apply", modifier = Modifier.height(40.dp), onClick = onDismiss)
-                }
-            }
+
+            Spacer(modifier = Modifier.height(ThemesMetrics.bodyBottom))
         }
     }
 }
+
+// endregion
+
+// region Downloaded strip
+
+@Composable
+private fun DownloadedSection(themes: List<KeyboardTheme>) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = ThemesMetrics.headingInset),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "MY DOWNLOADED THEMES",
+                style = MochiFont.title(ThemesType.sectionTitle),
+                color = MochiColor.textPrimary,
+                modifier = Modifier.weight(1f)
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.seeAllGap)) {
+                Text(text = "see all", style = MochiFont.body(ThemesType.seeAll), color = MochiColor.logoSolid)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MochiColor.logoSolid,
+                    modifier = Modifier.size((ThemesType.seeAll.value * 0.80f).dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(ThemesMetrics.headingToStrip))
+
+        // The four tiles (85.43dp + 9.82dp gap, times four) land within a rounding error of the
+        // 372dp content width, so this fills the row rather than genuinely needing to scroll —
+        // still wrapped for headroom on narrower devices, same as the rest of the app's rows.
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.downloadCardGap)
+        ) {
+            themes.forEach { theme -> DownloadCard(theme) }
+        }
+    }
+}
+
+@Composable
+private fun DownloadCard(theme: KeyboardTheme) {
+    Column(
+        modifier = Modifier
+            .width(ThemesMetrics.downloadCard)
+            .clip(RoundedCornerShape(ThemesMetrics.downloadRadius))
+    ) {
+        Box {
+            ThemesArtImage(
+                assetName = theme.imageAssetName,
+                modifier = Modifier
+                    .width(ThemesMetrics.downloadCard)
+                    .height(ThemesMetrics.downloadCard / ThemesMetrics.downloadArtAspect)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = ThemesMetrics.ellipsisTop, end = ThemesMetrics.ellipsisTrailing)
+                    .size(ThemesMetrics.ellipsisDisc)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MoreHoriz,
+                    contentDescription = null,
+                    tint = MochiColor.textPrimary,
+                    modifier = Modifier.size(ThemesMetrics.ellipsisDisc * 0.44f)
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .width(ThemesMetrics.downloadCard)
+                .height(ThemesMetrics.downloadBodyHeight)
+                .background(Color.White)
+                .padding(horizontal = ThemesMetrics.downloadNamePad),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = theme.name,
+                style = MochiFont.caption(ThemesType.downloadName),
+                color = MochiColor.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// endregion
