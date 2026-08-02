@@ -8,16 +8,19 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,15 +31,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -46,180 +46,315 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mochi.keyboard.R
+import com.mochi.keyboard.components.ColorWheelGlyph
+import com.mochi.keyboard.components.FloppyGlyph
+import com.mochi.keyboard.components.HexagonShape
+import com.mochi.keyboard.components.KeycapGlyph
+import com.mochi.keyboard.components.SparkleField
+import com.mochi.keyboard.designsystem.CreateMetrics
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiGradient
-import com.mochi.keyboard.designsystem.MochiRadius
-import com.mochi.keyboard.designsystem.MochiSpacing
 
-@Preview(showBackground = true, widthDp = 393, heightDp = 3300)
+@Preview(showBackground = true, widthDp = 393, heightDp = 3200)
 @Composable
 private fun CreateThemeScreenPreview() {
     CreateThemeScreen()
 }
 
-private enum class CreateTab(val title: String) { BACKGROUND("Background"), KEYS("Keys"), FONTS("Fonts"), EFFECT("Effect") }
+private enum class EditorTab(val label: String) { BACKGROUND("Background"), KEYS("Keys"), FONTS("Fonts"), EFFECT("Effect") }
 
-private val rainbow = Brush.horizontalGradient(
-    colors = listOf(Color.Red, Color(0xFFFFA500), Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta)
+private val backgroundArt = listOf(R.drawable.create_bg_thumb_1, R.drawable.create_bg_thumb_2, R.drawable.create_bg_thumb_3, R.drawable.create_bg_thumb_4)
+private val fontStyleSpecimens = listOf(
+    R.drawable.create_fontstyle_default to "Default",
+    R.drawable.create_fontstyle_rounded to "Rounded",
+    R.drawable.create_fontstyle_cute to "Cute",
+    R.drawable.create_fontstyle_classic to "Classic",
+    R.drawable.create_fontstyle_handwritten to "Handwritten"
 )
 
-/** Ported from docs/figma/4.png */
+/** Ported from ios/MochiApp/Features/Create/CreateThemeView.swift against docs/figma/4.png. iOS
+ * lays this one page out on an absolute canvas — three ragged columns overlap vertically in the
+ * middle third (KEY SHAPE / KEY COLOR / RECENT, then LETTER COLOR / FONT STYLE) — because no stack
+ * of rows reproduces that without inventing spacing the design never had. Per-element sizes are
+ * carried over via CreateMetrics (each measured Figma px * k, k = 402/2161, the same convention
+ * every other screen's Metrics file uses); the column *grouping* is reproduced with ordinary
+ * Row/Column nesting instead of iOS's x/y coordinates, the same call Profile's and Themes'
+ * absolute-canvas sections made, just applied at a larger structural scale here. The saturation
+ * squares, hue rails and their knobs are static in iOS too — no gesture is wired to them there
+ * either, so none is added here. */
 @Composable
 fun CreateThemeScreen(modifier: Modifier = Modifier) {
-    var selectedTab by remember { mutableStateOf(CreateTab.FONTS) }
-    var selectedBg by remember { mutableStateOf(0) }
-    var selectedKeyShape by remember { mutableStateOf(0) }
-    var selectedFontStyle by remember { mutableStateOf(0) }
-    var themeName by remember { mutableStateOf("My Dreamy Theme") }
+    var tab by remember { mutableStateOf(EditorTab.FONTS) }
+    var background by remember { mutableStateOf(0) }
+    var keyShape by remember { mutableStateOf(0) }
+    var fontStyle by remember { mutableStateOf(0) }
+    var themeName by remember { mutableStateOf("") }
+    var tags by remember { mutableStateOf(listOf("Cute", "Purple", "Dream", "Cloud")) }
 
-    Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(R.drawable.create_background),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        SparkleField(modifier = Modifier.fillMaxSize())
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = MochiSpacing.md)
-                .padding(top = MochiSpacing.md, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = CreateMetrics.margin)
+                .padding(bottom = 96.dp)
+                .offset(y = CreateMetrics.contentTop),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             CreateHeader()
-            LivePreviewBanner()
-            SegmentedTabs(selectedTab) { selectedTab = it }
-            BackgroundSection(selectedBg) { selectedBg = it }
-            KeyShapeSection(selectedKeyShape) { selectedKeyShape = it }
-            KeyColorSection()
-            LetterColorPickerSection()
-            FontStyleSection(selectedFontStyle) { selectedFontStyle = it }
-            LivePreviewToggleBanner()
-            ThemeNameSection(themeName) { themeName = it }
-            TagsSection()
+            KeyboardPreview()
+            EditorTabBar(selected = tab, onSelect = { tab = it })
+            BackgroundCard(selected = background, onSelect = { background = it })
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KeyShapeSection(selected = keyShape, onSelect = { keyShape = it }, modifier = Modifier.weight(1.75f))
+                KeyColorSection(modifier = Modifier.weight(1.35f))
+                RecentSection(modifier = Modifier.weight(0.95f))
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LetterColorSection(modifier = Modifier.weight(1.4f))
+                FontStyleSection(selected = fontStyle, onSelect = { fontStyle = it }, modifier = Modifier.weight(2.8f))
+            }
+
+            LivePreviewCard()
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ThemeNameField(
+                    value = themeName,
+                    onValueChange = { themeName = it },
+                    modifier = Modifier.weight(CreateMetrics.nameFieldWeight)
+                )
+                TagsField(
+                    tags = tags,
+                    onRemove = { tag -> tags = tags.filterNot { it == tag } },
+                    modifier = Modifier.weight(CreateMetrics.tagsFieldWeight)
+                )
+            }
+
             ActionButtonsRow()
         }
     }
 }
 
+/** The purple ring every white panel on this frame carries. */
+private fun Modifier.panelBorder(shape: Shape) = this.border(CreateMetrics.panelStroke, MochiColor.outline, shape)
+
+private fun Modifier.panelBorderSolid(shape: Shape) = this.border(CreateMetrics.panelStroke, MochiColor.logoSolid, shape)
+
+@Composable
+private fun CheckBadge(diameter: Dp) {
+    Box(
+        modifier = Modifier.size(diameter).clip(CircleShape).background(MochiColor.logoSolid),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(imageVector = Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(diameter * 0.52f))
+    }
+}
+
+// region Header / preview / tabs
+
 @Composable
 private fun CreateHeader() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MochiGradient.primaryButton),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-            }
-            Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "Create Custom Theme", style = MochiFont.title(22.sp), color = MochiColor.purple)
-                Text(text = "Design your own keyboard theme", style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
-            }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(CreateMetrics.circleButton)
+                .clip(CircleShape)
+                .background(MochiGradient.themeCircleButton),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = MochiColor.textPrimary,
+                modifier = Modifier.size(CreateMetrics.backArrowIcon)
+            )
+        }
+        Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "Create Custom Theme", style = MochiFont.title(CreateMetrics.titleSize), color = MochiColor.logoSolid)
+            Text(text = "Design your own keyboard theme", style = MochiFont.body(CreateMetrics.subtitleSize), color = MochiColor.textGreyWarm)
         }
     }
 }
 
 @Composable
-private fun LivePreviewBanner() {
+private fun KeyboardPreview() {
     Image(
-        painter = painterResource(R.drawable.create_live_preview),
+        painter = painterResource(R.drawable.create_keyboard_preview),
         contentDescription = "Live keyboard preview",
         contentScale = ContentScale.Crop,
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1.05f)
-            .clip(RoundedCornerShape(MochiRadius.card))
+            .aspectRatio(CreateMetrics.keyboardPreviewAspect)
+            .clip(RoundedCornerShape(CreateMetrics.keyboardPreviewRadius))
     )
 }
 
 @Composable
-private fun SegmentedTabs(selected: CreateTab, onSelect: (CreateTab) -> Unit) {
+private fun EditorTabBar(selected: EditorTab, onSelect: (EditorTab) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(MochiRadius.pill))
+            .clip(CircleShape)
             .background(Color.White)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+            .panelBorderSolid(CircleShape)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        CreateTab.entries.forEach { tab ->
-            val isSelected = tab == selected
+        EditorTab.entries.forEach { item ->
+            val isSelected = item == selected
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(MochiRadius.pill))
-                    .then(if (isSelected) Modifier.background(MochiGradient.primaryButton) else Modifier)
-                    .clickable { onSelect(tab) }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .height(CreateMetrics.tabPillHeight)
+                    .clip(CircleShape)
+                    .then(if (isSelected) Modifier.background(MochiGradient.editorPill) else Modifier)
+                    .clickable { onSelect(item) }
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                val icon = when (tab) {
-                    CreateTab.BACKGROUND -> Icons.Filled.Image
-                    CreateTab.KEYS -> Icons.Filled.Checklist
-                    CreateTab.FONTS -> Icons.Filled.TextFields
-                    CreateTab.EFFECT -> Icons.Filled.AutoAwesome
+                val tint = if (isSelected) MochiColor.textPrimary else MochiColor.textGreyWarm
+                Box(modifier = Modifier.size(12.dp), contentAlignment = Alignment.Center) {
+                    when (item) {
+                        EditorTab.BACKGROUND -> Icon(Icons.Filled.PhotoLibrary, null, tint = tint, modifier = Modifier.size(11.dp))
+                        EditorTab.KEYS -> KeycapGlyph(fillColor = tint, sparkleColor = Color.White, modifier = Modifier.size(12.dp))
+                        EditorTab.FONTS -> Text(text = "Aa", style = MochiFont.title(11.sp), color = tint)
+                        EditorTab.EFFECT -> Icon(Icons.Filled.AutoAwesome, null, tint = tint, modifier = Modifier.size(11.dp))
+                    }
                 }
-                Icon(imageVector = icon, contentDescription = null, tint = if (isSelected) Color.White else MochiColor.textSecondary, modifier = Modifier.size(16.dp))
-                Text(text = tab.title, style = MochiFont.caption(12.sp), color = if (isSelected) Color.White else MochiColor.textSecondary)
+                Text(text = item.label, style = MochiFont.body(CreateMetrics.tabTextSize), color = tint, maxLines = 1)
+            }
+        }
+    }
+}
+
+// endregion
+
+// region Background card
+
+@Composable
+private fun BackgroundCard(selected: Int, onSelect: (Int) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(CreateMetrics.bgPanelRadius))
+            .background(Color.White)
+            .panelBorderSolid(RoundedCornerShape(CreateMetrics.bgPanelRadius))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(text = "BACKGROUND", style = MochiFont.title(CreateMetrics.bgHeadingSize), color = MochiColor.textPrimary)
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(CreateMetrics.bgTileGap)
+        ) {
+            SourceTile(caption = "Gallery") {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = MochiColor.logoSolid, modifier = Modifier.size(20.dp))
+            }
+            SourceTile(caption = "Colors") {
+                ColorWheelGlyph(modifier = Modifier.size(20.dp))
+            }
+            backgroundArt.forEachIndexed { index, res ->
+                ArtworkTile(res = res, isSelected = selected == index, onClick = { onSelect(index) })
             }
         }
     }
 }
 
 @Composable
-private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
+private fun SourceTile(caption: String, glyph: @Composable () -> Unit) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(MochiRadius.card))
+            .size(CreateMetrics.bgTileWidth, CreateMetrics.bgTileHeight)
+            .clip(RoundedCornerShape(CreateMetrics.sourceTileRadius))
             .background(Color.White)
-            .padding(MochiSpacing.md),
-        verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm),
-        content = content
-    )
+            .panelBorderSolid(RoundedCornerShape(CreateMetrics.sourceTileRadius)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        glyph()
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(text = caption, style = MochiFont.body(CreateMetrics.sourceCaptionSize), color = MochiColor.logoSolid)
+    }
 }
 
 @Composable
-private fun BackgroundSection(selected: Int, onSelect: (Int) -> Unit) {
-    val swatches = listOf(R.drawable.bg_swatch_purple_clouds, R.drawable.bg_swatch_pink_space, R.drawable.bg_swatch_peach_clouds, R.drawable.bg_swatch_night_moon)
-    SectionCard {
-        Text(text = "BACKGROUND", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
-        ) {
-            OptionTile(label = "Gallery", isSelected = false, onClick = {}) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = null, tint = MochiColor.purple)
+private fun ArtworkTile(res: Int, isSelected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(CreateMetrics.bgTileWidth, CreateMetrics.bgTileHeight)
+            .clip(RoundedCornerShape(CreateMetrics.sourceTileRadius))
+            .clickable(onClick = onClick)
+    ) {
+        Image(
+            painter = painterResource(res),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (isSelected) Modifier.border(CreateMetrics.panelStroke * 2, MochiColor.logoSolid, RoundedCornerShape(CreateMetrics.sourceTileRadius))
+                    else Modifier
+                )
+        )
+        if (isSelected) {
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(2.dp)) {
+                CheckBadge(CreateMetrics.bgCheckBadge)
             }
-            OptionTile(label = "Colors", isSelected = false, onClick = {}) {
-                Icon(imageVector = Icons.Filled.Palette, contentDescription = null, tint = MochiColor.purple)
-            }
-            swatches.forEachIndexed { index, res ->
+        }
+    }
+}
+
+// endregion
+
+// region Key shape / key color / recent
+
+@Composable
+private fun KeyShapeSection(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "KEY SHAPE", style = MochiFont.title(CreateMetrics.bgHeadingSize), color = MochiColor.textPrimary, maxLines = 1)
+        Row(horizontalArrangement = Arrangement.spacedBy(CreateMetrics.keyShapeGap)) {
+            repeat(4) { index ->
                 Box(
                     modifier = Modifier
-                        .size(76.dp)
-                        .clip(RoundedCornerShape(MochiRadius.card))
-                        .border(2.dp, if (selected == index) MochiColor.purple else Color.Transparent, RoundedCornerShape(MochiRadius.card))
-                        .clickable { onSelect(index) }
+                        .size(CreateMetrics.keyShapeChip)
+                        .clip(RoundedCornerShape(CreateMetrics.keyShapeChipRadius))
+                        .panelBorderSolid(RoundedCornerShape(CreateMetrics.keyShapeChipRadius))
+                        .clickable { onSelect(index) },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Image(painter = painterResource(res), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(MochiRadius.card)))
+                    KeyShapePreview(index, modifier = Modifier.size(CreateMetrics.keyShapeInner))
                     if (selected == index) {
-                        Box(
-                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(16.dp).clip(CircleShape).background(MochiColor.purple),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "✓", style = MochiFont.caption(9.sp), color = Color.White)
+                        Box(modifier = Modifier.align(Alignment.TopEnd).padding(2.dp)) {
+                            CheckBadge(CreateMetrics.keyShapeCheckBadge)
                         }
                     }
                 }
@@ -229,262 +364,341 @@ private fun BackgroundSection(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun OptionTile(label: String, isSelected: Boolean, onClick: () -> Unit, icon: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .size(76.dp)
-            .clip(RoundedCornerShape(MochiRadius.card))
-            .border(1.dp, MochiColor.purple.copy(alpha = 0.35f), RoundedCornerShape(MochiRadius.card))
-            .clickable(onClick = onClick)
-            .padding(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        icon()
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = label, style = MochiFont.caption(10.sp), color = MochiColor.textPrimary)
+private fun KeyShapePreview(index: Int, modifier: Modifier = Modifier) {
+    val outline = Modifier.border(CreateMetrics.panelStroke * 0.6f, MochiColor.outline.copy(alpha = 0.7f))
+    when (index) {
+        0 -> Box(modifier.background(MochiGradient.keyShapePreview).then(outline))
+        1 -> Box(modifier.clip(RoundedCornerShape(6.dp)).background(MochiGradient.keyShapePreview).border(CreateMetrics.panelStroke * 0.6f, MochiColor.outline.copy(alpha = 0.7f), RoundedCornerShape(6.dp)))
+        2 -> Box(modifier.clip(CircleShape).background(MochiGradient.keyShapePreview).border(CreateMetrics.panelStroke * 0.6f, MochiColor.outline.copy(alpha = 0.7f), CircleShape))
+        else -> Box(modifier.clip(HexagonShape()).background(MochiGradient.keyShapePreview).border(CreateMetrics.panelStroke * 0.6f, MochiColor.outline.copy(alpha = 0.7f), HexagonShape()))
     }
 }
 
 @Composable
-private fun KeyShapeSection(selected: Int, onSelect: (Int) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Text(text = "KEY SHAPE", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-        Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-            val shapes = listOf<Any>(RoundedCornerShape(10.dp), RoundedCornerShape(16.dp), CircleShape, RoundedCornerShape(4.dp))
-            shapes.forEachIndexed { index, shape ->
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(MochiRadius.card))
-                        .background(Color.White)
-                        .border(1.dp, if (selected == index) MochiColor.purple else MochiColor.purple.copy(alpha = 0.2f), RoundedCornerShape(MochiRadius.card))
-                        .clickable { onSelect(index) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(shape as androidx.compose.ui.graphics.Shape)
-                            .background(MochiColor.lavender)
-                    )
+private fun KeyColorSection(modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "KEY COLOR", style = MochiFont.title(CreateMetrics.bgHeadingSize), color = MochiColor.textPrimary, maxLines = 1)
+        SaturationSquare(size = CreateMetrics.keySatSize, knobBias = BiasAlignment(-0.01f, -0.07f))
+        HueRail(size = CreateMetrics.keyHueSize, showKnob = true)
+    }
+}
+
+@Composable
+private fun RecentSection(modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "RECENT", style = MochiFont.title(CreateMetrics.recentHeadingSize), color = MochiColor.textPrimary, maxLines = 1)
+        Column(verticalArrangement = Arrangement.spacedBy(CreateMetrics.swatchRowGap)) {
+            MochiColor.recentSwatches.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(CreateMetrics.swatchColGap)) {
+                    row.forEach { color ->
+                        Box(
+                            modifier = Modifier
+                                .size(CreateMetrics.swatchWidth, CreateMetrics.swatchHeight)
+                                .clip(RoundedCornerShape(CreateMetrics.swatchRadius))
+                                .background(color)
+                        )
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun KeyColorSection() {
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Text(text = "KEY COLOR", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-        ColorGradientPicker(brush = Brush.horizontalGradient(listOf(Color(0xFFB388FF), Color(0xFF6A1FD0))))
-        Text(text = "RECENT", style = MochiFont.heading(11.sp), color = MochiColor.textSecondary)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(Color(0xFFF3B6E0), Color(0xFFE8709B), Color(0xFF8FC8EC), Color(0xFFE3A6BE), Color(0xFFE9C2B8), Color(0xFF9B7FCB)).forEach { color ->
-                Box(modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(color))
-            }
-            Box(
-                modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, MochiColor.purple.copy(alpha = 0.3f), RoundedCornerShape(6.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Filled.Colorize, contentDescription = "Pick color", tint = MochiColor.purple, modifier = Modifier.size(14.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun LetterColorPickerSection() {
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Text(text = "LETTER COLOR", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-        ColorGradientPicker(brush = Brush.horizontalGradient(listOf(Color(0xFFBFBFBF), Color(0xFF6A1FD0))))
-    }
-}
-
-@Composable
-private fun ColorGradientPicker(brush: Brush) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(MochiRadius.pill))
-                .background(brush),
+                .size(CreateMetrics.eyedropperSize.width, CreateMetrics.eyedropperSize.height)
+                .clip(RoundedCornerShape(CreateMetrics.eyedropperRadius))
+                .background(Color.White)
+                .panelBorderSolid(RoundedCornerShape(CreateMetrics.eyedropperRadius)),
             contentAlignment = Alignment.Center
         ) {
-            Box(modifier = Modifier.size(22.dp).clip(CircleShape).background(Color.White).border(2.dp, Color.White, CircleShape))
+            Icon(Icons.Filled.Colorize, contentDescription = null, tint = MochiColor.logoSolid, modifier = Modifier.size(CreateMetrics.eyedropperIcon))
         }
+    }
+}
+
+/** White across, black down — no gesture wired in iOS either; the knob sits at a fixed measured
+ * position. */
+@Composable
+private fun SaturationSquare(size: androidx.compose.ui.unit.DpSize, knobBias: BiasAlignment) {
+    Box(
+        modifier = Modifier
+            .size(size.width, size.height)
+            .clip(RoundedCornerShape(CreateMetrics.satRadius))
+            .background(Brush.horizontalGradient(listOf(Color.White, MochiColor.pickerHue)))
+    ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp)
-                .clip(RoundedCornerShape(MochiRadius.pill))
-                .background(rainbow)
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(0.12f to Color.Black.copy(alpha = 0f), 1f to Color.Black.copy(alpha = 0.78f))
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .align(knobBias)
+                .size(CreateMetrics.knobDia)
+                .border(CreateMetrics.knobStroke, Color.White, CircleShape)
         )
     }
 }
 
-private val fontStyles = listOf("Default", "Rounded", "Cute", "Classic", "Handwritten")
+@Composable
+private fun HueRail(size: androidx.compose.ui.unit.DpSize, showKnob: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(size.width, size.height)
+            .clip(CircleShape)
+            .background(MochiGradient.hueSpectrum)
+    ) {
+        if (showKnob) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(CreateMetrics.hueKnobDia)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
+        }
+    }
+}
+
+// endregion
+
+// region Letter color / font style
 
 @Composable
-private fun FontStyleSection(selected: Int, onSelect: (Int) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Text(text = "FONT STYLE", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
+private fun LetterColorSection(modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "LETTER COLOR", style = MochiFont.title(CreateMetrics.bgHeadingSize), color = MochiColor.textPrimary, maxLines = 1)
+        SaturationSquare(size = CreateMetrics.letterSatSize, knobBias = BiasAlignment(-0.05f, -0.11f))
+        HueRail(size = CreateMetrics.letterHueSize, showKnob = false)
+    }
+}
+
+@Composable
+private fun FontStyleSection(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "FONT STYLE", style = MochiFont.title(CreateMetrics.bgHeadingSize), color = MochiColor.textPrimary, maxLines = 1)
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+            horizontalArrangement = Arrangement.spacedBy(CreateMetrics.fontChipGap)
         ) {
-            fontStyles.forEachIndexed { index, style ->
-                Column(
+            fontStyleSpecimens.forEachIndexed { index, (res, caption) ->
+                val isSelected = selected == index
+                Box(
                     modifier = Modifier
-                        .size(width = 78.dp, height = 76.dp)
-                        .clip(RoundedCornerShape(MochiRadius.card))
+                        .size(CreateMetrics.fontChipWidth, CreateMetrics.fontChipHeight)
+                        .clip(RoundedCornerShape(CreateMetrics.fontChipRadius))
                         .background(Color.White)
-                        .border(1.dp, if (selected == index) MochiColor.purple else MochiColor.purple.copy(alpha = 0.15f), RoundedCornerShape(MochiRadius.card))
-                        .clickable { onSelect(index) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .panelBorderSolid(RoundedCornerShape(CreateMetrics.fontChipRadius))
+                        .clickable { onSelect(index) }
                 ) {
-                    Text(text = "Aa", style = MochiFont.logo(22.sp), color = MochiColor.textPrimary)
-                    Text(text = style, style = MochiFont.caption(9.sp), color = MochiColor.textSecondary)
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(res),
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.width(CreateMetrics.fontSpecimenW).weight(1f, fill = false)
+                        )
+                        Text(
+                            text = caption,
+                            style = MochiFont.body(CreateMetrics.fontCaptionSize),
+                            color = if (isSelected) MochiColor.logoSolid else MochiColor.textGreyWarm,
+                            maxLines = 1
+                        )
+                    }
+                    if (isSelected) {
+                        Box(modifier = Modifier.align(Alignment.TopEnd).padding(2.dp)) {
+                            CheckBadge(CreateMetrics.fontCheckBadge)
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+// endregion
+
+// region Live preview toggle
+
 @Composable
-private fun LivePreviewToggleBanner() {
+private fun LivePreviewCard() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(MochiRadius.card))
+            .clip(RoundedCornerShape(CreateMetrics.livePanelRadius))
             .background(Color.White)
-            .padding(MochiSpacing.md),
+            .panelBorderSolid(RoundedCornerShape(CreateMetrics.livePanelRadius))
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = Icons.Filled.Visibility, contentDescription = null, tint = MochiColor.purple, modifier = Modifier.size(24.dp))
-        Column(modifier = Modifier.weight(1f).padding(horizontal = MochiSpacing.sm)) {
-            Text(text = "LIVE PREVIEW", style = MochiFont.heading(13.sp), color = MochiColor.purple)
-            Text(text = "See Real-Time Changes On The Keyboard Above", style = MochiFont.caption(10.sp), color = MochiColor.textSecondary)
+        Icon(
+            imageVector = Icons.Filled.Visibility,
+            contentDescription = null,
+            tint = MochiColor.logoSolid,
+            modifier = Modifier.size(CreateMetrics.liveEyeSize.height)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "LIVE PREVIEW", style = MochiFont.title(CreateMetrics.liveHeadingSize), color = MochiColor.logoSolid, maxLines = 1)
+            Text(
+                text = "See Real-Time Changes On The Keyboard Above",
+                style = MochiFont.body(CreateMetrics.liveSubtitleSize),
+                color = MochiColor.textGreyWarm,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
+        Spacer(modifier = Modifier.width(6.dp))
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(MochiRadius.pill))
-                .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), RoundedCornerShape(MochiRadius.pill))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .height(CreateMetrics.resetCapsule.height)
+                .clip(CircleShape)
+                .background(Color.White)
+                .panelBorderSolid(CircleShape)
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(CreateMetrics.resetGap)
         ) {
-            Icon(imageVector = Icons.Filled.Refresh, contentDescription = null, tint = MochiColor.purple, modifier = Modifier.size(14.dp))
-            Text(text = "Reset All", style = MochiFont.caption(12.sp), color = MochiColor.purple)
+            Icon(Icons.Filled.Refresh, contentDescription = null, tint = MochiColor.logoSolid, modifier = Modifier.size(CreateMetrics.resetIcon))
+            Text(text = "Reset All", style = MochiFont.body(CreateMetrics.resetTextSize), color = MochiColor.logoSolid, maxLines = 1)
         }
     }
 }
 
+// endregion
+
+// region Theme name / tags
+
+/** Reproduced verbatim: the frame really does head the theme-name field "LETTER COLOR" — a
+ * copy-paste slip left over from the block above it, per iOS's own comment. Not corrected here,
+ * matching the project's "reproduce iOS's own quirks" precedent (Themes' duplicate "Liked Themes"
+ * heading, Search's copied font names). */
 @Composable
-private fun ThemeNameSection(name: String, onNameChange: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Text(text = "THEME NAME", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
+private fun ThemeNameField(value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "LETTER COLOR", style = MochiFont.title(CreateMetrics.tagsHeadingSize), color = MochiColor.textPrimary, maxLines = 1)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(MochiRadius.pill))
+                .height(CreateMetrics.nameFieldHeight)
+                .clip(RoundedCornerShape(CreateMetrics.nameFieldRadius))
                 .background(Color.White)
-                .border(1.dp, MochiColor.purple.copy(alpha = 0.2f), RoundedCornerShape(MochiRadius.pill))
-                .padding(horizontal = MochiSpacing.md, vertical = 14.dp),
+                .panelBorderSolid(RoundedCornerShape(CreateMetrics.nameFieldRadius))
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            BasicTextField(
-                value = name,
-                onValueChange = onNameChange,
-                textStyle = MochiFont.body(14.sp).copy(color = MochiColor.textPrimary),
-                modifier = Modifier.weight(1f)
-            )
-            Icon(imageVector = Icons.Filled.Edit, contentDescription = "Edit name", tint = MochiColor.purple, modifier = Modifier.size(16.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = true,
+                    textStyle = MochiFont.body(CreateMetrics.namePlaceholderSize).copy(color = MochiColor.textPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (value.isEmpty()) {
+                    Text(text = "My Dreamy Theme", style = MochiFont.body(CreateMetrics.namePlaceholderSize), color = MochiColor.textGreyWarm)
+                }
+            }
+            Icon(Icons.Filled.Edit, contentDescription = "Edit name", tint = MochiColor.logoSolid, modifier = Modifier.size(CreateMetrics.namePencilIcon))
         }
     }
 }
 
 @Composable
-private fun TagsSection() {
-    var tags by remember { mutableStateOf(listOf("Cute", "Purple", "Dream", "Cloud")) }
-    Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(text = "TAGS", style = MochiFont.heading(13.sp), color = MochiColor.textPrimary)
-            Text(text = "(Optional)", style = MochiFont.caption(11.sp), color = MochiColor.textSecondary)
+private fun TagsField(tags: List<String>, onRemove: (String) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(text = "TAGS", style = MochiFont.title(CreateMetrics.tagsHeadingSize), color = MochiColor.textPrimary, maxLines = 1)
+            Text(text = "(Optional)", style = MochiFont.body(CreateMetrics.tagsHeadingSize), color = MochiColor.textGreyWarm, maxLines = 1)
         }
         Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(CreateMetrics.nameFieldHeight)
+                .clip(RoundedCornerShape(CreateMetrics.nameFieldRadius))
+                .background(Color.White)
+                .panelBorderSolid(RoundedCornerShape(CreateMetrics.nameFieldRadius))
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            tags.forEach { tag ->
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(MochiRadius.pill))
-                        .background(MochiGradient.primaryButton)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(text = tag, style = MochiFont.caption(12.sp), color = Color.White)
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "Remove $tag",
-                        tint = Color.White,
-                        modifier = Modifier.size(12.dp).clickable { tags = tags.filter { it != tag } }
-                    )
+            Row(
+                modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                tags.forEach { tag ->
+                    Row(
+                        modifier = Modifier
+                            .height(CreateMetrics.tagPillHeight)
+                            .clip(CircleShape)
+                            .background(MochiGradient.tagPill)
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = tag, style = MochiFont.body(CreateMetrics.tagTextSize), color = MochiColor.textPrimary, maxLines = 1)
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Remove $tag",
+                            tint = MochiColor.textPrimary,
+                            modifier = Modifier.size(9.dp).clickable { onRemove(tag) }
+                        )
+                    }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .border(1.dp, MochiColor.purple.copy(alpha = 0.3f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = "Add tag", tint = MochiColor.purple, modifier = Modifier.size(16.dp))
-            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.Add, contentDescription = "Add tag", tint = MochiColor.textPrimary, modifier = Modifier.size(CreateMetrics.plusIcon))
         }
     }
 }
+
+// endregion
+
+// region Action buttons
 
 @Composable
 private fun ActionButtonsRow() {
-    Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        ActionButtonCard(
-            icon = Icons.Filled.Save,
-            title = "Save Draft",
-            subtitle = "Save Your Work For Later",
-            modifier = Modifier.weight(1f),
-            filled = false
-        )
-        ActionButtonCard(
-            icon = Icons.AutoMirrored.Filled.Send,
-            title = "Publish Theme",
-            subtitle = "Share With The Community",
-            modifier = Modifier.weight(1f),
-            filled = true
-        )
+    Row(horizontalArrangement = Arrangement.spacedBy(CreateMetrics.actionGutter)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .height(CreateMetrics.actionBtnHeight)
+                .clip(RoundedCornerShape(CreateMetrics.actionRadius))
+                .background(Color.White)
+                .panelBorderSolid(RoundedCornerShape(CreateMetrics.actionRadius))
+                .clickable {},
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(CreateMetrics.saveIconGap)) {
+                FloppyGlyph(color = MochiColor.logoSolid, strokeWidth = 3f, modifier = Modifier.size(CreateMetrics.floppySize.width, CreateMetrics.floppySize.height))
+                Text(text = "Save Draft", style = MochiFont.heading(CreateMetrics.actionTitleSize), color = MochiColor.logoSolid, maxLines = 1)
+            }
+            Text(text = "Save Your Work For Later", style = MochiFont.body(CreateMetrics.actionSubtitleSize), color = MochiColor.textGreyWarm, maxLines = 1)
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .height(CreateMetrics.actionBtnHeight)
+                .clip(RoundedCornerShape(CreateMetrics.actionRadius))
+                .background(MochiGradient.softButton)
+                .clickable {},
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(CreateMetrics.publishIconGap)) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MochiColor.textPrimary, modifier = Modifier.size(CreateMetrics.publishIcon))
+                Text(text = "Publish Theme", style = MochiFont.heading(CreateMetrics.actionTitleSize), color = MochiColor.textPrimary, maxLines = 1)
+            }
+            Text(text = "Share With The Community", style = MochiFont.body(CreateMetrics.actionSubtitleSize), color = MochiColor.textPrimary, maxLines = 1)
+        }
     }
 }
 
-@Composable
-private fun ActionButtonCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier, filled: Boolean) {
-    val textColor = if (filled) Color.White else MochiColor.textPrimary
-    val subtitleColor = if (filled) Color.White.copy(alpha = 0.85f) else MochiColor.textSecondary
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(MochiRadius.card))
-            .then(if (filled) Modifier.background(MochiGradient.primaryButton) else Modifier.background(Color.White).border(1.dp, MochiColor.purple.copy(alpha = 0.25f), RoundedCornerShape(MochiRadius.card)))
-            .clickable {}
-            .padding(MochiSpacing.md),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Icon(imageVector = icon, contentDescription = null, tint = textColor, modifier = Modifier.size(20.dp))
-        Text(text = title, style = MochiFont.heading(13.sp), color = textColor)
-        Text(text = subtitle, style = MochiFont.caption(10.sp), color = subtitleColor)
-    }
-}
+// endregion
