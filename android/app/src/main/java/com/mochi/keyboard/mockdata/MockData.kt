@@ -1,5 +1,7 @@
 package com.mochi.keyboard.mockdata
 
+import com.mochi.keyboard.model.CommunityCreator
+import com.mochi.keyboard.model.CommunityPost
 import com.mochi.keyboard.model.Creator
 import com.mochi.keyboard.model.FontItem
 import com.mochi.keyboard.model.KeyboardTheme
@@ -7,6 +9,7 @@ import com.mochi.keyboard.model.ProfileCreation
 import com.mochi.keyboard.model.ProfileFollowRow
 import com.mochi.keyboard.model.ProfileLikedTheme
 import com.mochi.keyboard.model.ProfileSummary
+import com.mochi.keyboard.model.TagPalette
 
 /** Ported from ios/MochiApp/MockData/MockData.swift — placeholder data until Firestore is wired up. */
 object MockData {
@@ -133,5 +136,31 @@ object MockData {
     val profileFollowRows = listOf(
         ProfileFollowRow("followers", "Followers", "2.1K"),
         ProfileFollowRow("following", "Following", "126")
+    )
+
+    // Community tab (docs/figma/2.png)
+
+    val communityTopThemes = listOf(
+        KeyboardTheme("community-kawaii-boba", "kawaii boba tea", "Mochi Studio", "theme_kawaii_boba", 12_500, false, listOf("cute", "boba")),
+        KeyboardTheme("community-sakura-train", "Sakura Train", "sakura", "theme_sakura_train", 9_800, false, listOf("sakura", "train")),
+        KeyboardTheme("community-pastel-pink-sky", "Pastel Pink Sky", "Staeey", "theme_pastel_pink_sky", 9_800, false, listOf("pastel", "sunset"))
+    )
+
+    /** `ctaTitle` is "Choose" on the fourth tile because that's literally what Figma's Community
+     * frame shows — reads like a copy-paste slip from Home's "Choose from Library" button, but
+     * reproduced rather than silently corrected. */
+    val communityCreators = listOf(
+        CommunityCreator("mochi-studio", "Mochi Studio", "avatar_mochi_studio", 24, true, "Follow"),
+        CommunityCreator("sakura", "Sakura", "avatar_sakura", 18, true, "Follow"),
+        CommunityCreator("starry", "Starry", "avatar_starry", 15, true, "Follow"),
+        CommunityCreator("pastel-craft", "Pastel Craft", "avatar_pastel_craft", 12, true, "Choose")
+    )
+
+    /** Summaries are title-cased and line-broken exactly as Figma sets them — the first card's
+     * copy really does describe "cute frogs and nature vibes" over a purple sakura-café keyboard. */
+    val communityLatest = listOf(
+        CommunityPost("latest-cozy-sakura-cafe", "Cozy Sakura Café", "Lemonade", "latest_cozy_sakura_cafe", "A Soft Green Theme With Cute Frogs\nAnd Nature Vibes", 956, listOf("cute", "nature", "green"), TagPalette.GREEN),
+        CommunityPost("latest-space-vibe", "Space Vibe", "Dreamer", "latest_space_vibe", "Fluffy Clouds And Calm Sky\nFor A Peaceful Typing", 956, listOf("blue", "soft", "aesthetic"), TagPalette.BLUE),
+        CommunityPost("latest-dreamy-fantasy", "Dreamy Fantasy", "Kittyk", "latest_dreamy_fantasy", "Cozy Cafe Cats To Keep You\nCompany While Typing", 956, listOf("blue", "soft", "aesthetic"), TagPalette.PEACH)
     )
 }

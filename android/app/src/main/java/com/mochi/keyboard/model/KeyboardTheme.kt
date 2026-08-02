@@ -36,6 +36,33 @@ data class Creator(
     val isVerified: Boolean
 )
 
+/** A creator tile in Community's "Popular Creators" row. Separate from `Creator` (the profile
+ * model) since the tile shows a smaller slice (avatar, name, theme count, one CTA), and Figma
+ * gives the fourth tile the label "Choose" rather than "Follow" — reproduced, not corrected. */
+data class CommunityCreator(
+    val id: String,
+    val name: String,
+    val avatarAssetName: String,
+    val themeCount: Int,
+    val isVerified: Boolean,
+    val ctaTitle: String
+)
+
+enum class TagPalette { GREEN, BLUE, PEACH }
+
+/** A row in Community's "Latest Creations" list. Carries its own wide (2.12:1) thumbnail asset and
+ * hashtag palette — Figma tints each card's chips differently rather than using one shared style. */
+data class CommunityPost(
+    val id: String,
+    val name: String,
+    val creatorName: String,
+    val thumbAssetName: String,
+    val summary: String,
+    val likeCount: Int,
+    val hashtags: List<String>,
+    val tagPalette: TagPalette
+)
+
 fun Int.formattedCompact(): String = when {
     this >= 1_000_000 -> "%.1fM".format(this / 1_000_000.0)
     this >= 1_000 -> "%.1fK".format(this / 1_000.0)

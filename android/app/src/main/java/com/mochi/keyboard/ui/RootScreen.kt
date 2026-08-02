@@ -51,8 +51,7 @@ fun RootScreen(
                 MochiTab.COMMUNITY -> CommunityScreen(
                     onProfileClick = onProfileClick,
                     onSearchClick = onSearchClick,
-                    onThemeClick = onThemeClick,
-                    onLeaderboardClick = onLeaderboardClick
+                    onThemeClick = onThemeClick
                 )
                 MochiTab.CREATE -> CreateThemeScreen()
                 else -> ComingSoonScreen(selected)
