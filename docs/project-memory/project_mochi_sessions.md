@@ -350,6 +350,65 @@ Everything else in v1 was independently reconfirmed, in several cases with bette
 
 ---
 
+## Session 9 — Login & Onboarding Screen Redesign (Android)
+**Date:** August 3, 2026
+**Duration:** Medium
+**Stage:** Android UI — Auth and Onboarding screen overhaul
+
+### What Happened
+- Sujal reviewed the existing Login (`AuthScreen.kt`) and Onboarding (`OnboardingScreen.kt`) screens and found them not up to standard. He shared a reference image for the login screen layout and requested both screens be redesigned to a premium quality level.
+- Reviewed all existing screens, the full design system (`Theme.kt`, `Typography.kt`), and the existing auth/onboarding Kotlin source files before making any changes.
+- **Login screen (`AuthScreen.kt`) fully redesigned:**
+  - Implemented a custom `WaveHeaderShape` bezier curved top header using Mochi's signature warm pink-orchid-purple gradient (`#9012A7` → `#CE76DB` → `#E27FCC` → `#8F7CE9`) — matching the Home, Themes, and Community screens.
+  - Added top-left back button, white circular leaf/tree logo badge (Canvas-drawn), bold white "Welcome" title, and "Sign in to continue" subtitle inside the header.
+  - Redesigned form body with clean rounded `StyledInputField` components: "Email or Phone" with person icon prefix, "Password" with lock icon prefix and trailing eye visibility toggle.
+  - Right-aligned "Forgot Password?" link in Mochi purple.
+  - Full-width primary gradient `Login` CTA button.
+  - "or continue with" divider row.
+  - Generated and integrated official 4-color Google 'G' logo PNG (`ic_google_logo.png`) and official Apple logo PNG (`ic_apple_logo.png`) as real image assets. **Facebook sign-in removed** per Sujal's explicit instruction.
+  - "Don't have an account? Sign up" mode toggle link.
+- **Onboarding screen (`OnboardingScreen.kt`) fully redesigned:**
+  - Generated 4 high-resolution `.png` vector-style illustrations using `generate_image` and placed them in `res/drawable-nodpi/`:
+    - `onboarding_themes.png` — pastel keycap showcase
+    - `onboarding_fonts.png` — floating 3D typography
+    - `onboarding_create.png` — studio color wheel & magic wand
+    - `onboarding_setup.png` — phone with keyboard activation switch
+  - Encased each illustration in a floating rounded card with drop shadows, Mochi purple border, and glassmorphic white background.
+  - Badge chips above each page title (e.g. "250+ THEMES", "CUSTOM FONTS").
+  - Added "Skip" button in top bar alongside the "Mochi" wordmark.
+  - Animated gradient pill page indicator (active page = stretched gradient pill, inactive = muted grey).
+  - "Continue" / "Get Started" gradient button with arrow icon.
+  - 3-step keyboard setup guide card on the final page styled with gradient numbered badges.
+- **Build & verification:**
+  - First `assembleDebug` failed with `Unresolved reference 'SolidColor'` — fixed by adding `import androidx.compose.ui.graphics.SolidColor` to `OnboardingScreen.kt`.
+  - Second build succeeded: **BUILD SUCCESSFUL** (41s).
+- **Device testing:**
+  - Installed and launched via `adb install -r` + `adb shell am start` directly on Sujal's phone (device ID `10AC8X2BJ2000OF`).
+  - Sujal requested colors to match the rest of the UI — updated `HeaderGradient` and `PrimaryButtonGradient` from deep violet to Mochi's signature warm gradient (`CE76DB` → `E27FCC` → `8F7CE9`). Also replaced placeholder Google/Apple Canvas-drawn logos with real PNG assets.
+  - Rebuilt and re-installed APK on phone successfully.
+- **All changes committed and pushed** to `master` on GitHub (`sujalsharma-24/Mochi`, commit `8bf9e16`).
+
+### Decisions Made This Session
+- **Facebook sign-in removed** from the Android auth screen permanently — only Google and Apple social login buttons remain.
+- Official brand PNG assets used for social login instead of custom Canvas-drawn placeholders.
+- Onboarding screen uses high-res AI-generated `.png` illustrations (not icon drawables), stored in `drawable-nodpi/`.
+- Mochi's signature warm pink-orchid-purple gradient is now the standard for Auth/Onboarding header backgrounds (not deep violet blue).
+- `adb` path on this machine: `C:\Users\ACER\AppData\Local\Android\Sdk\platform-tools\adb.exe` (no `adb` in PATH — always use full path).
+- `applicationId = "com.Adam.Mochi"`, namespace = `"com.mochi.keyboard"` — MainActivity launched as `com.Adam.Mochi/com.mochi.keyboard.MainActivity`.
+
+### Status at End of Session
+- Login screen redesign complete and confirmed on device ✅
+- Onboarding screen redesign complete and confirmed build ✅
+- All assets generated and committed ✅
+- Pushed to GitHub master (`8bf9e16`) ✅
+
+### Next Session Goals
+- Continue building or polishing other screens per Sujal's direction.
+- Verify onboarding screen on real device (Sujal to confirm visuals).
+- Continue any remaining Home screen Figma-parity work if resumed.
+
+---
+
 <!-- Template for future sessions:
 
 ## Session N — [Title]

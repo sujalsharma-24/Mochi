@@ -129,3 +129,36 @@ Client/Sujal asked for a full from-scratch re-research of the TRD (not increment
 - **Impact:** [What this affects in the build]
 
 -->
+
+---
+
+### CHANGE-015: Login Screen — Layout and Gradient Redesign
+- **Before:** Plain gradient background auth layout with a `ModeToggle` Sign In/Sign Up pill switcher at the top, list-style social buttons (full-width rows for Google and Apple with text labels), flat text fields with no icons.
+- **After:** Wavy bezier curved top header with Mochi's warm pink-orchid-purple gradient, white circular leaf logo badge, bold "Welcome" title, clean rounded icon-prefixed input fields, eye-toggle on password, right-aligned "Forgot Password?", icon-only social card buttons, mode switch link at bottom.
+- **Why:** Sujal shared a reference screenshot showing a premium login screen layout and requested the screen be redesigned to match.
+- **Impact:** `AuthScreen.kt` fully rewritten. `WaveHeaderShape`, `StyledInputField`, `SocialIconCard` composables introduced.
+
+---
+
+### CHANGE-016: Social Login — Facebook Removed, Real PNG Icons Added
+- **Before:** Three social buttons (Google, Apple, Facebook). Google and Apple icons were Canvas-drawn placeholders. Facebook button present.
+- **After:** Two social buttons only — Google and Apple. Both use official brand PNG assets (`ic_google_logo.png`, `ic_apple_logo.png`) from `drawable-nodpi/`.
+- **Why:** Sujal explicitly requested Facebook sign-in be removed. Canvas-drawn logo approximations were visually inaccurate.
+- **Impact:** `AuthScreen.kt` updated. Two new PNG assets added to `res/drawable-nodpi/`.
+
+---
+
+### CHANGE-017: Onboarding Screen — Full UI Redesign with PNG Illustrations
+- **Before:** Simple feature pages with a plain white box containing an icon from `drawable-nodpi/` (palette, library, create_custom), text below, and a gradient button. Minimal visual design.
+- **After:** Premium illustrated onboarding with badge chips, floating glassmorphic illustration cards with drop shadows and purple borders, high-res AI-generated PNG illustrations, Skip button in top bar, "Mochi" wordmark, animated gradient pill page indicator, Continue/Get Started CTA with arrow icon, and a 3-step keyboard setup guide card on the final page.
+- **Why:** Sujal requested the onboarding screens be redesigned as they were "not up to the mark." Four high-quality PNG illustrations generated.
+- **Impact:** `OnboardingScreen.kt` fully rewritten. Four new PNG assets added: `onboarding_themes.png`, `onboarding_fonts.png`, `onboarding_create.png`, `onboarding_setup.png`.
+
+---
+
+### CHANGE-018: Auth/Onboarding Header Gradient — Deep Violet → Warm Mochi Palette
+- **Before (initial redesign attempt):** Deep violet-blue gradient used for the Auth screen header (`#6B21A8` → `#7C3AED` → `#8B5CF6` → `#9333EA`).
+- **After:** Warm pink-orchid-purple gradient (`#9012A7` → `#CE76DB` → `#E27FCC` → `#8F7CE9`) matching the existing Home, Themes, and Community screen palette.
+- **Why:** Sujal saw the first design on his phone and said the blue color didn't match the rest of the app UI — immediately corrected.
+- **Impact:** `HeaderGradient` and `PrimaryButtonGradient` in `AuthScreen.kt` updated. Rebuilt and re-deployed to device.
+
