@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,9 +22,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -35,7 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,9 +60,6 @@ import com.mochi.keyboard.designsystem.MochiRadius
 import com.mochi.keyboard.designsystem.MochiSpacing
 import kotlinx.coroutines.launch
 
-/** No Figma source for splash/onboarding/auth/theme-detail — designed to match the established
- * visual language (gradient background, Baloo 2 rounded type, solid purple logo, pink-purple
- * gradient buttons) per the locked feature spec instead of blocking on the client. */
 @Composable
 fun SplashScreen(modifier: Modifier = Modifier, onTimeout: () -> Unit = {}) {
     LaunchedEffect(Unit) {
@@ -63,8 +69,8 @@ fun SplashScreen(modifier: Modifier = Modifier, onTimeout: () -> Unit = {}) {
 
     val transition = rememberInfiniteTransition(label = "splash-pulse")
     val scale by transition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.04f,
+        initialValue = 0.95f,
+        targetValue = 1.05f,
         animationSpec = infiniteRepeatable(tween(1100), repeatMode = RepeatMode.Reverse),
         label = "logo-scale"
     )
@@ -89,53 +95,162 @@ fun SplashScreen(modifier: Modifier = Modifier, onTimeout: () -> Unit = {}) {
     }
 }
 
-private data class OnboardingPage(
-    val iconResId: Int?,
+private data class OnboardingPageData(
+    val imageResId: Int,
     val title: String,
-    val body: String
+    val body: String,
+    val badgeText: String
 )
 
 private val pages = listOf(
-    OnboardingPage(R.drawable.icon_palette, "Discover Beautiful Themes", "Browse 250+ handcrafted keyboard themes, from cozy pastels to bold neon."),
-    OnboardingPage(R.drawable.icon_library, "Express Yourself With Fonts", "Type in playful custom fonts that make every message feel like you."),
-    OnboardingPage(R.drawable.icon_create_custom, "Create & Share", "Design your own keyboard and share it with the Mochi community."),
-    OnboardingPage(null, "Enable Mochi Keyboard", "One quick step so Mochi can replace your system keyboard.")
+    OnboardingPageData(
+        imageResId = R.drawable.onboarding_themes,
+        title = "Discover Beautiful Themes",
+        body = "Browse 250+ handcrafted keyboard themes, from cozy pastels to bold neon and animated styles.",
+        badgeText = "250+ THEMES"
+    ),
+    OnboardingPageData(
+        imageResId = R.drawable.onboarding_fonts,
+        title = "Express Yourself With Fonts",
+        body = "Type in playful custom fonts that make every chat, bio, and caption feel uniquely yours.",
+        badgeText = "CUSTOM FONTS"
+    ),
+    OnboardingPageData(
+        imageResId = R.drawable.onboarding_create,
+        title = "Create & Share Studio",
+        body = "Design your own custom keyboard with wallpapers, key shapes, fonts, and share with the community.",
+        badgeText = "DIY CREATOR"
+    ),
+    OnboardingPageData(
+        imageResId = R.drawable.onboarding_setup,
+        title = "Enable Mochi Keyboard",
+        body = "One quick step so Mochi can replace your default system keyboard and unlock full customization.",
+        badgeText = "EASY SETUP"
+    )
 )
 
 @Composable
 fun OnboardingScreen(modifier: Modifier = Modifier, onFinished: () -> Unit = {}) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val coroutineScope = rememberCoroutineScope()
+    val isLastPage = pagerState.currentPage == pages.lastIndex
 
-    Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFFAF5FF),
+                        Color(0xFFF3E8FF),
+                        Color(0xFFEDE9FE)
+                    )
+                )
+            )
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(MochiSpacing.lg),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = MochiSpacing.lg, vertical = MochiSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(MochiSpacing.lg))
+            // Top Bar: Mochi Wordmark + Skip Button
+            Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Mochi",
+                    style = MochiFont.logo(28.sp),
+                    color = Color(0xFF7C3AED)
+                )
 
+                if (!isLastPage) {
+                    Text(
+                        text = "Skip",
+                        style = MochiFont.button(14.sp),
+                        color = Color(0xFF8B5CF6),
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(MochiRadius.pill))
+                            .clickable {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(pages.lastIndex)
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(MochiSpacing.sm))
+
+            // Main Pager Content
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ) { index ->
                 val page = pages[index]
                 if (index == pages.lastIndex) {
-                    KeyboardSetupPage(page)
+                    KeyboardSetupOnboardingPage(page)
                 } else {
-                    FeaturePage(page)
+                    FeatureOnboardingPage(page)
                 }
             }
 
-            PageIndicator(pageCount = pages.size, currentPage = pagerState.currentPage)
+            Spacer(modifier = Modifier.height(MochiSpacing.md))
 
-            Spacer(modifier = Modifier.height(MochiSpacing.lg))
+            // Bottom Navigation Controls
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Page Pill Indicator
+                AnimatedPageIndicator(pageCount = pages.size, currentPage = pagerState.currentPage)
 
-            val isLastPage = pagerState.currentPage == pages.lastIndex
-            GradientButton(title = if (isLastPage) "Get Started" else "Next") {
-                if (isLastPage) {
-                    onFinished()
-                } else {
-                    coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                Spacer(modifier = Modifier.height(MochiSpacing.lg))
+
+                // Primary Next / Get Started CTA Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .shadow(8.dp, RoundedCornerShape(27.dp))
+                        .clip(RoundedCornerShape(27.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color(0xFF7C3AED), Color(0xFF8B5CF6), Color(0xFFEC4999))
+                            )
+                        )
+                        .clickable {
+                            if (isLastPage) {
+                                onFinished()
+                            } else {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isLastPage) "Get Started" else "Continue",
+                            style = MochiFont.button(16.sp),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
@@ -143,34 +258,69 @@ fun OnboardingScreen(modifier: Modifier = Modifier, onFinished: () -> Unit = {})
 }
 
 @Composable
-private fun FeaturePage(page: OnboardingPage) {
+private fun FeatureOnboardingPage(page: OnboardingPageData) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // Feature Badge Chip
         Box(
             modifier = Modifier
-                .size(160.dp)
-                .clip(RoundedCornerShape(MochiRadius.card))
-                .background(Color.White),
+                .clip(RoundedCornerShape(MochiRadius.pill))
+                .background(Color(0xFFEDE9FE))
+                .padding(horizontal = 14.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = page.badgeText,
+                style = MochiFont.caption(12.sp),
+                color = Color(0xFF7C3AED),
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(MochiSpacing.md))
+
+        // High-Quality PNG Hero Illustration Card
+        Box(
+            modifier = Modifier
+                .size(270.dp)
+                .shadow(12.dp, RoundedCornerShape(32.dp))
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color.White)
+                .border(1.5.dp, Color(0xFFDDD6FE), RoundedCornerShape(32.dp)),
             contentAlignment = Alignment.Center
         ) {
-            if (page.iconResId != null) {
-                Image(
-                    painter = painterResource(page.iconResId),
-                    contentDescription = null,
-                    modifier = Modifier.size(84.dp).clip(RoundedCornerShape(16.dp))
-                )
-            }
+            Image(
+                painter = painterResource(id = page.imageResId),
+                contentDescription = page.title,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            )
         }
+
         Spacer(modifier = Modifier.height(MochiSpacing.xl))
-        Text(text = page.title, style = MochiFont.title(24.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center)
+
+        // Title
+        Text(
+            text = page.title,
+            style = MochiFont.title(25.sp),
+            color = Color(0xFF1E1B4B),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+
         Spacer(modifier = Modifier.height(MochiSpacing.sm))
+
+        // Subtitle Body
         Text(
             text = page.body,
             style = MochiFont.body(15.sp),
-            color = MochiColor.textSecondary,
+            color = Color(0xFF6B7280),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = MochiSpacing.md)
         )
@@ -178,71 +328,143 @@ private fun FeaturePage(page: OnboardingPage) {
 }
 
 @Composable
-private fun KeyboardSetupPage(page: OnboardingPage) {
+private fun KeyboardSetupOnboardingPage(page: OnboardingPageData) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
-                .size(160.dp)
-                .clip(RoundedCornerShape(MochiRadius.card))
-                .background(Color.White),
+                .clip(RoundedCornerShape(MochiRadius.pill))
+                .background(Color(0xFFFCE7F3))
+                .padding(horizontal = 14.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = page.badgeText,
+                style = MochiFont.caption(12.sp),
+                color = Color(0xFFDB2777),
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(MochiSpacing.md))
+
+        // Hero Illustration Card
+        Box(
+            modifier = Modifier
+                .size(200.dp)
+                .shadow(12.dp, RoundedCornerShape(32.dp))
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color.White)
+                .border(1.5.dp, Color(0xFFFBCFE8), RoundedCornerShape(32.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(imageVector = Icons.Filled.Keyboard, contentDescription = null, tint = MochiColor.purple, modifier = Modifier.size(72.dp))
+            Image(
+                painter = painterResource(id = page.imageResId),
+                contentDescription = page.title,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp)
+            )
         }
-        Spacer(modifier = Modifier.height(MochiSpacing.xl))
-        Text(text = page.title, style = MochiFont.title(24.sp), color = MochiColor.textPrimary, textAlign = TextAlign.Center)
-        Spacer(modifier = Modifier.height(MochiSpacing.sm))
-        Text(
-            text = page.body,
-            style = MochiFont.body(15.sp),
-            color = MochiColor.textSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = MochiSpacing.md)
-        )
+
         Spacer(modifier = Modifier.height(MochiSpacing.lg))
+
+        Text(
+            text = page.title,
+            style = MochiFont.title(24.sp),
+            color = Color(0xFF1E1B4B),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(MochiSpacing.xs))
+
+        Text(
+            text = page.body,
+            style = MochiFont.body(14.sp),
+            color = Color(0xFF6B7280),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = MochiSpacing.md)
+        )
+
+        Spacer(modifier = Modifier.height(MochiSpacing.md))
+
+        // 3-Step Setup Instructions Card
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(MochiRadius.card))
+                .shadow(4.dp, RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(20.dp))
                 .background(Color.White)
                 .padding(MochiSpacing.md),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
         ) {
-            SetupStep(1, "Open Settings → General → Keyboard")
-            SetupStep(2, "Tap “Keyboards” → “Add New Keyboard…”")
-            SetupStep(3, "Select Mochi and enable “Allow Full Access”")
+            InstructionStep(1, "Open Android Settings → Languages & Input")
+            InstructionStep(2, "Select 'On-screen Keyboard' → Manage Keyboards")
+            InstructionStep(3, "Enable 'Mochi Keyboard' and switch input method")
         }
     }
 }
 
 @Composable
-private fun SetupStep(number: Int, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+private fun InstructionStep(number: Int, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Box(
-            modifier = Modifier.size(22.dp).clip(CircleShape).background(MochiGradient.primaryButton),
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(Color(0xFF7C3AED), Color(0xFFEC4999))
+                    )
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "$number", style = MochiFont.caption(11.sp).copy(fontWeight = FontWeight.Bold), color = Color.White)
+            Text(
+                text = "$number",
+                style = MochiFont.caption(12.sp).copy(fontWeight = FontWeight.Bold),
+                color = Color.White
+            )
         }
-        Text(text = text, style = MochiFont.body(13.sp), color = MochiColor.textPrimary)
+        Text(
+            text = text,
+            style = MochiFont.body(13.sp),
+            color = Color(0xFF374151),
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
 @Composable
-private fun PageIndicator(pageCount: Int, currentPage: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.xs)) {
+private fun AnimatedPageIndicator(pageCount: Int, currentPage: Int) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         repeat(pageCount) { index ->
             val isSelected = index == currentPage
             Box(
                 modifier = Modifier
                     .height(8.dp)
-                    .width(if (isSelected) 24.dp else 8.dp)
+                    .width(if (isSelected) 28.dp else 8.dp)
                     .clip(RoundedCornerShape(MochiRadius.pill))
-                    .background(if (isSelected) MochiColor.purple else MochiColor.purple.copy(alpha = 0.25f))
+                    .background(
+                        if (isSelected) {
+                            Brush.horizontalGradient(
+                                colors = listOf(Color(0xFF7C3AED), Color(0xFFEC4999))
+                            )
+                        } else {
+                            SolidColor(Color(0xFFCBD5E1))
+                        }
+                    )
             )
         }
     }

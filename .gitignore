@@ -23,7 +23,14 @@ android/local.properties
 # Firebase / secrets
 .env
 *.env.local
+functions/.secret.local
 serviceAccountKey.json
 firestore/tests/node_modules/
 *-debug.log
 firestore-export/
+/emulator.log
+/emulator.err.log
+/uiA.xml
+/uiB.xml
+functions/node_modules/
+functions/lib/
