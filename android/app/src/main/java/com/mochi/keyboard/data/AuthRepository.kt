@@ -5,22 +5,19 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.firebase.FirebaseException
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.auth.PhoneAuthCredential
-import com.google.firebase.auth.PhoneAuthOptions
-import com.google.firebase.auth.PhoneAuthProvider
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import java.util.concurrent.TimeUnit
 
 class AuthRepository(
     private val auth: FirebaseAuth,
+    private val functions: FirebaseFunctions,
     private val userRepository: UserRepository
 ) {
 
@@ -48,19 +45,14 @@ class AuthRepository(
 
     /**
      * Web Client ID from Firebase Console -> Authentication -> Sign-in method -> Google (enabling
-     * the provider auto-creates it) - also appears as a "client_type": 3 entry in a re-downloaded
-     * google-services.json. Currently a placeholder because oauth_client is empty in the checked-in
-     * file (Google provider not enabled yet); signInWithGoogle() fails fast with a clear message
-     * instead of a raw SDK exception until this is replaced with the real value.
+     * the provider auto-creates it) - also appears as the "client_type": 3 entry in
+     * google-services.json, alongside the "client_type": 1 entry that pairs this app's debug SHA-1
+     * with the Google provider (also registered in Firebase Console).
      */
-    private val googleWebClientId = "REPLACE_WITH_FIREBASE_WEB_CLIENT_ID"
+    private val googleWebClientId =
+        "675511778611-8e648arujt5i1vuksg0087kdu8vqavj5.apps.googleusercontent.com"
 
     suspend fun signInWithGoogle(activity: Activity) {
-        check(googleWebClientId != "REPLACE_WITH_FIREBASE_WEB_CLIENT_ID") {
-            "Google Sign-In isn't configured yet - enable the Google provider in Firebase Console " +
-                "and paste the Web Client ID into AuthRepository.googleWebClientId."
-        }
-
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(googleWebClientId)
@@ -79,51 +71,48 @@ class AuthRepository(
     }
 
     /**
-     * Two-step phone flow: this starts verification and reports back via callbacks (Firebase's own
-     * API shape, not a suspend function - onCodeSent is the common path, onVerificationCompleted
-     * only fires on devices that can auto-retrieve the SMS without the user typing anything).
-     * Against the Firebase Auth Emulator this all works with no real SMS or billing plan.
+     * Sends the OTP via the sendPhoneOtp callable, which generates the code and sends it as a
+     * plain Twilio SMS server-side (not Twilio Verify - see functions/src/otp.ts for why) - no
+     * Twilio credential is ever embedded in the client. Code expiry/attempt-limiting live in
+     * Firestore's otpRequests collection, not on the client.
      */
-    fun sendPhoneVerificationCode(
-        phoneNumber: String,
-        activity: Activity,
-        onCodeSent: (String) -> Unit,
-        onAutoVerified: (PhoneAuthCredential) -> Unit,
-        onError: (Exception) -> Unit
-    ) {
-        val options = PhoneAuthOptions.newBuilder(auth)
-            .setPhoneNumber(phoneNumber)
-            .setTimeout(60L, TimeUnit.SECONDS)
-            .setActivity(activity)
-            .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                    onAutoVerified(credential)
-                }
-
-                override fun onVerificationFailed(e: FirebaseException) {
-                    onError(e)
-                }
-
-                override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
-                    onCodeSent(verificationId)
-                }
-            })
-            .build()
-        PhoneAuthProvider.verifyPhoneNumber(options)
-    }
-
-    fun phoneCredential(verificationId: String, code: String): PhoneAuthCredential =
-        PhoneAuthProvider.getCredential(verificationId, code)
-
-    suspend fun signInWithPhoneCredential(credential: PhoneAuthCredential) {
-        val result = auth.signInWithCredential(credential).await()
-        createProfileIfNewUser(result)
+    suspend fun sendPhoneOtp(phoneNumber: String) {
+        functions.getHttpsCallable("sendPhoneOtp")
+            .call(mapOf("phoneNumber" to phoneNumber))
+            .await()
     }
 
     /**
-     * Google/Phone sign-in and sign-up are the same call (Firebase creates the user on first use) -
+     * verifyPhoneOtp checks the code against the hash stored in otpRequests, then mints a Firebase
+     * custom token server-side (creating the Firebase Auth user on first use, same "sign-in and
+     * sign-up are the same call" pattern as Google below) and returns it for
+     * signInWithCustomToken - Twilio never talks to Firebase Auth directly, this callable is the
+     * bridge. isNewUser comes from the callable itself since signInWithCustomToken's AuthResult
+     * doesn't populate additionalUserInfo.isNewUser the way a normal client-side provider sign-in
+     * does.
+     */
+    suspend fun verifyPhoneOtp(phoneNumber: String, code: String) {
+        val result = functions.getHttpsCallable("verifyPhoneOtp")
+            .call(mapOf("phoneNumber" to phoneNumber, "code" to code))
+            .await()
+        @Suppress("UNCHECKED_CAST")
+        val data = result.getData() as Map<String, Any?>
+        val token = data["token"] as String
+        val isNewUser = data["isNewUser"] as? Boolean ?: false
+
+        auth.signInWithCustomToken(token).await()
+        if (isNewUser) {
+            val uid = auth.currentUser?.uid ?: error("Sign-in succeeded but no user id was returned")
+            userRepository.createUserProfile(uid)
+        }
+    }
+
+    /**
+     * Google sign-in and sign-up are the same call (Firebase creates the user on first use) -
      * unlike signUpWithEmail, a repeat login must NOT re-run createUserProfile, since that would
-     * reset an existing user's counters back to 0 every time they sign in.
+     * reset an existing user's counters back to 0 every time they sign in. Phone OTP has the same
+     * isNewUser-gated shape but goes through verifyPhoneOtp above instead, since it doesn't have an
+     * AuthResult to read additionalUserInfo from until after signInWithCustomToken succeeds.
      */
     private suspend fun createProfileIfNewUser(result: AuthResult) {
         if (result.additionalUserInfo?.isNewUser == true) {

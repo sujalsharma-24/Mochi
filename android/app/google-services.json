@@ -12,7 +12,20 @@
           "package_name": "com.Adam.Mochi"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "675511778611-45m5pdlpl4g716otbsfi1l12leqksp0j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.Adam.Mochi",
+            "certificate_hash": "b92e7e0244a8aaf8fa0e7ecbd35f97be1aca9b85"
+          }
+        },
+        {
+          "client_id": "675511778611-8e648arujt5i1vuksg0087kdu8vqavj5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD0t6tvRvtIMn433-26T6HTqhzHfESl0k8"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "675511778611-8e648arujt5i1vuksg0087kdu8vqavj5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "675511778611-jjv69a8ttharev3mff675ki4eaf13ki9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.Adam.Mochi"
+              }
+            }
+          ]
         }
       }
     }

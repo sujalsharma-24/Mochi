@@ -19,8 +19,9 @@ data class AuthUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val resetEmailSent: Boolean = false,
-    // null = show the phone-number field; non-null = a code was sent, show the OTP-entry field.
-    val phoneVerificationId: String? = null
+    // null = show the phone-number field; non-null = the OTP was sent to this number via Twilio,
+    // show the code-entry field (also doubles as "which number to verify against").
+    val otpPhoneNumber: String? = null
 )
 
 class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
@@ -37,43 +38,26 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     fun signInWithGoogle(activity: Activity, onSuccess: () -> Unit) =
         runAuthAction(onSuccess) { authRepository.signInWithGoogle(activity) }
 
-    fun sendPhoneCode(phoneNumber: String, activity: Activity, onAutoVerifiedSuccess: () -> Unit) {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-        authRepository.sendPhoneVerificationCode(
-            phoneNumber = phoneNumber,
-            activity = activity,
-            onCodeSent = { verificationId ->
-                _uiState.value = _uiState.value.copy(isLoading = false, phoneVerificationId = verificationId)
-            },
-            onAutoVerified = { credential ->
-                // Rare fast-path: some devices auto-retrieve the SMS without the user typing a
-                // code at all. Same runAuthAction pattern, just triggered from a callback instead
-                // of a button tap.
-                viewModelScope.launch {
-                    runCatching { authRepository.signInWithPhoneCredential(credential) }
-                        .onSuccess {
-                            _uiState.value = _uiState.value.copy(isLoading = false)
-                            onAutoVerifiedSuccess()
-                        }
-                        .onFailure { e ->
-                            _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = mapAuthError(e))
-                        }
+    fun sendPhoneCode(phoneNumber: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            runCatching { authRepository.sendPhoneOtp(phoneNumber) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isLoading = false, otpPhoneNumber = phoneNumber)
                 }
-            },
-            onError = { e ->
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = mapAuthError(e))
-            }
-        )
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = mapAuthError(e))
+                }
+        }
     }
 
     fun verifyPhoneCode(code: String, onSuccess: () -> Unit) {
-        val verificationId = _uiState.value.phoneVerificationId ?: return
-        val credential = authRepository.phoneCredential(verificationId, code)
-        runAuthAction(onSuccess) { authRepository.signInWithPhoneCredential(credential) }
+        val phoneNumber = _uiState.value.otpPhoneNumber ?: return
+        runAuthAction(onSuccess) { authRepository.verifyPhoneOtp(phoneNumber, code) }
     }
 
     fun resetPhoneFlow() {
-        _uiState.value = _uiState.value.copy(phoneVerificationId = null, errorMessage = null)
+        _uiState.value = _uiState.value.copy(otpPhoneNumber = null, errorMessage = null)
     }
 
     fun sendPasswordReset(email: String) {
@@ -114,6 +98,9 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
         is FirebaseAuthInvalidUserException -> "No account found for that email."
         is GetCredentialCancellationException -> "Sign-in canceled."
         is NoCredentialException -> "No Google account found on this device."
+        // FirebaseFunctionsException.message for the phone-OTP callables is already
+        // display-ready text from the callable's own HttpsError (e.g. "That code is incorrect or
+        // expired."), so it falls through to the same default as everything else.
         else -> e.message ?: "Something went wrong. Please try again."
     }
 }

@@ -69,18 +69,29 @@ Auth/Firestore-backed screens end-to-end against the emulator:
 4. `gradlew installDebug`, launch the app, sign up a real test account through the Auth screen —
    Home should now show the seeded themes instead of `MockData`.
 
-Email/Password, Google, and Phone OTP are all wired to real Firebase Auth now. Apple stays a stub —
-it's an iOS-only App Store requirement, not applicable on Android.
+Email/Password and Google are wired to real Firebase Auth now. Apple stays a stub — it's an
+iOS-only App Store requirement, not applicable on Android.
 
-- **Phone OTP** works against the emulator with no extra setup — no real SMS, no billing plan
-  needed. Send a code to any number, then look up the code the emulator generated via the Auth
-  Emulator UI (`http://127.0.0.1:4000/auth`) to complete verification.
-- **Google Sign-In** needs one manual step before it'll do anything besides show a clear "not
-  configured yet" message: `android/app/src/main/java/com/mochi/keyboard/data/AuthRepository.kt`
-  has a `googleWebClientId` placeholder near the top. Enable the Google provider in Firebase
-  Console (Authentication → Sign-in method → Google → Enable) — this auto-creates the required Web
-  Client ID — then paste it in (or re-download `google-services.json`, which will then contain a
-  `"client_type": 3` entry with the same value, and pull the ID from there instead).
+- **Phone OTP** does not use Firebase's own Phone Auth or Twilio Verify — see `functions/src/otp.ts`
+  (`sendPhoneOtp`/`verifyPhoneOtp` callables) and `AuthRepository.kt`/`AuthViewModel.kt` on the
+  client. Twilio Verify Service creation is gated behind a Twilio account upgrade (adding a payment
+  method), which blocked testing before the client is ready to pay — so these callables generate,
+  hash, and expire the code themselves (`otpRequests/{phoneNumber}` in Firestore, admin-only) and
+  send it as a plain SMS via Twilio's Messages API instead. `firebase emulators:start` (no `--only`
+  flag — this needs Firestore running alongside Functions, not just Functions) starts everything
+  needed locally, but the callables still need real Twilio credentials to reach Twilio's API — fill
+  in `functions/.secret.local` (gitignored, placeholder values checked in) with a Twilio trial
+  account's Account SID, Auth Token, and trial phone number (`Phone Numbers → Manage → Active
+  Numbers`) from `console.twilio.com`. A trial account can only text phone numbers you've verified
+  under `Phone Numbers → Manage → Verified Caller IDs` first — that's a Twilio account limitation,
+  not a bug here. Swapping to a real Verify Service later (once upgraded) or the client's paid
+  account is a `functions/src/otp.ts` + secret-value change, not an Android-side change.
+- **Google Sign-In** is configured — the Google provider is enabled in Firebase Console, the debug
+  keystore's SHA-1/SHA-256 are registered against the Android app there, and
+  `AuthRepository.kt`'s `googleWebClientId` holds the real Web Client ID (the `"client_type": 3`
+  entry in `google-services.json`). A release-signed build will need its own signing certificate's
+  SHA-1 added in Firebase Console before Google Sign-In works on that build — the debug fingerprint
+  registered now only covers `gradlew installDebug` sideloads.
 
 ## Keeping this in sync with iOS
 
