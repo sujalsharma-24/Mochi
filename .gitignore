@@ -34,3 +34,4 @@ firestore-export/
 /uiB.xml
 functions/node_modules/
 functions/lib/
+functions/.secret.local

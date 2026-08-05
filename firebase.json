@@ -6,6 +6,10 @@
   "storage": {
     "rules": "firestore/storage.rules"
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
   "emulators": {
     "firestore": {
       "port": 8080
@@ -15,6 +19,9 @@
     },
     "auth": {
       "port": 9099
+    },
+    "functions": {
+      "port": 5001
     },
     "ui": {
       "enabled": true,

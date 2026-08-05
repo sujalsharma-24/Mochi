@@ -11,12 +11,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@google-cloud/vision": "^4.3.2",
+    "@tensorflow/tfjs": "^4.22.0",
     "firebase-admin": "^12.6.0",
-    "firebase-functions": "^6.0.1"
+    "firebase-functions": "^6.0.1",
+    "jpeg-js": "^0.4.4",
+    "nsfwjs": "^4.3.0",
+    "pngjs": "^7.0.0"
   },
   "devDependencies": {
+    "@types/jpeg-js": "^0.3.0",
     "@types/node": "^20.14.0",
+    "@types/pngjs": "^6.0.5",
+    "firebase": "^12.17.0",
     "typescript": "^5.5.4"
   }
 }
