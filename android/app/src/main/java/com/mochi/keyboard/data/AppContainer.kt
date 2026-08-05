@@ -20,6 +20,7 @@ class AppContainer(
     val themeRepository: ThemeRepository = ThemeRepository(firestore)
     val likeRepository: LikeRepository = LikeRepository(firestore)
     val followRepository: FollowRepository = FollowRepository(firestore)
+    val reportRepository: ReportRepository = ReportRepository(firestore)
     val createRepository: CreateRepository = CreateRepository(firestore)
     // Always the real Storage bucket, even when USE_LOCAL_EMULATOR routes Auth/Firestore to the
     // Local Emulator Suite - MochiApplication doesn't wire a Storage emulator connection (dev

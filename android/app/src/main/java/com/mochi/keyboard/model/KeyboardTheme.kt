@@ -8,7 +8,10 @@ data class KeyboardTheme(
     val likeCount: Int,
     val isPremium: Boolean,
     val hashtags: List<String>,
-    val description: String = ""
+    val description: String = "",
+    /** Empty for MockData entries (no real creator account behind them) - only Firestore-backed
+     * themes populate this, and only those can back a Community follow action. */
+    val creatorUid: String = ""
 ) {
     val likeCountFormatted: String get() = likeCount.formattedCompact()
 }

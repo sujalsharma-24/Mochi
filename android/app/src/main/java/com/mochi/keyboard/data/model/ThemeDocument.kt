@@ -85,5 +85,6 @@ fun ThemeDocument.toKeyboardTheme(): KeyboardTheme = KeyboardTheme(
     likeCount = likeCount.toInt(),
     isPremium = isPremium,
     hashtags = hashtags,
-    description = description
+    description = description,
+    creatorUid = creatorUid
 )
