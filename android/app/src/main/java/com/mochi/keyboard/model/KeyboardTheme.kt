@@ -71,8 +71,10 @@ fun Int.formattedCompact(): String = when {
 
 // Profile (docs/figma/3.png)
 
-/** The signed-in user as the Profile frame presents them. Counts are pre-formatted strings
- * because Figma writes "2.4K" beside a bare "128" and "156" — one column abbreviated, two not. */
+/** The signed-in user as the Profile frame presents them. Counts are real numbers formatted at
+ * render time via formattedCompact() (Figma writes "2.4K" beside a bare "128" and "156" — one
+ * column abbreviated, two not, but that's a display choice, not a reason to store pre-formatted
+ * strings — see KeyboardTheme.likeCountFormatted for the same pattern used elsewhere). */
 data class ProfileSummary(
     val displayName: String,
     val handle: String,
@@ -81,18 +83,18 @@ data class ProfileSummary(
     val isVerified: Boolean,
     val stats: List<Stat>
 ) {
-    data class Stat(val value: String, val label: String)
+    data class Stat(val value: Int, val label: String)
 }
 
 /** One tile in MY CREATIONS or MY DOWNLOADS. `kind` is the purple line under the name
- * ("Theme"/"Font"); MY DOWNLOADS doesn't show it and `downloads` is unused there. */
+ * ("Theme"/"Font"); MY DOWNLOADS doesn't show it and `downloads` is null there. */
 data class ProfileCreation(
     val id: String,
     val name: String,
     val kind: String,
     val imageAssetName: String,
-    val likes: String,
-    val downloads: String
+    val likes: Int,
+    val downloads: Int? = null
 )
 
 /** A row in the Liked Themes card. */
@@ -101,8 +103,8 @@ data class ProfileLikedTheme(
     val name: String,
     val creatorName: String,
     val imageAssetName: String,
-    val likes: String
+    val likes: Int
 )
 
 /** A row in the right-hand card (Followers / Following). */
-data class ProfileFollowRow(val id: String, val label: String, val value: String)
+data class ProfileFollowRow(val id: String, val label: String, val value: Int)

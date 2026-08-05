@@ -47,7 +47,11 @@ fun RootScreen(
                     onChooseTabClick = { selected = MochiTab.THEMES }
                 )
                 MochiTab.FONTS -> FontsScreen(onSearchClick = onSearchClick)
-                MochiTab.THEMES -> ThemesScreen(onSearchClick = onSearchClick, onWallpapersClick = onWallpapersClick)
+                MochiTab.THEMES -> ThemesScreen(
+                    onSearchClick = onSearchClick,
+                    onWallpapersClick = onWallpapersClick,
+                    onThemeClick = onThemeClick
+                )
                 MochiTab.COMMUNITY -> CommunityScreen(
                     onProfileClick = onProfileClick,
                     onSearchClick = onSearchClick,

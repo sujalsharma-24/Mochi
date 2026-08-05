@@ -51,6 +51,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mochi.keyboard.R
 import com.mochi.keyboard.components.DownloadGlyph
 import com.mochi.keyboard.components.FunnelGlyph
@@ -58,6 +60,7 @@ import com.mochi.keyboard.components.PencilGlyph
 import com.mochi.keyboard.components.SlidersGlyph
 import com.mochi.keyboard.components.SparkleField
 import com.mochi.keyboard.components.TripleDot
+import com.mochi.keyboard.data.rememberMochiViewModelFactory
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiGradient
@@ -69,7 +72,7 @@ import com.mochi.keyboard.model.KeyboardTheme
 @Preview(showBackground = true, widthDp = 393, heightDp = 2400)
 @Composable
 private fun ThemesScreenPreview() {
-    ThemesScreen()
+    ThemesScreenContent(themes = MockData.shopThemes)
 }
 
 /** The seven categories the Fonts frame also uses, with the same marks. Widths/icon widths are
@@ -116,7 +119,28 @@ private fun ThemesArtImage(assetName: String, modifier: Modifier = Modifier) {
 fun ThemesScreen(
     modifier: Modifier = Modifier,
     onSearchClick: () -> Unit = {},
-    onWallpapersClick: () -> Unit = {}
+    onWallpapersClick: () -> Unit = {},
+    onThemeClick: (KeyboardTheme) -> Unit = {},
+    viewModel: ThemesViewModel = viewModel(factory = rememberMochiViewModelFactory())
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Real Firestore data only replaces the grid once it's actually loaded - Loading/Empty/Error
+    // fall back to MockData rather than showing a blank/broken grid, same pattern as HomeScreen.
+    val themes = (uiState as? ThemesUiState.Data)?.themes ?: MockData.shopThemes
+    ThemesScreenContent(modifier, themes, onSearchClick, onWallpapersClick, onThemeClick)
+}
+
+/** Split from ThemesScreen so @Preview can render this directly with MockData, without going
+ * through rememberMochiViewModelFactory() - that factory casts LocalContext's application to
+ * MochiApplication, which Preview's fake context isn't, and would crash the preview. Same pattern
+ * as HomeScreen/HomeScreenContent. */
+@Composable
+private fun ThemesScreenContent(
+    modifier: Modifier = Modifier,
+    themes: List<KeyboardTheme> = MockData.shopThemes,
+    onSearchClick: () -> Unit = {},
+    onWallpapersClick: () -> Unit = {},
+    onThemeClick: (KeyboardTheme) -> Unit = {}
 ) {
     var category by remember { mutableStateOf(ThemeCategory.ALL) }
 
@@ -150,7 +174,7 @@ fun ThemesScreen(
             FilterRow()
 
             Spacer(modifier = Modifier.height(ThemesMetrics.filterToGrid))
-            CardGrid(MockData.shopThemes)
+            CardGrid(themes, onThemeClick)
 
             Spacer(modifier = Modifier.height(ThemesMetrics.gridToHeading))
             DownloadedSection(MockData.downloadedThemes)
@@ -360,18 +384,18 @@ private fun FilterRow() {
 // region Card grid
 
 @Composable
-private fun CardGrid(themes: List<KeyboardTheme>) {
+private fun CardGrid(themes: List<KeyboardTheme>, onThemeClick: (KeyboardTheme) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(ThemesMetrics.cardGap)) {
         themes.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(ThemesMetrics.cardGap)) {
-                row.forEach { theme -> ThemeGridCard(theme) }
+                row.forEach { theme -> ThemeGridCard(theme, onClick = { onThemeClick(theme) }) }
             }
         }
     }
 }
 
 @Composable
-private fun ThemeGridCard(theme: KeyboardTheme) {
+private fun ThemeGridCard(theme: KeyboardTheme, onClick: () -> Unit) {
     val density = LocalDensity.current
 
     Column(
@@ -456,7 +480,8 @@ private fun ThemeGridCard(theme: KeyboardTheme) {
                         .height(ThemesMetrics.cardButtonHeight)
                         .clip(CircleShape)
                         .background(Color.White)
-                        .border(ThemesMetrics.hairline, MochiColor.logoSolid, CircleShape),
+                        .border(ThemesMetrics.hairline, MochiColor.logoSolid, CircleShape)
+                        .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = "Preview", style = MochiFont.body(ThemesType.previewButton), color = MochiColor.textPrimary)
@@ -466,7 +491,8 @@ private fun ThemeGridCard(theme: KeyboardTheme) {
                         .weight(1f)
                         .height(ThemesMetrics.cardButtonHeight)
                         .clip(CircleShape)
-                        .background(MochiGradient.themeButton),
+                        .background(MochiGradient.themeButton)
+                        .clickable(onClick = onClick),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = "Apply", style = MochiFont.body(ThemesType.applyButton), color = MochiColor.textPrimary)

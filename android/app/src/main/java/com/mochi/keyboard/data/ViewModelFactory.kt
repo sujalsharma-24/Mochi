@@ -8,15 +8,19 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.mochi.keyboard.MochiApplication
 import com.mochi.keyboard.features.auth.AuthViewModel
 import com.mochi.keyboard.features.home.HomeViewModel
+import com.mochi.keyboard.features.themes.ThemesViewModel
 
 /** One factory for every ViewModel, since there's no DI framework wiring `@Inject` constructors —
- * add a branch here whenever a new screen gets a ViewModel. */
+ * add a branch here whenever a new screen gets a ViewModel. Screens whose ViewModel needs a
+ * per-navigation argument (e.g. ThemeDetailViewModel's themeId) don't fit this shared single-
+ * instance-per-class factory and build their own inline factory instead - see ThemeDetailScreen.kt. */
 class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T =
         when (modelClass) {
             HomeViewModel::class.java -> HomeViewModel(container.themeRepository) as T
             AuthViewModel::class.java -> AuthViewModel(container.authRepository) as T
+            ThemesViewModel::class.java -> ThemesViewModel(container.themeRepository) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
 }

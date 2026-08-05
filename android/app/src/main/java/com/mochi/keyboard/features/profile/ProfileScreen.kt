@@ -63,6 +63,7 @@ import com.mochi.keyboard.model.ProfileCreation
 import com.mochi.keyboard.model.ProfileFollowRow
 import com.mochi.keyboard.model.ProfileLikedTheme
 import com.mochi.keyboard.model.ProfileSummary
+import com.mochi.keyboard.model.formattedCompact
 
 /** Assets this page draws directly by name (docs/figma/3.png), separate from ThemeArt/FontArtCard's
  * catalogs: this page never falls back to a generated placeholder — every tile here has real art —
@@ -193,7 +194,7 @@ private fun ProfileHeader(profile: ProfileSummary) {
             Text(text = "make typing more fun!", style = MochiFont.body(11.sp), color = MochiColor.textGreyWarm)
             Spacer(modifier = Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.lg)) {
-                profile.stats.forEach { StatColumn(it.value, it.label) }
+                profile.stats.forEach { StatColumn(it.value.formattedCompact(), it.label) }
             }
         }
     }
@@ -306,10 +307,10 @@ private fun CreationCard(item: ProfileCreation, modifier: Modifier = Modifier) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(imageVector = Icons.Filled.Favorite, contentDescription = null, tint = MochiColor.heart, modifier = Modifier.size(9.dp))
                 Spacer(modifier = Modifier.width(3.dp))
-                Text(text = item.likes, style = MochiFont.itemName(8.sp), color = MochiColor.textPrimary, modifier = Modifier.weight(1f))
+                Text(text = item.likes.formattedCompact(), style = MochiFont.itemName(8.sp), color = MochiColor.textPrimary, modifier = Modifier.weight(1f))
                 DownloadGlyph(color = MochiColor.downloadGlyph, strokeWidth = 1.3f, modifier = Modifier.size(9.dp))
                 Spacer(modifier = Modifier.width(3.dp))
-                Text(text = item.downloads, style = MochiFont.itemName(8.sp), color = MochiColor.textPrimary)
+                Text(text = item.downloads?.formattedCompact().orEmpty(), style = MochiFont.itemName(8.sp), color = MochiColor.textPrimary)
             }
         }
     }
@@ -365,7 +366,7 @@ private fun DownloadCard(item: ProfileCreation, modifier: Modifier = Modifier) {
             Text(text = item.name, style = MochiFont.body(8.5.sp), color = MochiColor.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Icon(imageVector = Icons.Filled.Favorite, contentDescription = null, tint = MochiColor.heart, modifier = Modifier.size(8.dp))
             Spacer(modifier = Modifier.width(3.dp))
-            Text(text = item.likes, style = MochiFont.itemName(8.sp), color = MochiColor.textPrimary)
+            Text(text = item.likes.formattedCompact(), style = MochiFont.itemName(8.sp), color = MochiColor.textPrimary)
         }
     }
 }
@@ -422,7 +423,7 @@ private fun LikedRow(item: ProfileLikedTheme) {
         }
         Icon(imageVector = Icons.Filled.Favorite, contentDescription = null, tint = MochiColor.heart, modifier = Modifier.size(7.dp))
         Spacer(modifier = Modifier.width(2.dp))
-        Text(text = item.likes, style = MochiFont.itemName(6.5.sp), color = MochiColor.textPrimary)
+        Text(text = item.likes.formattedCompact(), style = MochiFont.itemName(6.5.sp), color = MochiColor.textPrimary)
     }
 }
 
@@ -437,7 +438,7 @@ private fun FollowRow(item: ProfileFollowRow) {
         }
         Text(text = item.label, style = MochiFont.itemName(8.5.sp), color = MochiColor.textPrimary, modifier = Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = item.value, style = MochiFont.itemName(7.sp), color = MochiColor.textPrimary)
+            Text(text = item.value.formattedCompact(), style = MochiFont.itemName(7.sp), color = MochiColor.textPrimary)
             Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MochiColor.textPrimary, modifier = Modifier.size(10.dp))
         }
     }

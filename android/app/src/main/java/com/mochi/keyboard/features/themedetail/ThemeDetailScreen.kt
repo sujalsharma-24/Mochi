@@ -30,17 +30,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mochi.keyboard.MochiApplication
 import com.mochi.keyboard.components.GradientButton
 import com.mochi.keyboard.components.OutlineButton
 import com.mochi.keyboard.components.ThemeArt
@@ -62,8 +66,25 @@ fun ThemeDetailScreen(
     onBack: () -> Unit = {},
     onUnlockPremium: () -> Unit = {}
 ) {
-    var isLiked by remember { mutableStateOf(false) }
-    var likeCount by remember { mutableStateOf(theme.likeCount) }
+    val application = LocalContext.current.applicationContext as MochiApplication
+    // Keyed by theme.id and built inline (not the shared ViewModelFactory/rememberMochiViewModelFactory)
+    // because this ViewModel needs a per-navigation argument (which theme) that a single shared
+    // factory keyed only by class can't supply - see ViewModelFactory.kt's note on this.
+    val viewModel: ThemeDetailViewModel = viewModel(
+        key = theme.id,
+        factory = viewModelFactory {
+            initializer {
+                ThemeDetailViewModel(
+                    likeRepository = application.container.likeRepository,
+                    authRepository = application.container.authRepository,
+                    themeId = theme.id,
+                    initialLikeCount = theme.likeCount
+                )
+            }
+        }
+    )
+    val isLiked by viewModel.isLiked.collectAsStateWithLifecycle()
+    val likeCount by viewModel.likeCount.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
@@ -109,10 +130,7 @@ fun ThemeDetailScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.clickable {
-                            isLiked = !isLiked
-                            likeCount = if (isLiked) theme.likeCount + 1 else theme.likeCount
-                        }
+                        modifier = Modifier.clickable(onClick = viewModel::toggleLike)
                     ) {
                         Icon(
                             imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
