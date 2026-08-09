@@ -10,6 +10,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.MemoryCacheSettings
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.storage.FirebaseStorage
 import com.mochi.keyboard.data.AppContainer
 
 /**
@@ -47,6 +48,7 @@ class MochiApplication : Application() {
         val auth = FirebaseAuth.getInstance()
         val firestore = FirebaseFirestore.getInstance()
         val functions = FirebaseFunctions.getInstance()
+        val storage = FirebaseStorage.getInstance()
 
         if (USE_LOCAL_EMULATOR) {
             auth.useEmulator(EMULATOR_HOST, AUTH_EMULATOR_PORT)
@@ -56,9 +58,10 @@ class MochiApplication : Application() {
                 .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())
                 .build()
             functions.useEmulator(EMULATOR_HOST, FUNCTIONS_EMULATOR_PORT)
+            storage.useEmulator(EMULATOR_HOST, STORAGE_EMULATOR_PORT)
         }
 
-        container = AppContainer(context = this, auth = auth, firestore = firestore, functions = functions)
+        container = AppContainer(context = this, auth = auth, firestore = firestore, functions = functions, storage = storage)
     }
 
     private companion object {
@@ -67,6 +70,7 @@ class MochiApplication : Application() {
         const val AUTH_EMULATOR_PORT = 9099
         const val FIRESTORE_EMULATOR_PORT = 8080
         const val FUNCTIONS_EMULATOR_PORT = 5001
+        const val STORAGE_EMULATOR_PORT = 9199
         const val USE_DEBUG_APP_CHECK = true
     }
 }

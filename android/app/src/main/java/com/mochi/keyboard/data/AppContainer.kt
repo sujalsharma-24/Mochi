@@ -22,11 +22,6 @@ class AppContainer(
     val followRepository: FollowRepository = FollowRepository(firestore)
     val reportRepository: ReportRepository = ReportRepository(firestore)
     val createRepository: CreateRepository = CreateRepository(firestore)
-    // Always the real Storage bucket, even when USE_LOCAL_EMULATOR routes Auth/Firestore to the
-    // Local Emulator Suite - MochiApplication doesn't wire a Storage emulator connection (dev
-    // workflow only starts Auth+Firestore emulators today), so uploads made during local dev land
-    // in the live bucket. Fine for now (small dev-only files), but worth revisiting if that becomes
-    // noisy - add `storage.useEmulator(...)` alongside the Auth/Firestore emulator setup then.
     val storageRepository: StorageRepository = StorageRepository(storage)
     val settingsRepository: SettingsRepository = SettingsRepository(context)
     val billingRepository: BillingRepository = BillingRepository(context).apply {

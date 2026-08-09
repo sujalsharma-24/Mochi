@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.mochi.keyboard.MochiApplication
 import com.mochi.keyboard.features.auth.AuthViewModel
 import com.mochi.keyboard.features.community.CommunityViewModel
+import com.mochi.keyboard.features.create.CreateThemeViewModel
 import com.mochi.keyboard.features.home.HomeViewModel
 import com.mochi.keyboard.features.themes.ThemesViewModel
 
@@ -27,6 +28,11 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
                 container.likeRepository,
                 container.followRepository,
                 container.reportRepository,
+                container.authRepository
+            ) as T
+            CreateThemeViewModel::class.java -> CreateThemeViewModel(
+                container.createRepository,
+                container.storageRepository,
                 container.authRepository
             ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

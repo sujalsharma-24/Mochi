@@ -1,5 +1,8 @@
 package com.mochi.keyboard.features.create
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +30,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
@@ -41,6 +46,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +72,7 @@ import com.mochi.keyboard.components.FloppyGlyph
 import com.mochi.keyboard.components.HexagonShape
 import com.mochi.keyboard.components.KeycapGlyph
 import com.mochi.keyboard.components.SparkleField
+import com.mochi.keyboard.data.rememberMochiViewModelFactory
 import com.mochi.keyboard.designsystem.CreateMetrics
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
@@ -74,7 +81,7 @@ import com.mochi.keyboard.designsystem.MochiGradient
 @Preview(showBackground = true, widthDp = 393, heightDp = 3200)
 @Composable
 private fun CreateThemeScreenPreview() {
-    CreateThemeScreen()
+    CreateThemeScreenContent()
 }
 
 private enum class EditorTab(val label: String) { BACKGROUND("Background"), KEYS("Keys"), FONTS("Fonts"), EFFECT("Effect") }
@@ -99,13 +106,61 @@ private val fontStyleSpecimens = listOf(
  * squares, hue rails and their knobs are static in iOS too — no gesture is wired to them there
  * either, so none is added here. */
 @Composable
-fun CreateThemeScreen(modifier: Modifier = Modifier) {
+fun CreateThemeScreen(
+    modifier: Modifier = Modifier,
+    viewModel: CreateThemeViewModel = viewModel(factory = rememberMochiViewModelFactory())
+) {
+    val publishState by viewModel.publishState.collectAsStateWithLifecycle()
+    CreateThemeScreenContent(
+        modifier = modifier,
+        publishState = publishState,
+        onSave = { name, tags, presetBackground, galleryUri, keyShape, fontStyle, publish ->
+            viewModel.save(name, tags, presetBackground, galleryUri, keyShape, fontStyle, publish)
+        }
+    )
+}
+
+/** Split from CreateThemeScreen so @Preview can render this directly without going through
+ * rememberMochiViewModelFactory() - that factory casts LocalContext's application to
+ * MochiApplication, which Preview's fake context isn't, and would crash the preview. Same pattern
+ * as HomeScreen/ThemesScreen. */
+@Composable
+private fun CreateThemeScreenContent(
+    modifier: Modifier = Modifier,
+    publishState: PublishUiState = PublishUiState.Idle,
+    onSave: (
+        name: String,
+        tags: List<String>,
+        presetBackground: Int?,
+        galleryUri: Uri?,
+        keyShape: Int,
+        fontStyle: Int,
+        publish: Boolean
+    ) -> Unit = { _, _, _, _, _, _, _ -> }
+) {
     var tab by remember { mutableStateOf(EditorTab.FONTS) }
-    var background by remember { mutableStateOf(0) }
+    var presetBackground by remember { mutableStateOf<Int?>(0) }
+    var galleryUri by remember { mutableStateOf<Uri?>(null) }
     var keyShape by remember { mutableStateOf(0) }
     var fontStyle by remember { mutableStateOf(0) }
     var themeName by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf(listOf("Cute", "Purple", "Dream", "Cloud")) }
+
+    val galleryPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            galleryUri = uri
+            presetBackground = null
+        }
+    }
+
+    LaunchedEffect(publishState) {
+        if (publishState is PublishUiState.Success) {
+            themeName = ""
+            tags = emptyList()
+            galleryUri = null
+            presetBackground = 0
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Image(
@@ -129,7 +184,12 @@ fun CreateThemeScreen(modifier: Modifier = Modifier) {
             CreateHeader()
             KeyboardPreview()
             EditorTabBar(selected = tab, onSelect = { tab = it })
-            BackgroundCard(selected = background, onSelect = { background = it })
+            BackgroundCard(
+                selectedPreset = presetBackground,
+                gallerySelected = galleryUri != null,
+                onSelectPreset = { presetBackground = it; galleryUri = null },
+                onGalleryClick = { galleryPicker.launch("image/*") }
+            )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 KeyShapeSection(selected = keyShape, onSelect = { keyShape = it }, modifier = Modifier.weight(1.75f))
@@ -157,9 +217,30 @@ fun CreateThemeScreen(modifier: Modifier = Modifier) {
                 )
             }
 
-            ActionButtonsRow()
+            StatusBanner(publishState)
+
+            ActionButtonsRow(
+                isSaving = publishState is PublishUiState.Saving,
+                onSaveDraft = {
+                    onSave(themeName, tags, presetBackground, galleryUri, keyShape, fontStyle, false)
+                },
+                onPublish = {
+                    onSave(themeName, tags, presetBackground, galleryUri, keyShape, fontStyle, true)
+                }
+            )
         }
     }
+}
+
+@Composable
+private fun StatusBanner(state: PublishUiState) {
+    val message = when (state) {
+        is PublishUiState.Success -> if (state.published) "Published! It'll appear in Community once approved." else "Draft saved."
+        is PublishUiState.Error -> state.message
+        else -> null
+    } ?: return
+    val color = if (state is PublishUiState.Error) MochiColor.heart else MochiColor.logoSolid
+    Text(text = message, style = MochiFont.body(13.sp), color = color)
 }
 
 /** The purple ring every white panel on this frame carries. */
@@ -261,7 +342,12 @@ private fun EditorTabBar(selected: EditorTab, onSelect: (EditorTab) -> Unit) {
 // region Background card
 
 @Composable
-private fun BackgroundCard(selected: Int, onSelect: (Int) -> Unit) {
+private fun BackgroundCard(
+    selectedPreset: Int?,
+    gallerySelected: Boolean,
+    onSelectPreset: (Int) -> Unit,
+    onGalleryClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -276,33 +362,43 @@ private fun BackgroundCard(selected: Int, onSelect: (Int) -> Unit) {
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(CreateMetrics.bgTileGap)
         ) {
-            SourceTile(caption = "Gallery") {
+            SourceTile(caption = "Gallery", isSelected = gallerySelected, onClick = onGalleryClick) {
                 Icon(Icons.Filled.Add, contentDescription = null, tint = MochiColor.logoSolid, modifier = Modifier.size(20.dp))
             }
-            SourceTile(caption = "Colors") {
+            SourceTile(caption = "Colors", isSelected = false, onClick = {}) {
                 ColorWheelGlyph(modifier = Modifier.size(20.dp))
             }
             backgroundArt.forEachIndexed { index, res ->
-                ArtworkTile(res = res, isSelected = selected == index, onClick = { onSelect(index) })
+                ArtworkTile(res = res, isSelected = selectedPreset == index, onClick = { onSelectPreset(index) })
             }
         }
     }
 }
 
+/** Colors has no gesture wired, matching iOS/the saturation-square precedent elsewhere on this
+ * screen — only Gallery becomes real (a system photo picker + Storage upload). */
 @Composable
-private fun SourceTile(caption: String, glyph: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .size(CreateMetrics.bgTileWidth, CreateMetrics.bgTileHeight)
-            .clip(RoundedCornerShape(CreateMetrics.sourceTileRadius))
-            .background(Color.White)
-            .panelBorderSolid(RoundedCornerShape(CreateMetrics.sourceTileRadius)),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        glyph()
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(text = caption, style = MochiFont.body(CreateMetrics.sourceCaptionSize), color = MochiColor.logoSolid)
+private fun SourceTile(caption: String, isSelected: Boolean, onClick: () -> Unit, glyph: @Composable () -> Unit) {
+    Box {
+        Column(
+            modifier = Modifier
+                .size(CreateMetrics.bgTileWidth, CreateMetrics.bgTileHeight)
+                .clip(RoundedCornerShape(CreateMetrics.sourceTileRadius))
+                .background(Color.White)
+                .panelBorderSolid(RoundedCornerShape(CreateMetrics.sourceTileRadius))
+                .clickable(onClick = onClick),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            glyph()
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = caption, style = MochiFont.body(CreateMetrics.sourceCaptionSize), color = MochiColor.logoSolid)
+        }
+        if (isSelected) {
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(2.dp)) {
+                CheckBadge(CreateMetrics.bgCheckBadge)
+            }
+        }
     }
 }
 
@@ -662,7 +758,7 @@ private fun TagsField(tags: List<String>, onRemove: (String) -> Unit, modifier: 
 // region Action buttons
 
 @Composable
-private fun ActionButtonsRow() {
+private fun ActionButtonsRow(isSaving: Boolean, onSaveDraft: () -> Unit, onPublish: () -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(CreateMetrics.actionGutter)) {
         Column(
             modifier = Modifier
@@ -671,7 +767,7 @@ private fun ActionButtonsRow() {
                 .clip(RoundedCornerShape(CreateMetrics.actionRadius))
                 .background(Color.White)
                 .panelBorderSolid(RoundedCornerShape(CreateMetrics.actionRadius))
-                .clickable {},
+                .clickable(enabled = !isSaving, onClick = onSaveDraft),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -688,7 +784,7 @@ private fun ActionButtonsRow() {
                 .height(CreateMetrics.actionBtnHeight)
                 .clip(RoundedCornerShape(CreateMetrics.actionRadius))
                 .background(MochiGradient.softButton)
-                .clickable {},
+                .clickable(enabled = !isSaving, onClick = onPublish),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
