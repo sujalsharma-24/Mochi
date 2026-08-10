@@ -4,8 +4,10 @@ import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.inputmethodservice.InputMethodService
+import android.media.AudioManager
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -15,6 +17,13 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.mochi.keyboard.R
+import com.mochi.keyboard.data.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
 /**
  * Every visual surface here - key fills, text color, borders, shadows, the shift/backspace/enter
@@ -32,10 +41,37 @@ class MochiInputMethodService : InputMethodService() {
     private lateinit var shiftKeyView: ImageView
     private var isShifted = false
 
+    /** Same DataStore SettingsRepository the Settings screen writes to - the IME runs in the same
+     * process as the app (no android:process override in the manifest), so a plain read here sees
+     * the same store, no cross-process bridge needed. Collected into plain vars (not read suspend-
+     * style per keypress) since [setKeyTouchHandler] runs on ordinary View touch callbacks, not a
+     * coroutine. Autocorrect/swipe-typing are deliberately not read here - neither has a real IME
+     * engine to gate (out of this whole plan's scope), so their toggles only affect the Settings
+     * screen's own persisted state today. */
+    private val settingsRepository by lazy { SettingsRepository(applicationContext) }
+    private val audioManager by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
+    private var serviceScope: CoroutineScope? = null
+    private var hapticFeedbackEnabled = true
+    private var keyClickSoundEnabled = false
+
     private fun dp(value: Float): Float =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
 
     private fun dpInt(value: Float): Int = dp(value).toInt()
+
+    override fun onCreate() {
+        super.onCreate()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        serviceScope = scope
+        settingsRepository.hapticFeedbackEnabled.onEach { hapticFeedbackEnabled = it }.launchIn(scope)
+        settingsRepository.keyClickSoundEnabled.onEach { keyClickSoundEnabled = it }.launchIn(scope)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope?.cancel()
+        serviceScope = null
+    }
 
     override fun onCreateInputView(): View {
         popup = KeyPopupWindow(this, theme)
@@ -201,6 +237,8 @@ class MochiInputMethodService : InputMethodService() {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     view.isPressed = true
+                    if (hapticFeedbackEnabled) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    if (keyClickSoundEnabled) audioManager.playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD)
                     onDown()
                 }
                 MotionEvent.ACTION_UP -> {

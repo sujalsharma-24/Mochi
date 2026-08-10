@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -159,17 +160,18 @@ fun ProfileScreen(
             creations = state.creations.map { it.toProfileCreation() },
             likedThemes = state.likedThemes.map { ProfileLikedTheme(it.id, it.name, it.creatorName, it.imageAssetName, it.likeCount) },
             onBack = onBack,
+            onSettingsClick = onSettingsClick,
             onPaywallClick = onPaywallClick,
             onToggleFollow = viewModel::toggleFollow,
             onToggleBlock = viewModel::toggleBlock
         )
         is ProfileUiState.Error -> if (uid == null) {
-            OwnProfileMockFallback(onBack, onPaywallClick)
+            OwnProfileMockFallback(onBack, onSettingsClick, onPaywallClick)
         } else {
             ProfileMessageState(message = state.message, onBack = onBack)
         }
         ProfileUiState.Loading -> if (uid == null) {
-            OwnProfileMockFallback(onBack, onPaywallClick)
+            OwnProfileMockFallback(onBack, onSettingsClick, onPaywallClick)
         } else {
             ProfileMessageState(message = null, onBack = onBack)
         }
@@ -180,7 +182,7 @@ fun ProfileScreen(
  * Community already use - the pixel-tuned layout never breaks for the screen every user hits on
  * every launch. Viewing someone else's profile has no such stand-in (see ProfileMessageState). */
 @Composable
-private fun OwnProfileMockFallback(onBack: () -> Unit, onPaywallClick: () -> Unit) {
+private fun OwnProfileMockFallback(onBack: () -> Unit, onSettingsClick: () -> Unit, onPaywallClick: () -> Unit) {
     ProfileScreenContent(
         profile = MockData.profile,
         isOwnProfile = true,
@@ -189,6 +191,7 @@ private fun OwnProfileMockFallback(onBack: () -> Unit, onPaywallClick: () -> Uni
         creations = MockData.profileCreations,
         likedThemes = MockData.profileLikedThemes,
         onBack = onBack,
+        onSettingsClick = onSettingsClick,
         onPaywallClick = onPaywallClick,
         onToggleFollow = {},
         onToggleBlock = {}
@@ -217,6 +220,7 @@ private fun ProfileScreenContent(
     creations: List<ProfileCreation>,
     likedThemes: List<ProfileLikedTheme>,
     onBack: () -> Unit,
+    onSettingsClick: () -> Unit = {},
     onPaywallClick: () -> Unit,
     onToggleFollow: () -> Unit,
     onToggleBlock: () -> Unit
@@ -240,7 +244,12 @@ private fun ProfileScreenContent(
                 .padding(top = MochiSpacing.lg, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
-            BackButton(onBack)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                BackButton(onBack)
+                if (isOwnProfile) {
+                    SettingsButton(onSettingsClick)
+                }
+            }
             ProfileHeader(profile, isOwnProfile, isFollowing, isBlocked, onToggleFollow, onToggleBlock)
             if (isOwnProfile) {
                 PremiumBanner(
@@ -280,6 +289,21 @@ private fun BackButton(onBack: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MochiColor.textPrimary)
+    }
+}
+
+/** No Figma reference has a visible settings entry point on this screen (docs/figma/3.png), but
+ * the feature spec (Screen 8 - Profile) lists "Settings shortcut" for the own-profile route, and
+ * onSettingsClick was already threaded as far as this composable's parameter list without ever
+ * being wired to a tap target - this is that missing wiring, placed opposite BackButton rather
+ * than invented mid-layout. */
+@Composable
+private fun SettingsButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier.size(44.dp).clip(CircleShape).background(MochiGradient.themeCircleButton).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(imageVector = Icons.Filled.Settings, contentDescription = "Settings", tint = MochiColor.textPrimary)
     }
 }
 

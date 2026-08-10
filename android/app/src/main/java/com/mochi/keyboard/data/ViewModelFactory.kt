@@ -10,6 +10,7 @@ import com.mochi.keyboard.features.auth.AuthViewModel
 import com.mochi.keyboard.features.community.CommunityViewModel
 import com.mochi.keyboard.features.create.CreateThemeViewModel
 import com.mochi.keyboard.features.home.HomeViewModel
+import com.mochi.keyboard.features.settings.SettingsViewModel
 import com.mochi.keyboard.features.themes.ThemesViewModel
 
 /** One factory for every ViewModel, since there's no DI framework wiring `@Inject` constructors —
@@ -33,6 +34,10 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
             CreateThemeViewModel::class.java -> CreateThemeViewModel(
                 container.createRepository,
                 container.storageRepository,
+                container.authRepository
+            ) as T
+            SettingsViewModel::class.java -> SettingsViewModel(
+                container.settingsRepository,
                 container.authRepository
             ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

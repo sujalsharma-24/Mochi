@@ -22,22 +22,31 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.SwipeRight
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +60,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mochi.keyboard.data.rememberMochiViewModelFactory
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiGradient
@@ -60,14 +72,58 @@ import com.mochi.keyboard.designsystem.MochiSpacing
 @Preview(showBackground = true, widthDp = 393, heightDp = 3600)
 @Composable
 private fun SettingsScreenPreview() {
-    SettingsScreen()
+    SettingsScreenContent(
+        uiState = SettingsUiState(accountLabel = "creator@mochi.app"),
+        onBack = {},
+        onSignOut = {},
+        onDeleteAccount = {},
+        onDismissError = {},
+        onAutocorrectChange = {},
+        onSwipeTypingChange = {},
+        onHapticFeedbackChange = {},
+        onKeyClickSoundChange = {}
+    )
 }
 
-/** Ported from docs/figma/7.png */
+/** Ported from docs/figma/7.png. Account identity + Log Out/Delete Account and the 4 keyboard
+ * toggles are real (SettingsViewModel -> SettingsRepository, DataStore-backed) - everything else
+ * on this screen (Appearance/Preferences/Storage/Privacy/Help) is still the original static
+ * placeholder UI, out of this slice's scope. */
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
+fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}, onSignedOut: () -> Unit = {}) {
+    val viewModel: SettingsViewModel = viewModel(factory = rememberMochiViewModelFactory())
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    SettingsScreenContent(
+        modifier = modifier,
+        uiState = uiState,
+        onBack = onBack,
+        onSignOut = { viewModel.signOut(); onSignedOut() },
+        onDeleteAccount = { viewModel.deleteAccount(onSignedOut) },
+        onDismissError = viewModel::clearError,
+        onAutocorrectChange = viewModel::setAutocorrectEnabled,
+        onSwipeTypingChange = viewModel::setSwipeTypingEnabled,
+        onHapticFeedbackChange = viewModel::setHapticFeedbackEnabled,
+        onKeyClickSoundChange = viewModel::setKeyClickSoundEnabled
+    )
+}
+
+@Composable
+private fun SettingsScreenContent(
+    modifier: Modifier = Modifier,
+    uiState: SettingsUiState,
+    onBack: () -> Unit,
+    onSignOut: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    onDismissError: () -> Unit,
+    onAutocorrectChange: (Boolean) -> Unit,
+    onSwipeTypingChange: (Boolean) -> Unit,
+    onHapticFeedbackChange: (Boolean) -> Unit,
+    onKeyClickSoundChange: (Boolean) -> Unit
+) {
     var isDark by remember { mutableStateOf(false) }
     var notificationsOn by remember { mutableStateOf(true) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
@@ -80,6 +136,54 @@ fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
         ) {
             SettingsHeader(onBack)
             KeyboardSetupBanner()
+
+            SettingsSection("ACCOUNT") {
+                SettingsRow(Icons.Filled.Person, "Signed in as", uiState.accountLabel) {}
+                SettingsRow(Icons.Filled.Logout, "Log Out", "Sign out of your account", onClick = onSignOut) { ChevronIcon() }
+                SettingsRow(
+                    Icons.Filled.Delete,
+                    "Delete Account",
+                    "Permanently delete your account and data",
+                    onClick = { showDeleteConfirm = true }
+                ) {
+                    if (uiState.isDeletingAccount) {
+                        CircularProgressIndicator(color = MochiColor.purple, modifier = Modifier.size(18.dp))
+                    } else {
+                        ChevronIcon()
+                    }
+                }
+            }
+
+            SettingsSection("KEYBOARD") {
+                SettingsRow(Icons.Filled.AutoAwesome, "Autocorrect", "Fix typos automatically as you type") {
+                    Switch(
+                        checked = uiState.autocorrectEnabled,
+                        onCheckedChange = onAutocorrectChange,
+                        colors = SwitchDefaults.colors(checkedTrackColor = MochiColor.purple, checkedThumbColor = Color.White)
+                    )
+                }
+                SettingsRow(Icons.Filled.SwipeRight, "Swipe Typing", "Type by sliding between letters") {
+                    Switch(
+                        checked = uiState.swipeTypingEnabled,
+                        onCheckedChange = onSwipeTypingChange,
+                        colors = SwitchDefaults.colors(checkedTrackColor = MochiColor.purple, checkedThumbColor = Color.White)
+                    )
+                }
+                SettingsRow(Icons.Filled.Vibration, "Haptic Feedback", "Vibrate on key press") {
+                    Switch(
+                        checked = uiState.hapticFeedbackEnabled,
+                        onCheckedChange = onHapticFeedbackChange,
+                        colors = SwitchDefaults.colors(checkedTrackColor = MochiColor.purple, checkedThumbColor = Color.White)
+                    )
+                }
+                SettingsRow(Icons.Filled.VolumeUp, "Key Click Sound", "Play a sound on key press") {
+                    Switch(
+                        checked = uiState.keyClickSoundEnabled,
+                        onCheckedChange = onKeyClickSoundChange,
+                        colors = SwitchDefaults.colors(checkedTrackColor = MochiColor.purple, checkedThumbColor = Color.White)
+                    )
+                }
+            }
 
             SettingsSection("APPEARANCE") {
                 SettingsRow(Icons.Filled.Palette, "Theme Mode", "Choose your preferred theme") {
@@ -130,6 +234,29 @@ fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
                 SettingsRow(Icons.Filled.Email, "Contact Us", "We're here to help") { ChevronIcon() }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete your account?") },
+            text = { Text("This permanently deletes your account and unpublishes your themes. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; onDeleteAccount() }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (uiState.errorMessage != null) {
+        AlertDialog(
+            onDismissRequest = onDismissError,
+            title = { Text("Something went wrong") },
+            text = { Text(uiState.errorMessage) },
+            confirmButton = { TextButton(onClick = onDismissError) { Text("OK") } }
+        )
     }
 }
 
@@ -217,12 +344,12 @@ private fun SettingsSection(title: String, content: @Composable ColumnScope.() -
 }
 
 @Composable
-private fun SettingsRow(icon: ImageVector, title: String, subtitle: String, trailing: @Composable () -> Unit) {
+private fun SettingsRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit = {}, trailing: @Composable () -> Unit) {
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable {}
+                .clickable(onClick = onClick)
                 .padding(horizontal = MochiSpacing.md, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

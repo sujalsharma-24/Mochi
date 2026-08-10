@@ -122,4 +122,14 @@ class AuthRepository(
     }
 
     fun signOut() = auth.signOut()
+
+    /**
+     * Calls the onAccountDelete callable (functions/src/account.ts) - soft-deletes the Firestore
+     * profile, unpublishes the user's themes, and deletes the real Firebase Auth account
+     * server-side. The client never deletes users/{uid} directly; firestore.rules reserves that
+     * for this callable only.
+     */
+    suspend fun deleteAccount() {
+        functions.getHttpsCallable("onAccountDelete").call().await()
+    }
 }

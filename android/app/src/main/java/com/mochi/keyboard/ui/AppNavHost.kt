@@ -106,7 +106,12 @@ fun AppNavHost() {
             )
         }
         composable(Route.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onSignedOut = {
+                    navController.navigate(Route.AUTH) { popUpTo(0) { inclusive = true } }
+                }
+            )
         }
         composable(Route.SEARCH) {
             SearchScreen(onBack = { navController.popBackStack() })
