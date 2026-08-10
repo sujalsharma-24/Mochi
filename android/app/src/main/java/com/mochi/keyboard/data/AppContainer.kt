@@ -20,6 +20,7 @@ class AppContainer(
     val themeRepository: ThemeRepository = ThemeRepository(firestore)
     val likeRepository: LikeRepository = LikeRepository(firestore)
     val followRepository: FollowRepository = FollowRepository(firestore)
+    val blockRepository: BlockRepository = BlockRepository(firestore)
     val reportRepository: ReportRepository = ReportRepository(firestore)
     val createRepository: CreateRepository = CreateRepository(firestore)
     val storageRepository: StorageRepository = StorageRepository(storage)

@@ -28,7 +28,9 @@ private object Route {
     const val MAIN = "main"
     const val THEME_DETAIL = "themeDetail/{themeId}"
     const val PAYWALL = "paywall"
-    const val PROFILE = "profile"
+    // uid is an optional query arg (Compose Navigation matches "profile" with no uid navigated
+    // fine, defaulting to null) - null means "the signed-in user's own profile".
+    const val PROFILE = "profile?uid={uid}"
     const val SETTINGS = "settings"
     const val SEARCH = "search"
     const val LEADERBOARD = "leaderboard"
@@ -65,7 +67,8 @@ fun AppNavHost() {
         composable(Route.MAIN) {
             RootScreen(
                 onThemeClick = { theme -> navController.navigate("themeDetail/${theme.id}") },
-                onProfileClick = { navController.navigate(Route.PROFILE) },
+                onProfileClick = { navController.navigate("profile") },
+                onCreatorClick = { creatorUid -> navController.navigate("profile?uid=$creatorUid") },
                 onSearchClick = { navController.navigate(Route.SEARCH) },
                 onLeaderboardClick = { navController.navigate(Route.LEADERBOARD) },
                 onWallpapersClick = { navController.navigate(Route.WALLPAPERS) }
@@ -84,14 +87,19 @@ fun AppNavHost() {
             ThemeDetailScreen(
                 theme = theme,
                 onBack = { navController.popBackStack() },
-                onUnlockPremium = { navController.navigate(Route.PAYWALL) }
+                onUnlockPremium = { navController.navigate(Route.PAYWALL) },
+                onCreatorClick = { creatorUid -> navController.navigate("profile?uid=$creatorUid") }
             )
         }
         composable(Route.PAYWALL) {
             PaywallScreen(onClose = { navController.popBackStack() })
         }
-        composable(Route.PROFILE) {
+        composable(
+            Route.PROFILE,
+            arguments = listOf(navArgument("uid") { type = NavType.StringType; nullable = true; defaultValue = null })
+        ) { backStackEntry ->
             ProfileScreen(
+                uid = backStackEntry.arguments?.getString("uid"),
                 onBack = { navController.popBackStack() },
                 onSettingsClick = { navController.navigate(Route.SETTINGS) },
                 onPaywallClick = { navController.navigate(Route.PAYWALL) }

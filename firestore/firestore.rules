@@ -119,14 +119,20 @@ service cloud.firestore {
 
     // ---- blocks/{blockerUid}_{blockedUid} ----
     match /blocks/{blockId} {
-      allow read: if isSignedIn() && resource.data.blockerUid == request.auth.uid;
+      // `resource` is null for a doc that doesn't exist yet, and Firestore evaluates this rule
+      // even for a `get()` on a nonexistent doc (e.g. an "am I blocking this person?" check before
+      // any block doc has been created) - dereferencing resource.data unconditionally throws a
+      // null-value evaluation error there, which the client sees as PERMISSION_DENIED. follows'
+      // read rule avoids this by not referencing resource.data at all; blocks needs the owner check
+      // (a block doc must stay private to its blocker), so it guards resource == null instead.
+      allow read: if isSignedIn() && (resource == null || resource.data.blockerUid == request.auth.uid);
 
       allow create: if isSignedIn()
         && request.resource.data.blockerUid == request.auth.uid
         && request.resource.data.blockedUid != request.auth.uid
         && blockId == request.auth.uid + '_' + request.resource.data.blockedUid;
 
-      allow delete: if isSignedIn() && resource.data.blockerUid == request.auth.uid;
+      allow delete: if isSignedIn() && (resource == null || resource.data.blockerUid == request.auth.uid);
 
       allow update: if false;
     }

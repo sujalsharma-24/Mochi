@@ -64,7 +64,8 @@ fun ThemeDetailScreen(
     theme: KeyboardTheme,
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
-    onUnlockPremium: () -> Unit = {}
+    onUnlockPremium: () -> Unit = {},
+    onCreatorClick: (String) -> Unit = {}
 ) {
     val application = LocalContext.current.applicationContext as MochiApplication
     // Keyed by theme.id and built inline (not the shared ViewModelFactory/rememberMochiViewModelFactory)
@@ -76,8 +77,10 @@ fun ThemeDetailScreen(
             initializer {
                 ThemeDetailViewModel(
                     likeRepository = application.container.likeRepository,
+                    followRepository = application.container.followRepository,
                     authRepository = application.container.authRepository,
                     themeId = theme.id,
+                    creatorUid = theme.creatorUid,
                     initialLikeCount = theme.likeCount
                 )
             }
@@ -85,6 +88,7 @@ fun ThemeDetailScreen(
     )
     val isLiked by viewModel.isLiked.collectAsStateWithLifecycle()
     val likeCount by viewModel.likeCount.collectAsStateWithLifecycle()
+    val isFollowing by viewModel.isFollowing.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
@@ -124,7 +128,13 @@ fun ThemeDetailScreen(
             ) {
                 Text(text = theme.name, style = MochiFont.title(24.sp), color = MochiColor.textPrimary)
 
-                CreatorRow(theme.creatorName)
+                CreatorRow(
+                    creatorName = theme.creatorName,
+                    creatorUid = theme.creatorUid,
+                    isFollowing = isFollowing,
+                    onFollowClick = viewModel::toggleFollow,
+                    onCreatorClick = { if (theme.creatorUid.isNotBlank()) onCreatorClick(theme.creatorUid) }
+                )
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
                     Row(
@@ -198,27 +208,42 @@ private fun CircleIconButton(icon: androidx.compose.ui.graphics.vector.ImageVect
 }
 
 @Composable
-private fun CreatorRow(creatorName: String) {
+private fun CreatorRow(
+    creatorName: String,
+    creatorUid: String,
+    isFollowing: Boolean,
+    onFollowClick: () -> Unit,
+    onCreatorClick: () -> Unit
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-        Box(
-            modifier = Modifier.size(32.dp).clip(CircleShape).background(MochiColor.lavender),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.weight(1f).clickable(onClick = onCreatorClick),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
         ) {
-            Text(text = creatorName.take(1).uppercase(), style = MochiFont.heading(14.sp), color = MochiColor.purpleDark)
+            Box(
+                modifier = Modifier.size(32.dp).clip(CircleShape).background(MochiColor.lavender),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = creatorName.take(1).uppercase(), style = MochiFont.heading(14.sp), color = MochiColor.purpleDark)
+            }
+            Text(text = creatorName, style = MochiFont.body(14.sp), color = MochiColor.textPrimary)
+            Icon(imageVector = Icons.Filled.Verified, contentDescription = null, tint = MochiColor.purple, modifier = Modifier.size(14.dp))
         }
-        Text(text = creatorName, style = MochiFont.body(14.sp), color = MochiColor.textPrimary)
-        Icon(imageVector = Icons.Filled.Verified, contentDescription = null, tint = MochiColor.purple, modifier = Modifier.size(14.dp))
-        Spacer(modifier = Modifier.weight(1f))
-        Text(
-            text = "Follow",
-            style = MochiFont.caption(12.sp),
-            color = MochiColor.purple,
-            modifier = Modifier
-                .clip(RoundedCornerShape(MochiRadius.pill))
-                .background(MochiColor.purple.copy(alpha = 0.1f))
-                .clickable {}
-                .padding(horizontal = MochiSpacing.sm, vertical = 6.dp)
-        )
+        // MockData-sourced themes have no creatorUid to follow - hide the button rather than
+        // ship a Follow action that can never actually do anything (same guard the ViewModel uses).
+        if (creatorUid.isNotBlank()) {
+            Text(
+                text = if (isFollowing) "Following" else "Follow",
+                style = MochiFont.caption(12.sp),
+                color = MochiColor.purple,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(MochiRadius.pill))
+                    .background(MochiColor.purple.copy(alpha = 0.1f))
+                    .clickable(onClick = onFollowClick)
+                    .padding(horizontal = MochiSpacing.sm, vertical = 6.dp)
+            )
+        }
     }
 }
 

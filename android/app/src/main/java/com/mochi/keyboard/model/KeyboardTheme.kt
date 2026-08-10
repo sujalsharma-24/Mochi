@@ -11,7 +11,10 @@ data class KeyboardTheme(
     val description: String = "",
     /** Empty for MockData entries (no real creator account behind them) - only Firestore-backed
      * themes populate this, and only those can back a Community follow action. */
-    val creatorUid: String = ""
+    val creatorUid: String = "",
+    /** 0 for MockData entries - only ThemeDocument.toKeyboardTheme() (real Firestore themes)
+     * populates this, mirroring likeCount's split. */
+    val downloadCount: Int = 0
 ) {
     val likeCountFormatted: String get() = likeCount.formattedCompact()
 }

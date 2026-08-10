@@ -88,6 +88,7 @@ private val feedTabs = listOf("For you", "Popular", "Latest", "Following", "My L
 fun CommunityScreen(
     modifier: Modifier = Modifier,
     onProfileClick: () -> Unit = {},
+    onCreatorClick: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onThemeClick: (KeyboardTheme) -> Unit = {},
     viewModel: CommunityViewModel = viewModel(factory = rememberMochiViewModelFactory())
@@ -103,6 +104,7 @@ fun CommunityScreen(
         latestThemes = data?.latestThemes,
         creators = data?.creators,
         onProfileClick = onProfileClick,
+        onCreatorClick = onCreatorClick,
         onSearchClick = onSearchClick,
         onThemeClick = onThemeClick,
         onSelectTab = viewModel::selectTab,
@@ -123,6 +125,7 @@ private fun CommunityScreenContent(
     latestThemes: List<KeyboardTheme>? = null,
     creators: List<CommunityCreatorUi>? = null,
     onProfileClick: () -> Unit = {},
+    onCreatorClick: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onThemeClick: (KeyboardTheme) -> Unit = {},
     onSelectTab: (String) -> Unit = {},
@@ -167,12 +170,12 @@ private fun CommunityScreenContent(
             Spacer(modifier = Modifier.height(CommunityMetrics.contentToHeading))
             SectionHeading("Popular Creators")
             Spacer(modifier = Modifier.height(CommunityMetrics.headingToContent))
-            CreatorsRow(creators, onToggleFollow)
+            CreatorsRow(creators, onToggleFollow, onCreatorClick)
 
             Spacer(modifier = Modifier.height(CommunityMetrics.contentToHeading))
             SectionHeading("Latest Creations")
             Spacer(modifier = Modifier.height(CommunityMetrics.headingToContent))
-            LatestCreations(latestThemes, onThemeClick, onReport = { theme -> reportingTheme = theme })
+            LatestCreations(latestThemes, onThemeClick, onReport = { theme -> reportingTheme = theme }, onCreatorClick = onCreatorClick)
         }
     }
 
@@ -352,7 +355,7 @@ private fun TopThemeCard(theme: KeyboardTheme, rank: Int, onClick: () -> Unit) {
  * tiles. A non-null (possibly empty) list means real Firestore data - each tile's follow button is
  * live, backed by [onToggleFollow]. */
 @Composable
-private fun CreatorsRow(creators: List<CommunityCreatorUi>?, onToggleFollow: (String) -> Unit) {
+private fun CreatorsRow(creators: List<CommunityCreatorUi>?, onToggleFollow: (String) -> Unit, onCreatorClick: (String) -> Unit) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(CommunityMetrics.creatorCardGap)
@@ -365,7 +368,8 @@ private fun CreatorsRow(creators: List<CommunityCreatorUi>?, onToggleFollow: (St
                     themeCount = creator.themeCount,
                     isVerified = creator.isVerified,
                     ctaLabel = creator.ctaTitle,
-                    onCtaClick = null
+                    onCtaClick = null,
+                    onCreatorClick = {}
                 )
             }
         } else {
@@ -376,7 +380,8 @@ private fun CreatorsRow(creators: List<CommunityCreatorUi>?, onToggleFollow: (St
                     themeCount = creator.themeCount,
                     isVerified = false,
                     ctaLabel = if (creator.isFollowing) "Following" else "Follow",
-                    onCtaClick = { onToggleFollow(creator.uid) }
+                    onCtaClick = { onToggleFollow(creator.uid) },
+                    onCreatorClick = { onCreatorClick(creator.uid) }
                 )
             }
         }
@@ -390,7 +395,8 @@ private fun CreatorTile(
     themeCount: Int,
     isVerified: Boolean,
     ctaLabel: String,
-    onCtaClick: (() -> Unit)?
+    onCtaClick: (() -> Unit)?,
+    onCreatorClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -403,6 +409,7 @@ private fun CreatorTile(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(onClick = onCreatorClick)
                 .padding(start = CommunityMetrics.creatorInset, end = CommunityMetrics.creatorTrailing),
             horizontalArrangement = Arrangement.spacedBy(CommunityMetrics.creatorAvatarGap)
         ) {
@@ -453,20 +460,30 @@ private fun CreatorTile(
  * actually wired). A non-null list is real Firestore data - card tap opens the theme (resolved via
  * ThemeCache, populated by CommunityViewModel), the MoreVert icon opens the report dialog. */
 @Composable
-private fun LatestCreations(themes: List<KeyboardTheme>?, onThemeClick: (KeyboardTheme) -> Unit, onReport: (KeyboardTheme) -> Unit) {
+private fun LatestCreations(
+    themes: List<KeyboardTheme>?,
+    onThemeClick: (KeyboardTheme) -> Unit,
+    onReport: (KeyboardTheme) -> Unit,
+    onCreatorClick: (String) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(CommunityMetrics.latestCardGap)) {
         if (themes == null) {
-            MockData.communityLatest.forEach { post -> LatestCard(post, onClick = {}, onReport = {}) }
+            MockData.communityLatest.forEach { post -> LatestCard(post, onClick = {}, onReport = {}, onCreatorClick = {}) }
         } else {
             themes.forEach { theme ->
-                LatestCard(theme.toCommunityPost(), onClick = { onThemeClick(theme) }, onReport = { onReport(theme) })
+                LatestCard(
+                    theme.toCommunityPost(),
+                    onClick = { onThemeClick(theme) },
+                    onReport = { onReport(theme) },
+                    onCreatorClick = { if (theme.creatorUid.isNotBlank()) onCreatorClick(theme.creatorUid) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LatestCard(post: CommunityPost, onClick: () -> Unit, onReport: () -> Unit) {
+private fun LatestCard(post: CommunityPost, onClick: () -> Unit, onReport: () -> Unit, onCreatorClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -492,7 +509,11 @@ private fun LatestCard(post: CommunityPost, onClick: () -> Unit, onReport: () ->
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(1.dp),
+                modifier = Modifier.clickable(onClick = onCreatorClick)
+            ) {
                 Text(text = "By ${post.creatorName}", style = MochiFont.itemName(CommunityType.latestByline), color = MochiColor.textPrimary, maxLines = 1)
                 Icon(imageVector = Icons.Filled.Verified, contentDescription = null, tint = MochiColor.logoSolid, modifier = Modifier.size(CommunityMetrics.verifiedBadge))
             }

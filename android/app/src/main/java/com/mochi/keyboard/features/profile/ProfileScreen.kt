@@ -23,14 +23,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,14 +48,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mochi.keyboard.MochiApplication
 import com.mochi.keyboard.R
 import com.mochi.keyboard.components.DownloadGlyph
+import com.mochi.keyboard.components.KeyboardPreviewPlaceholder
 import com.mochi.keyboard.components.PencilGlyph
 import com.mochi.keyboard.components.SparkleField
 import com.mochi.keyboard.components.TripleDot
@@ -59,6 +72,7 @@ import com.mochi.keyboard.designsystem.MochiGradient
 import com.mochi.keyboard.designsystem.MochiRadius
 import com.mochi.keyboard.designsystem.MochiSpacing
 import com.mochi.keyboard.mockdata.MockData
+import com.mochi.keyboard.model.KeyboardTheme
 import com.mochi.keyboard.model.ProfileCreation
 import com.mochi.keyboard.model.ProfileFollowRow
 import com.mochi.keyboard.model.ProfileLikedTheme
@@ -84,24 +98,130 @@ private val profileArt: Map<String, Int> = mapOf(
 
 @Composable
 private fun ProfileArtImage(assetName: String, modifier: Modifier = Modifier) {
-    val resId = profileArt[assetName] ?: return
-    Image(painter = painterResource(resId), contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
+    val resId = profileArt[assetName]
+    when {
+        resId != null -> Image(painter = painterResource(resId), contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
+        // Real Firestore themes (ThemeDocument.toKeyboardTheme's "firestore:$id" convention) have no
+        // matching entry in profileArt above - same generated-placeholder fallback ThemeArt.kt uses
+        // elsewhere, just without ThemeArt's own shadow/clip since this card already applies its own.
+        assetName.startsWith("firestore:") -> KeyboardPreviewPlaceholder(seed = assetName, modifier = modifier, cornerRadius = 0.dp)
+    }
 }
+
+private fun KeyboardTheme.toProfileCreation(): ProfileCreation =
+    ProfileCreation(id = id, name = name, kind = "Theme", imageAssetName = imageAssetName, likes = likeCount, downloads = downloadCount)
 
 /** Ported from ios/MochiApp/Features/Profile/ProfileView.swift. iOS lays this page out as one
  * absolute canvas keyed to Figma's own pixel coordinates (no Mac to preview against, so every
  * figure had to be checkable straight against the export) — Android has a working device/Preview
  * loop, so this reproduces the same content, order, sizes and colors as an ordinary flow layout
- * instead of porting the coordinate math verbatim. */
+ * instead of porting the coordinate math verbatim.
+ *
+ * [uid] null means "the signed-in user's own profile" (the only mode this screen originally had);
+ * a real uid views someone else's - Follow/Block replace Edit Profile/the premium banners in that
+ * mode, and MY DOWNLOADS / the Followers-Following card disappear entirely rather than attributing
+ * MockData to a specific real person (see ProfileViewModel's doc comment on why those two sections
+ * have no real-data path at all - no schema for either exists in firestore.rules). */
 @Composable
 fun ProfileScreen(
     modifier: Modifier = Modifier,
+    uid: String? = null,
     onBack: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onPaywallClick: () -> Unit = {}
 ) {
+    val application = LocalContext.current.applicationContext as MochiApplication
+    val viewModel: ProfileViewModel = viewModel(
+        key = uid ?: "own-profile",
+        factory = viewModelFactory {
+            initializer {
+                ProfileViewModel(
+                    userRepository = application.container.userRepository,
+                    themeRepository = application.container.themeRepository,
+                    likeRepository = application.container.likeRepository,
+                    followRepository = application.container.followRepository,
+                    blockRepository = application.container.blockRepository,
+                    authRepository = application.container.authRepository,
+                    profileUid = uid
+                )
+            }
+        }
+    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    when (val state = uiState) {
+        is ProfileUiState.Data -> ProfileScreenContent(
+            modifier = modifier,
+            profile = state.summary,
+            isOwnProfile = state.isOwnProfile,
+            isFollowing = state.isFollowing,
+            isBlocked = state.isBlocked,
+            creations = state.creations.map { it.toProfileCreation() },
+            likedThemes = state.likedThemes.map { ProfileLikedTheme(it.id, it.name, it.creatorName, it.imageAssetName, it.likeCount) },
+            onBack = onBack,
+            onPaywallClick = onPaywallClick,
+            onToggleFollow = viewModel::toggleFollow,
+            onToggleBlock = viewModel::toggleBlock
+        )
+        is ProfileUiState.Error -> if (uid == null) {
+            OwnProfileMockFallback(onBack, onPaywallClick)
+        } else {
+            ProfileMessageState(message = state.message, onBack = onBack)
+        }
+        ProfileUiState.Loading -> if (uid == null) {
+            OwnProfileMockFallback(onBack, onPaywallClick)
+        } else {
+            ProfileMessageState(message = null, onBack = onBack)
+        }
+    }
+}
+
+/** Loading/Error on the OWN profile route falls back to MockData, same convention Home/Themes/
+ * Community already use - the pixel-tuned layout never breaks for the screen every user hits on
+ * every launch. Viewing someone else's profile has no such stand-in (see ProfileMessageState). */
+@Composable
+private fun OwnProfileMockFallback(onBack: () -> Unit, onPaywallClick: () -> Unit) {
+    ProfileScreenContent(
+        profile = MockData.profile,
+        isOwnProfile = true,
+        isFollowing = false,
+        isBlocked = false,
+        creations = MockData.profileCreations,
+        likedThemes = MockData.profileLikedThemes,
+        onBack = onBack,
+        onPaywallClick = onPaywallClick,
+        onToggleFollow = {},
+        onToggleBlock = {}
+    )
+}
+
+@Composable
+private fun ProfileMessageState(message: String?, onBack: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize().background(MochiGradient.background), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.align(Alignment.TopStart).padding(MochiSpacing.md)) { BackButton(onBack) }
+        if (message != null) {
+            Text(text = message, style = MochiFont.body(14.sp), color = MochiColor.textSecondary, modifier = Modifier.padding(horizontal = MochiSpacing.xl))
+        } else {
+            CircularProgressIndicator(color = MochiColor.logoSolid)
+        }
+    }
+}
+
+@Composable
+private fun ProfileScreenContent(
+    modifier: Modifier = Modifier,
+    profile: ProfileSummary,
+    isOwnProfile: Boolean,
+    isFollowing: Boolean,
+    isBlocked: Boolean,
+    creations: List<ProfileCreation>,
+    likedThemes: List<ProfileLikedTheme>,
+    onBack: () -> Unit,
+    onPaywallClick: () -> Unit,
+    onToggleFollow: () -> Unit,
+    onToggleBlock: () -> Unit
+) {
     var filter by remember { mutableStateOf("Theme") }
-    val profile = MockData.profile
 
     Box(modifier = modifier.fillMaxSize()) {
         Image(
@@ -121,24 +241,32 @@ fun ProfileScreen(
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
             BackButton(onBack)
-            ProfileHeader(profile)
-            PremiumBanner(
-                title = "Mochi Pro",
-                titleColor = MochiColor.logoSolid,
-                subtitleLines = listOf("You're on Premium Plan  Enjoy all premium", "features and unlimited creations."),
-                onUpgradeClick = onPaywallClick
-            )
-            CreationsSection()
-            DownloadsSection(filter) { filter = it }
-            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-                LikedThemesCard(modifier = Modifier.weight(1f))
-                FollowersCard(modifier = Modifier.weight(1f))
+            ProfileHeader(profile, isOwnProfile, isFollowing, isBlocked, onToggleFollow, onToggleBlock)
+            if (isOwnProfile) {
+                PremiumBanner(
+                    title = "Mochi Pro",
+                    titleColor = MochiColor.logoSolid,
+                    subtitleLines = listOf("You're on Premium Plan  Enjoy all premium", "features and unlimited creations."),
+                    onUpgradeClick = onPaywallClick
+                )
             }
-            PremiumBanner(
-                title = "Go Premium",
-                subtitleLines = listOf("Unlock all premium themes, fonts, and features."),
-                onUpgradeClick = onPaywallClick
-            )
+            CreationsSection(creations, isOwnProfile)
+            if (isOwnProfile) {
+                DownloadsSection(filter) { filter = it }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+                LikedThemesCard(likedThemes, modifier = Modifier.weight(1f))
+                if (isOwnProfile) {
+                    FollowersCard(modifier = Modifier.weight(1f))
+                }
+            }
+            if (isOwnProfile) {
+                PremiumBanner(
+                    title = "Go Premium",
+                    subtitleLines = listOf("Unlock all premium themes, fonts, and features."),
+                    onUpgradeClick = onPaywallClick
+                )
+            }
         }
     }
 }
@@ -156,7 +284,14 @@ private fun BackButton(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ProfileHeader(profile: ProfileSummary) {
+private fun ProfileHeader(
+    profile: ProfileSummary,
+    isOwnProfile: Boolean,
+    isFollowing: Boolean,
+    isBlocked: Boolean,
+    onToggleFollow: () -> Unit,
+    onToggleBlock: () -> Unit
+) {
     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(MochiSpacing.md)) {
         Box {
             Image(
@@ -166,17 +301,20 @@ private fun ProfileHeader(profile: ProfileSummary) {
                 modifier = Modifier.size(96.dp).clip(CircleShape)
             )
             // The camera badge overlaps the ring's lower-right, matching the fraction ProfileMetrics
-            // measures off the export (cameraCentreFraction ~0.79, 0.80 of the avatar).
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 4.dp, bottom = 2.dp)
-                    .size(29.dp)
-                    .clip(CircleShape)
-                    .background(MochiColor.cardBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Filled.PhotoCamera, contentDescription = "Change photo", tint = MochiColor.logoSolid, modifier = Modifier.size(14.dp))
+            // measures off the export (cameraCentreFraction ~0.79, 0.80 of the avatar). Own profile
+            // only - changing someone else's photo isn't a real action.
+            if (isOwnProfile) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 4.dp, bottom = 2.dp)
+                        .size(29.dp)
+                        .clip(CircleShape)
+                        .background(MochiColor.cardBackground),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = Icons.Filled.PhotoCamera, contentDescription = "Change photo", tint = MochiColor.logoSolid, modifier = Modifier.size(14.dp))
+                }
             }
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -186,20 +324,35 @@ private fun ProfileHeader(profile: ProfileSummary) {
                     Image(painter = painterResource(R.drawable.icon_verified), contentDescription = "Verified", modifier = Modifier.size(17.dp))
                 }
             }
-            Text(text = profile.handle, style = MochiFont.itemName(13.sp), color = MochiColor.creatorLink)
+            if (profile.handle.isNotBlank()) {
+                Text(text = profile.handle, style = MochiFont.itemName(13.sp), color = MochiColor.creatorLink)
+            }
             Spacer(modifier = Modifier.height(2.dp))
-            // Figma's explicit break: "...themes to" / "make typing more fun!" — a naive wrap
-            // would have set "...keyboard themes" / "to make typing more fun!" instead.
-            Text(text = "Creating cute & colorful keyboard themes to", style = MochiFont.body(11.sp), color = MochiColor.textGreyWarm)
-            Text(text = "make typing more fun!", style = MochiFont.body(11.sp), color = MochiColor.textGreyWarm)
+            if (profile.bio.isNotBlank()) {
+                Text(text = profile.bio, style = MochiFont.body(11.sp), color = MochiColor.textGreyWarm)
+            } else if (isOwnProfile) {
+                // Figma's explicit break: "...themes to" / "make typing more fun!" — a naive wrap
+                // would have set "...keyboard themes" / "to make typing more fun!" instead. Kept as
+                // the own-profile placeholder copy since a real bio field exists but is usually blank
+                // (no bio-editing UI has been built yet - EditProfileButton below is still a no-op).
+                Text(text = "Creating cute & colorful keyboard themes to", style = MochiFont.body(11.sp), color = MochiColor.textGreyWarm)
+                Text(text = "make typing more fun!", style = MochiFont.body(11.sp), color = MochiColor.textGreyWarm)
+            }
             Spacer(modifier = Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.lg)) {
                 profile.stats.forEach { StatColumn(it.value.formattedCompact(), it.label) }
             }
         }
     }
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        EditProfileButton()
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        if (isOwnProfile) {
+            EditProfileButton()
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+                BlockButton(isBlocked = isBlocked, onClick = onToggleBlock)
+                FollowButton(isFollowing = isFollowing, onClick = onToggleFollow)
+            }
+        }
     }
 }
 
@@ -227,6 +380,71 @@ private fun EditProfileButton() {
     ) {
         PencilGlyph(color = MochiColor.editProfileInk, strokeWidth = 1.3f, bodyHalfWidth = 0.105f, modifier = Modifier.size(width = 13.dp, height = 11.dp))
         Text(text = "Edit Profile", style = MochiFont.itemName(11.sp), color = MochiColor.editProfileInk)
+    }
+}
+
+/** No Figma/iOS source for "viewing someone else's profile" exists (see ProfileViewModel's doc
+ * comment - iOS has no block feature at all), so this pill matches EditProfileButton's shape/scale
+ * rather than following a design reference. Filled solid once following, matching the outline-vs-
+ * filled convention Community's creator-tile follow pill already uses. */
+@Composable
+private fun FollowButton(isFollowing: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(MochiRadius.pill))
+            .then(
+                if (isFollowing) Modifier.border(1.dp, MochiColor.editProfileStroke, RoundedCornerShape(MochiRadius.pill))
+                else Modifier.background(MochiGradient.softButton)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Icon(
+            imageVector = if (isFollowing) Icons.Filled.PersonRemove else Icons.Filled.PersonAdd,
+            contentDescription = null,
+            tint = if (isFollowing) MochiColor.editProfileInk else MochiColor.textPrimary,
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            text = if (isFollowing) "Following" else "Follow",
+            style = MochiFont.itemName(11.sp),
+            color = if (isFollowing) MochiColor.editProfileInk else MochiColor.textPrimary
+        )
+    }
+}
+
+@Composable
+private fun BlockButton(isBlocked: Boolean, onClick: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .border(1.dp, MochiColor.editProfileStroke, CircleShape)
+            .clickable { if (isBlocked) onClick() else showConfirm = true },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Block,
+            contentDescription = if (isBlocked) "Unblock" else "Block",
+            tint = if (isBlocked) MochiColor.heart else MochiColor.editProfileInk,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Block this creator?") },
+            text = { Text("They won't be notified. You can unblock them from their profile at any time.") },
+            confirmButton = {
+                TextButton(onClick = { showConfirm = false; onClick() }) { Text("Block") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -268,17 +486,32 @@ private fun PremiumBanner(title: String, subtitleLines: List<String>, onUpgradeC
     }
 }
 
+/** MY CREATIONS strip. `creations` is always real data once this composable is reached (the
+ * Loading/Error states substitute MockData at the whole-screen level via OwnProfileMockFallback,
+ * not here) - a genuinely empty list is real state (this creator hasn't published anything yet),
+ * shown as an empty message rather than masked with MockData, same convention Community's
+ * "Following"/"My Likes" tabs established. Real theme count can be anything, not always 4, so this
+ * no longer assumes the Figma 4-tile edge-to-edge row - `weight(1f)` still divides evenly for any
+ * count without a horizontal scroll. */
 @Composable
-private fun CreationsSection() {
+private fun CreationsSection(creations: List<ProfileCreation>, isOwnProfile: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = "MY CREATIONS", style = MochiFont.title(11.sp), color = MochiColor.textPrimary)
-            Text(text = "see all", style = MochiFont.body(11.sp), color = MochiColor.textPrimary)
+            Text(text = if (isOwnProfile) "MY CREATIONS" else "CREATIONS", style = MochiFont.title(11.sp), color = MochiColor.textPrimary)
+            if (creations.isNotEmpty()) {
+                Text(text = "see all", style = MochiFont.body(11.sp), color = MochiColor.textPrimary)
+            }
         }
-        // Figma fits all 4 tiles in one row edge-to-edge (4 columns + 3 gaps = the content width
-        // exactly), not a horizontally-scrolling strip.
-        Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-            MockData.profileCreations.forEach { item -> CreationCard(item, Modifier.weight(1f)) }
+        if (creations.isEmpty()) {
+            Text(
+                text = if (isOwnProfile) "You haven't published any themes yet." else "No published themes yet.",
+                style = MochiFont.body(11.sp),
+                color = MochiColor.textGreyWarm
+            )
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+                creations.take(4).forEach { item -> CreationCard(item, Modifier.weight(1f)) }
+            }
         }
     }
 }
@@ -375,14 +608,18 @@ private fun DownloadCard(item: ProfileCreation, modifier: Modifier = Modifier) {
  * Followers/Following under it and adds a chevron after its "See all". Almost certainly a
  * copy-paste slip in the design, reproduced here rather than corrected. */
 @Composable
-private fun LikedThemesCard(modifier: Modifier = Modifier) {
+private fun LikedThemesCard(likedThemes: List<ProfileLikedTheme>, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(MochiRadius.card)
     Column(
         modifier = modifier.shadow(5.dp, shape, ambientColor = Color.Black.copy(alpha = 0.05f), spotColor = Color.Black.copy(alpha = 0.05f)).clip(shape).background(MochiColor.cardBackground).padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         PairHeader(chevron = false)
-        MockData.profileLikedThemes.forEach { LikedRow(it) }
+        if (likedThemes.isEmpty()) {
+            Text(text = "No liked themes yet.", style = MochiFont.body(8.5.sp), color = MochiColor.textMuted)
+        } else {
+            likedThemes.take(3).forEach { LikedRow(it) }
+        }
     }
 }
 
@@ -444,8 +681,23 @@ private fun FollowRow(item: ProfileFollowRow) {
     }
 }
 
+/** Calls ProfileScreenContent directly, not ProfileScreen - the real composable now casts
+ * LocalContext's application to MochiApplication via rememberMochiViewModelFactory's pattern,
+ * which Preview's fake context isn't, and would crash the preview (same reason Community/Themes/
+ * Home split their own Preview off their real screen entry point). */
 @Preview(showBackground = true, widthDp = 393, heightDp = 3000)
 @Composable
 private fun ProfileScreenPreview() {
-    ProfileScreen()
+    ProfileScreenContent(
+        profile = MockData.profile,
+        isOwnProfile = true,
+        isFollowing = false,
+        isBlocked = false,
+        creations = MockData.profileCreations,
+        likedThemes = MockData.profileLikedThemes,
+        onBack = {},
+        onPaywallClick = {},
+        onToggleFollow = {},
+        onToggleBlock = {}
+    )
 }

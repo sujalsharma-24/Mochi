@@ -32,6 +32,7 @@ fun RootScreen(
     modifier: Modifier = Modifier,
     onThemeClick: (KeyboardTheme) -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onCreatorClick: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onLeaderboardClick: () -> Unit = {},
     onWallpapersClick: () -> Unit = {}
@@ -54,6 +55,7 @@ fun RootScreen(
                 )
                 MochiTab.COMMUNITY -> CommunityScreen(
                     onProfileClick = onProfileClick,
+                    onCreatorClick = onCreatorClick,
                     onSearchClick = onSearchClick,
                     onThemeClick = onThemeClick
                 )
