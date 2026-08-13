@@ -42,6 +42,22 @@ class ThemeRepository(private val firestore: FirebaseFirestore) {
     suspend fun getTheme(themeId: String): ThemeDocument? =
         themes.document(themeId).get().await().toObject(ThemeDocument::class.java)
 
+    /** Search's browsable pool. Firestore has no text-search operator and this app has no budget
+     * for a paid search service (Algolia etc.), so search is: fetch a bounded pool of published
+     * themes, then filter/sort it client-side by name/hashtag substring - same "fetch bounded,
+     * filter client-side" shape as Community's Popular Creators derivation. 200 is comfortably
+     * above this app's actual seeded catalog size. */
+    suspend fun searchableThemes(limit: Long = 200): List<KeyboardTheme> =
+        themes
+            .whereEqualTo("isPublished", true)
+            .whereEqualTo("moderationStatus", "approved")
+            .orderBy("likeCount", Query.Direction.DESCENDING)
+            .limit(limit)
+            .get()
+            .await()
+            .toObjects(ThemeDocument::class.java)
+            .map { it.toKeyboardTheme() }
+
     /** Community's "Following" tab. Firestore's whereIn caps at 30 values, so callers with a huge
      * follow list get their most-recently-followed 30 - acceptable for a feed, not a full archive. */
     suspend fun getThemesByCreators(creatorUids: List<String>, limit: Long = 30): List<KeyboardTheme> {

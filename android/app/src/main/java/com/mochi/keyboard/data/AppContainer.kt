@@ -25,6 +25,7 @@ class AppContainer(
     val createRepository: CreateRepository = CreateRepository(firestore)
     val storageRepository: StorageRepository = StorageRepository(storage)
     val settingsRepository: SettingsRepository = SettingsRepository(context)
+    val searchHistoryRepository: SearchHistoryRepository = SearchHistoryRepository(context)
     val billingRepository: BillingRepository = BillingRepository(context).apply {
         configure(appUserId = auth.currentUser?.uid)
     }

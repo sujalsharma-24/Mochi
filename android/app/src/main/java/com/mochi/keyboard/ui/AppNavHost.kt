@@ -114,7 +114,11 @@ fun AppNavHost() {
             )
         }
         composable(Route.SEARCH) {
-            SearchScreen(onBack = { navController.popBackStack() })
+            SearchScreen(
+                onBack = { navController.popBackStack() },
+                onThemeClick = { theme -> navController.navigate("themeDetail/${theme.id}") },
+                onCreatorClick = { creatorUid -> navController.navigate("profile?uid=$creatorUid") }
+            )
         }
         composable(Route.LEADERBOARD) {
             LeaderboardScreen(
