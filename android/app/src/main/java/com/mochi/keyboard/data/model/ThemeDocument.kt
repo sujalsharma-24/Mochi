@@ -1,6 +1,7 @@
 package com.mochi.keyboard.data.model
 
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.PropertyName
 import com.mochi.keyboard.model.KeyboardTheme
 
 /**
@@ -59,7 +60,17 @@ data class ThemeDocument(
     val description: String = "",
     val hashtags: List<String> = emptyList(),
     val previewImageUrl: String = "",
+    // Firestore's Java/Kotlin POJO mapper strips a leading "is" off is-prefixed boolean getters
+    // when deriving the field name it reads/writes (JavaBean convention) - a Kotlin data class
+    // property named `isPremium` compiles to a getter `isPremium()`, which the mapper resolves to
+    // field "premium", not "isPremium". The real document field is "isPremium" (confirmed via a
+    // direct Firestore REST read against the seeded `seed-fantasy-castle-night` doc), so without
+    // @PropertyName this silently deserialized to the default `false` for every theme - never
+    // caught before because nothing client-side read either of these two fields until entitlement
+    // gating (Paywall slice) became the first real consumer of isPremium.
+    @get:PropertyName("isPremium")
     val isPremium: Boolean = false,
+    @get:PropertyName("isPublished")
     val isPublished: Boolean = false,
     val moderationStatus: String = "pending",
     val likeCount: Long = 0,

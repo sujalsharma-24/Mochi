@@ -3,6 +3,7 @@ package com.mochi.keyboard.features.themedetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mochi.keyboard.data.AuthRepository
+import com.mochi.keyboard.data.BillingRepository
 import com.mochi.keyboard.data.FollowRepository
 import com.mochi.keyboard.data.LikeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,11 +19,16 @@ import kotlinx.coroutines.launch
  * the real value by however long that trigger takes to run, and isn't re-synced after. Follow
  * reuses the same FollowRepository Profile/Community already share - `creatorUid` is blank for
  * MockData-sourced themes (CreatorRow.onFollow already guards on that before calling toggleFollow).
+ *
+ * [isUserPremium] re-exposes [BillingRepository.isPremium] directly (already a hot shared
+ * StateFlow) - `theme.isPremium` alone only says the *content* is tier-gated, not whether *this*
+ * signed-in user is still locked out of it, which is the actual thing the screen's CTA needs.
  */
 class ThemeDetailViewModel(
     private val likeRepository: LikeRepository,
     private val followRepository: FollowRepository,
     private val authRepository: AuthRepository,
+    billingRepository: BillingRepository,
     private val themeId: String,
     private val creatorUid: String,
     initialLikeCount: Int
@@ -36,6 +42,8 @@ class ThemeDetailViewModel(
 
     private val _isFollowing = MutableStateFlow(false)
     val isFollowing: StateFlow<Boolean> = _isFollowing.asStateFlow()
+
+    val isUserPremium: StateFlow<Boolean> = billingRepository.isPremium
 
     init {
         authRepository.currentUser?.uid?.let { uid ->

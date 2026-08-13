@@ -1,5 +1,6 @@
 package com.mochi.keyboard.features.paywall
 
+import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,34 +23,39 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mochi.keyboard.R
 import com.mochi.keyboard.components.GradientButton
+import com.mochi.keyboard.data.rememberMochiViewModelFactory
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiGradient
 import com.mochi.keyboard.designsystem.MochiRadius
 import com.mochi.keyboard.designsystem.MochiSpacing
 
-private enum class Plan(val title: String, val price: String, val period: String, val badge: String?) {
-    MONTHLY("Monthly", "$2.99", "/ month", null),
-    YEARLY("Yearly", "$19.99", "/ year", "Most Popular")
+private enum class Plan(val plan: PaywallPlan, val title: String, val fallbackPrice: String, val period: String, val badge: String?) {
+    MONTHLY(PaywallPlan.MONTHLY, "Monthly", "$2.99", "/ month", null),
+    YEARLY(PaywallPlan.YEARLY, "Yearly", "$19.99", "/ year", "Most Popular")
 }
 
 private val perks = listOf(
@@ -64,11 +70,53 @@ private val perks = listOf(
  * in project memory): $2.99/mo · $19.99/yr · 3-day trial, native billing only. Figma's paywall
  * frames (docs/figma/11.png-12.png) show $199/$999/$1999 and a custom payment form — ignored
  * intentionally, since that pricing was never approved and the custom checkout would violate
- * App Store Guideline 3.1.1 (digital subscriptions must use native IAP). */
+ * App Store Guideline 3.1.1 (digital subscriptions must use native IAP).
+ *
+ * Wired to [PaywallViewModel]/[com.mochi.keyboard.data.BillingRepository]: when RevenueCat is
+ * configured, plan prices come from the real fetched [com.revenuecat.purchases.Offerings] and
+ * "Start Free Trial"/"Restore Purchase" trigger a real Play Billing flow. Until a real RevenueCat
+ * API key replaces BillingRepository's placeholder, prices fall back to the locked spec's hardcoded
+ * strings above and both actions surface a "not set up yet" message instead of a silent no-op. */
 @Composable
 fun PaywallScreen(modifier: Modifier = Modifier, onClose: () -> Unit = {}) {
-    var selectedPlan by remember { mutableStateOf(Plan.YEARLY) }
+    val activity = LocalContext.current as Activity
+    val viewModel: PaywallViewModel = viewModel(factory = rememberMochiViewModelFactory())
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // Already premium (e.g. a purchase completed, or this screen was reopened after one) - nothing
+    // left to sell, so close straight back to whatever screen sent the user here.
+    LaunchedEffect(uiState.isPremium) {
+        if (uiState.isPremium) onClose()
+    }
+
+    if (uiState.errorMessage != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearError,
+            title = { Text("Couldn't complete that") },
+            text = { Text(uiState.errorMessage.orEmpty()) },
+            confirmButton = { TextButton(onClick = viewModel::clearError) { Text("OK") } }
+        )
+    }
+
+    PaywallScreenContent(
+        modifier = modifier,
+        uiState = uiState,
+        onClose = onClose,
+        onSelectPlan = viewModel::selectPlan,
+        onStartTrial = { viewModel.purchase(activity, onSuccess = onClose) },
+        onRestore = { viewModel.restore(onSuccess = onClose) }
+    )
+}
+
+@Composable
+private fun PaywallScreenContent(
+    modifier: Modifier = Modifier,
+    uiState: PaywallUiState,
+    onClose: () -> Unit,
+    onSelectPlan: (PaywallPlan) -> Unit,
+    onStartTrial: () -> Unit,
+    onRestore: () -> Unit
+) {
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
             modifier = Modifier
@@ -127,7 +175,12 @@ fun PaywallScreen(modifier: Modifier = Modifier, onClose: () -> Unit = {}) {
                 verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
             ) {
                 Plan.entries.forEach { plan ->
-                    PlanCard(plan = plan, isSelected = plan == selectedPlan) { selectedPlan = plan }
+                    PlanCard(
+                        plan = plan,
+                        isSelected = plan.plan == uiState.selectedPlan,
+                        realPrice = (if (plan == Plan.MONTHLY) uiState.monthlyPackage else uiState.yearlyPackage)
+                            ?.product?.price?.formatted
+                    ) { onSelectPlan(plan.plan) }
                 }
             }
 
@@ -139,14 +192,18 @@ fun PaywallScreen(modifier: Modifier = Modifier, onClose: () -> Unit = {}) {
             )
 
             Spacer(modifier = Modifier.height(MochiSpacing.lg))
-            GradientButton(title = "Start Free Trial") {}
+            if (uiState.isPurchasing) {
+                CircularProgressIndicator(color = MochiColor.purple, modifier = Modifier.size(28.dp))
+            } else {
+                GradientButton(title = "Start Free Trial", onClick = onStartTrial)
+            }
 
             Spacer(modifier = Modifier.height(MochiSpacing.md))
             Text(
                 text = "Restore Purchase",
                 style = MochiFont.caption(13.sp),
                 color = MochiColor.purple,
-                modifier = Modifier.clickable {}
+                modifier = Modifier.clickable(onClick = onRestore)
             )
 
             Spacer(modifier = Modifier.height(MochiSpacing.md))
@@ -169,7 +226,7 @@ private fun PerkRow(text: String) {
 }
 
 @Composable
-private fun PlanCard(plan: Plan, isSelected: Boolean, onSelect: () -> Unit) {
+private fun PlanCard(plan: Plan, isSelected: Boolean, realPrice: String?, onSelect: () -> Unit) {
     Box {
         Row(
             modifier = Modifier
@@ -191,7 +248,7 @@ private fun PlanCard(plan: Plan, isSelected: Boolean, onSelect: () -> Unit) {
             Column {
                 Text(text = plan.title, style = MochiFont.heading(15.sp), color = MochiColor.textPrimary)
                 Row {
-                    Text(text = plan.price, style = MochiFont.title(18.sp).copy(fontWeight = FontWeight.Black), color = MochiColor.purple)
+                    Text(text = realPrice ?: plan.fallbackPrice, style = MochiFont.title(18.sp).copy(fontWeight = FontWeight.Black), color = MochiColor.purple)
                     Text(text = " ${plan.period}", style = MochiFont.caption(12.sp), color = MochiColor.textSecondary)
                 }
             }
@@ -232,5 +289,11 @@ private fun RadioDot(isSelected: Boolean) {
 @Preview(showBackground = true, widthDp = 393, heightDp = 852)
 @Composable
 private fun PaywallScreenPreview() {
-    PaywallScreen()
+    PaywallScreenContent(
+        uiState = PaywallUiState(),
+        onClose = {},
+        onSelectPlan = {},
+        onStartTrial = {},
+        onRestore = {}
+    )
 }

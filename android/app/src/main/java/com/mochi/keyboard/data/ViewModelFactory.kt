@@ -10,6 +10,7 @@ import com.mochi.keyboard.features.auth.AuthViewModel
 import com.mochi.keyboard.features.community.CommunityViewModel
 import com.mochi.keyboard.features.create.CreateThemeViewModel
 import com.mochi.keyboard.features.home.HomeViewModel
+import com.mochi.keyboard.features.paywall.PaywallViewModel
 import com.mochi.keyboard.features.settings.SettingsViewModel
 import com.mochi.keyboard.features.themes.ThemesViewModel
 
@@ -40,6 +41,7 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
                 container.settingsRepository,
                 container.authRepository
             ) as T
+            PaywallViewModel::class.java -> PaywallViewModel(container.billingRepository) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
 }

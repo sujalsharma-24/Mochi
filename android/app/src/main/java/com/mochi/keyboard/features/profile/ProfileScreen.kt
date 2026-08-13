@@ -143,12 +143,14 @@ fun ProfileScreen(
                     followRepository = application.container.followRepository,
                     blockRepository = application.container.blockRepository,
                     authRepository = application.container.authRepository,
+                    billingRepository = application.container.billingRepository,
                     profileUid = uid
                 )
             }
         }
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is ProfileUiState.Data -> ProfileScreenContent(
@@ -157,6 +159,7 @@ fun ProfileScreen(
             isOwnProfile = state.isOwnProfile,
             isFollowing = state.isFollowing,
             isBlocked = state.isBlocked,
+            isPremium = isPremium,
             creations = state.creations.map { it.toProfileCreation() },
             likedThemes = state.likedThemes.map { ProfileLikedTheme(it.id, it.name, it.creatorName, it.imageAssetName, it.likeCount) },
             onBack = onBack,
@@ -188,6 +191,7 @@ private fun OwnProfileMockFallback(onBack: () -> Unit, onSettingsClick: () -> Un
         isOwnProfile = true,
         isFollowing = false,
         isBlocked = false,
+        isPremium = false,
         creations = MockData.profileCreations,
         likedThemes = MockData.profileLikedThemes,
         onBack = onBack,
@@ -217,6 +221,7 @@ private fun ProfileScreenContent(
     isOwnProfile: Boolean,
     isFollowing: Boolean,
     isBlocked: Boolean,
+    isPremium: Boolean,
     creations: List<ProfileCreation>,
     likedThemes: List<ProfileLikedTheme>,
     onBack: () -> Unit,
@@ -251,7 +256,10 @@ private fun ProfileScreenContent(
                 }
             }
             ProfileHeader(profile, isOwnProfile, isFollowing, isBlocked, onToggleFollow, onToggleBlock)
-            if (isOwnProfile) {
+            // Both banners used to render unconditionally regardless of real subscription status -
+            // "You're on Premium Plan" and "Go Premium" showing together for the same user at once.
+            // Real isPremium (BillingRepository, via ProfileViewModel) now picks exactly one.
+            if (isOwnProfile && isPremium) {
                 PremiumBanner(
                     title = "Mochi Pro",
                     titleColor = MochiColor.logoSolid,
@@ -269,7 +277,7 @@ private fun ProfileScreenContent(
                     FollowersCard(modifier = Modifier.weight(1f))
                 }
             }
-            if (isOwnProfile) {
+            if (isOwnProfile && !isPremium) {
                 PremiumBanner(
                     title = "Go Premium",
                     subtitleLines = listOf("Unlock all premium themes, fonts, and features."),
@@ -717,6 +725,7 @@ private fun ProfileScreenPreview() {
         isOwnProfile = true,
         isFollowing = false,
         isBlocked = false,
+        isPremium = false,
         creations = MockData.profileCreations,
         likedThemes = MockData.profileLikedThemes,
         onBack = {},

@@ -79,6 +79,7 @@ fun ThemeDetailScreen(
                     likeRepository = application.container.likeRepository,
                     followRepository = application.container.followRepository,
                     authRepository = application.container.authRepository,
+                    billingRepository = application.container.billingRepository,
                     themeId = theme.id,
                     creatorUid = theme.creatorUid,
                     initialLikeCount = theme.likeCount
@@ -89,6 +90,10 @@ fun ThemeDetailScreen(
     val isLiked by viewModel.isLiked.collectAsStateWithLifecycle()
     val likeCount by viewModel.likeCount.collectAsStateWithLifecycle()
     val isFollowing by viewModel.isFollowing.collectAsStateWithLifecycle()
+    val isUserPremium by viewModel.isUserPremium.collectAsStateWithLifecycle()
+    // The content-tier flag (theme.isPremium) only says this theme requires a subscription - a
+    // user who already has one isn't locked out of it, so the CTA/badge gate on both together.
+    val isLocked = theme.isPremium && !isUserPremium
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
@@ -172,9 +177,9 @@ fun ThemeDetailScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
                 OutlineButton(title = "Preview", modifier = Modifier.weight(1f)) {}
                 GradientButton(
-                    title = if (theme.isPremium) "Unlock Premium" else "Apply Theme",
+                    title = if (isLocked) "Unlock Premium" else "Apply Theme",
                     modifier = Modifier.weight(1f),
-                    onClick = { if (theme.isPremium) onUnlockPremium() }
+                    onClick = { if (isLocked) onUnlockPremium() }
                 )
             }
         }

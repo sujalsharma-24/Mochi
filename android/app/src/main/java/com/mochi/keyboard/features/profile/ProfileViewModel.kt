@@ -3,6 +3,7 @@ package com.mochi.keyboard.features.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mochi.keyboard.data.AuthRepository
+import com.mochi.keyboard.data.BillingRepository
 import com.mochi.keyboard.data.BlockRepository
 import com.mochi.keyboard.data.FollowRepository
 import com.mochi.keyboard.data.LikeRepository
@@ -51,11 +52,16 @@ class ProfileViewModel(
     private val followRepository: FollowRepository,
     private val blockRepository: BlockRepository,
     private val authRepository: AuthRepository,
+    billingRepository: BillingRepository,
     private val profileUid: String?
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    // Own-profile only in practice (ProfileScreen never shows a premium banner for someone else's
+    // profile), but re-exposing the whole flow costs nothing and needs no extra plumbing per-uid.
+    val isPremium: StateFlow<Boolean> = billingRepository.isPremium
 
     private val targetUid: String? get() = profileUid ?: authRepository.currentUser?.uid
 
