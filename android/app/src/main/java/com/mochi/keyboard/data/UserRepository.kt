@@ -1,7 +1,9 @@
 package com.mochi.keyboard.data
 
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.mochi.keyboard.data.model.UserDocument
 import kotlinx.coroutines.tasks.await
 
@@ -35,6 +37,35 @@ class UserRepository(private val firestore: FirebaseFirestore) {
         firestore.collection("users").limit(limit).get().await()
             .toObjects(UserDocument::class.java)
             .filter { !it.isDeleted && it.uid.isNotBlank() }
+
+    /** Leaderboard's "This Week" tab. `weeklyStats/{weekId}/creators/{uid}` is a dedicated ranking
+     * collection maintained only by functions/src/likes.ts' onLikeWritten fan-out (firestore.rules
+     * blocks any client write to it) and holds nothing but a bare `likeCount` counter keyed by uid -
+     * no display fields - so this returns just the ranked uid/likeCount pairs; the caller batch-
+     * fetches matching users/{uid} docs via [getUsers] for display info. */
+    suspend fun weeklyTopCreators(weekId: String, limit: Long = 50): List<Pair<String, Long>> =
+        firestore.collection("weeklyStats").document(weekId).collection("creators")
+            .orderBy("likeCount", Query.Direction.DESCENDING)
+            .limit(limit)
+            .get().await()
+            .documents
+            .map { it.id to (it.getLong("likeCount") ?: 0L) }
+
+    /** Batch fetch by uid, keyed by the real document id rather than UserDocument.uid - a phantom
+     * profile doc auto-created by a Cloud Function's counter fan-out (see searchableUsers' doc
+     * comment) never got a real `uid` field written, so associating by `it.uid` would silently drop
+     * exactly the creators [[LeaderboardViewModel]]'s "This Week" join most needs to resolve (their
+     * doc exists only because they received likes). Same chunked-whereIn shape as
+     * ThemeRepository.getThemesByIds - Firestore's whereIn caps at 30 values per query. */
+    suspend fun getUsers(uids: List<String>): Map<String, UserDocument> {
+        if (uids.isEmpty()) return emptyMap()
+        return uids.chunked(30).flatMap { chunk ->
+            firestore.collection("users")
+                .whereIn(FieldPath.documentId(), chunk)
+                .get().await()
+                .documents
+        }.associate { it.id to (it.toObject(UserDocument::class.java) ?: UserDocument()) }
+    }
 
     suspend fun createUserProfile(uid: String) {
         val now = FieldValue.serverTimestamp()

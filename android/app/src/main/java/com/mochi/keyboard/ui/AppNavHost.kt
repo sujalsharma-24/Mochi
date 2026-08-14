@@ -123,7 +123,8 @@ fun AppNavHost() {
         composable(Route.LEADERBOARD) {
             LeaderboardScreen(
                 onBack = { navController.popBackStack() },
-                onSearchClick = { navController.navigate(Route.SEARCH) }
+                onSearchClick = { navController.navigate(Route.SEARCH) },
+                onCreatorClick = { creatorUid -> navController.navigate("profile?uid=$creatorUid") }
             )
         }
         composable(Route.WALLPAPERS) {

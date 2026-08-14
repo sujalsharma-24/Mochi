@@ -91,6 +91,7 @@ fun CommunityScreen(
     onCreatorClick: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onThemeClick: (KeyboardTheme) -> Unit = {},
+    onLeaderboardClick: () -> Unit = {},
     viewModel: CommunityViewModel = viewModel(factory = rememberMochiViewModelFactory())
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -107,6 +108,7 @@ fun CommunityScreen(
         onCreatorClick = onCreatorClick,
         onSearchClick = onSearchClick,
         onThemeClick = onThemeClick,
+        onLeaderboardClick = onLeaderboardClick,
         onSelectTab = viewModel::selectTab,
         onToggleFollow = viewModel::toggleFollow,
         onReport = viewModel::reportTheme
@@ -128,6 +130,7 @@ private fun CommunityScreenContent(
     onCreatorClick: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onThemeClick: (KeyboardTheme) -> Unit = {},
+    onLeaderboardClick: () -> Unit = {},
     onSelectTab: (String) -> Unit = {},
     onToggleFollow: (String) -> Unit = {},
     onReport: (String, String) -> Unit = { _, _ -> }
@@ -168,7 +171,7 @@ private fun CommunityScreenContent(
             TopThemesRow(topThemes, onThemeClick)
 
             Spacer(modifier = Modifier.height(CommunityMetrics.contentToHeading))
-            SectionHeading("Popular Creators")
+            SectionHeading("Popular Creators", onSeeAllClick = onLeaderboardClick)
             Spacer(modifier = Modifier.height(CommunityMetrics.headingToContent))
             CreatorsRow(creators, onToggleFollow, onCreatorClick)
 
@@ -276,12 +279,22 @@ private fun FilterPills(selected: String, onSelect: (String) -> Unit) {
     }
 }
 
+/** [onSeeAllClick] is null for sections with no real "see all" destination (Top Themes, Latest
+ * Creations - both already show a bounded feed with no separate full-list screen), so "see all"
+ * stays decorative there, same as before. Popular Creators is the one exception - the feature spec
+ * nests the Leaderboard ("Ranked Creators") under Community, so its "see all" is this app's only
+ * entry point into that screen. */
 @Composable
-private fun SectionHeading(title: String) {
+private fun SectionHeading(title: String, onSeeAllClick: (() -> Unit)? = null) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(text = title.uppercase(), style = MochiFont.title(CommunityType.sectionTitle), color = MochiColor.textPrimary)
         Spacer(modifier = Modifier.weight(1f))
-        Text(text = "see all", style = MochiFont.body(CommunityType.seeAll), color = MochiColor.textPrimary)
+        Text(
+            text = "see all",
+            style = MochiFont.body(CommunityType.seeAll),
+            color = MochiColor.textPrimary,
+            modifier = if (onSeeAllClick != null) Modifier.clickable(onClick = onSeeAllClick) else Modifier
+        )
     }
 }
 

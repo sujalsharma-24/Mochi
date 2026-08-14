@@ -46,35 +46,72 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mochi.keyboard.R
 import com.mochi.keyboard.components.CreatorAvatar
 import com.mochi.keyboard.components.ThemeArt
+import com.mochi.keyboard.data.rememberMochiViewModelFactory
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
 import com.mochi.keyboard.designsystem.MochiGradient
 import com.mochi.keyboard.designsystem.MochiRadius
 import com.mochi.keyboard.designsystem.MochiSpacing
 import com.mochi.keyboard.mockdata.MockData
-import com.mochi.keyboard.model.Creator
+import com.mochi.keyboard.model.KeyboardTheme
 
 @Preview(showBackground = true, widthDp = 393, heightDp = 3300)
 @Composable
 private fun LeaderboardScreenPreview() {
-    LeaderboardScreen()
+    LeaderboardScreenContent()
 }
 
 private val periods = listOf("This Week", "This Month", "All Time")
 private val medalColors = listOf(Color(0xFFDDA935), Color(0xFFB8B8C8), Color(0xFFB0793F))
 
-/** Ported from docs/figma/9.png */
+/** Ported from docs/figma/9.png. No iOS screen exists for this - Android's is the only Leaderboard
+ * ("Ranked Creators") implementation in this app, so there's no cross-platform source of truth to
+ * diff against. */
 @Composable
 fun LeaderboardScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSearchClick: () -> Unit = {},
+    onCreatorClick: (String) -> Unit = {},
+    viewModel: LeaderboardViewModel = viewModel(factory = rememberMochiViewModelFactory())
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val data = uiState as? LeaderboardUiState.Data
+    // Loading/Error fall back to MockData so the pixel-tuned layout never breaks (same convention
+    // as every other converted screen); a genuinely-empty real period (e.g. no likes yet this week)
+    // is real data, not an error, so it renders as an empty list rather than masked with MockData.
+    LeaderboardScreenContent(
+        modifier = modifier,
+        creators = data?.creators,
+        onBack = onBack,
+        onSearchClick = onSearchClick,
+        onCreatorClick = onCreatorClick,
+        onSelectPeriod = viewModel::selectPeriod,
+        onToggleFollow = viewModel::toggleFollow
+    )
+}
+
+/** Split from LeaderboardScreen so @Preview can render this directly with MockData, without going
+ * through rememberMochiViewModelFactory() - same reason as every other converted screen's Content
+ * split (HomeScreen, CommunityScreen, ...). `creators == null` means Loading/Error/Preview, render
+ * MockData's static rows; a non-null (possibly empty) list is real data. */
+@Composable
+private fun LeaderboardScreenContent(
+    modifier: Modifier = Modifier,
+    creators: List<LeaderboardCreatorUi>? = null,
+    onBack: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
+    onCreatorClick: (String) -> Unit = {},
+    onSelectPeriod: (String) -> Unit = {},
+    onToggleFollow: (String) -> Unit = {}
 ) {
     var selectedPeriod by remember { mutableStateOf("This Week") }
-    val followState = remember { mutableStateOf(MockData.rankedCreators.associate { it.id to it.isFollowing }.toMutableMap()) }
+    val mockFollowState = remember { mutableStateOf(MockData.rankedCreators.associate { it.id to it.isFollowing }.toMutableMap()) }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
         Column(
@@ -86,16 +123,41 @@ fun LeaderboardScreen(
             verticalArrangement = Arrangement.spacedBy(MochiSpacing.lg)
         ) {
             LeaderboardHeader(onBack, onSearchClick)
-            PeriodTabsRow(selectedPeriod) { selectedPeriod = it }
+            PeriodTabsRow(selectedPeriod) { selectedPeriod = it; onSelectPeriod(it) }
             FollowCreatorsBanner()
-            MockData.rankedCreators.forEachIndexed { index, creator ->
-                val isFollowing = followState.value[creator.id] ?: false
-                CreatorRankRow(
-                    creator = creator,
-                    rank = index + 1,
-                    isFollowing = isFollowing,
-                    onToggleFollow = { followState.value = followState.value.toMutableMap().apply { put(creator.id, !isFollowing) } }
-                )
+            if (creators == null) {
+                MockData.rankedCreators.forEachIndexed { index, creator ->
+                    val isFollowing = mockFollowState.value[creator.id] ?: false
+                    CreatorRankRow(
+                        displayName = creator.displayName,
+                        handle = creator.handle,
+                        avatarAssetName = creator.avatarAssetName,
+                        themeCount = creator.themeCount,
+                        likeCount = creator.likeCount,
+                        isVerified = creator.isVerified,
+                        rank = index + 1,
+                        isFollowing = isFollowing,
+                        previewThemes = MockData.shopThemes.let { list -> List(3) { i -> list[((index + 1) * 3 + i) % list.size] } },
+                        onToggleFollow = { mockFollowState.value = mockFollowState.value.toMutableMap().apply { put(creator.id, !isFollowing) } },
+                        onClick = {}
+                    )
+                }
+            } else {
+                creators.forEachIndexed { index, creator ->
+                    CreatorRankRow(
+                        displayName = creator.displayName,
+                        handle = creator.handle,
+                        avatarAssetName = "",
+                        themeCount = creator.themeCount,
+                        likeCount = creator.likeCount,
+                        isVerified = false,
+                        rank = index + 1,
+                        isFollowing = creator.isFollowing,
+                        previewThemes = null,
+                        onToggleFollow = { onToggleFollow(creator.uid) },
+                        onClick = { onCreatorClick(creator.uid) }
+                    )
+                }
             }
             FooterBanner()
         }
@@ -172,6 +234,10 @@ private fun PeriodTabsRow(selected: String, onSelect: (String) -> Unit) {
     }
 }
 
+/** "Explore Community" chevron is decorative, not wired to navigation - Community is a bottom-tab
+ * selection inside RootScreen, not a standalone nav route, so reaching it from here would need a
+ * tab-deep-link contract added to Route.MAIN. Left as-is, same undecided-scope treatment as the
+ * Filter/Sort icons in PeriodTabsRow. */
 @Composable
 private fun FollowCreatorsBanner() {
     Row(
@@ -202,38 +268,62 @@ private fun FollowCreatorsBanner() {
     }
 }
 
+/** `isVerified` never real for a Firestore-backed creator (no such field anywhere in this app's
+ * schema - same documented gap as Community/Profile), so only the MockData path ever passes true.
+ * `previewThemes == null` skips that whole row rather than attributing MockData thumbnails to a
+ * specific real creator, same reasoning Profile's other-user view used to drop sections with no
+ * backing data instead of faking them. */
 @Composable
-private fun CreatorRankRow(creator: Creator, rank: Int, isFollowing: Boolean, onToggleFollow: () -> Unit) {
+private fun CreatorRankRow(
+    displayName: String,
+    handle: String,
+    avatarAssetName: String,
+    themeCount: Int,
+    likeCount: Int,
+    isVerified: Boolean,
+    rank: Int,
+    isFollowing: Boolean,
+    previewThemes: List<KeyboardTheme>?,
+    onToggleFollow: () -> Unit,
+    onClick: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(MochiRadius.card)).background(Color.White).padding(MochiSpacing.md),
         verticalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+        Row(
+            modifier = Modifier.clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)
+        ) {
             RankBadge(rank)
-            CreatorAvatar(assetName = creator.avatarAssetName, modifier = Modifier.size(56.dp).clip(CircleShape))
+            CreatorAvatar(assetName = avatarAssetName, modifier = Modifier.size(56.dp).clip(CircleShape))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = creator.displayName, style = MochiFont.heading(15.sp), color = MochiColor.textPrimary)
-                    Icon(imageVector = Icons.Filled.Verified, contentDescription = "Verified", tint = MochiColor.purple, modifier = Modifier.size(13.dp))
+                    Text(text = displayName, style = MochiFont.heading(15.sp), color = MochiColor.textPrimary)
+                    if (isVerified) {
+                        Icon(imageVector = Icons.Filled.Verified, contentDescription = "Verified", tint = MochiColor.purple, modifier = Modifier.size(13.dp))
+                    }
                 }
-                Text(text = creator.handle, style = MochiFont.caption(12.sp), color = MochiColor.purple)
+                Text(text = handle, style = MochiFont.caption(12.sp), color = MochiColor.purple)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                         Icon(imageVector = Icons.Filled.Palette, contentDescription = null, tint = MochiColor.textSecondary, modifier = Modifier.size(11.dp))
-                        Text(text = "${creator.themeCount} Themes", style = MochiFont.caption(11.sp), color = MochiColor.textSecondary)
+                        Text(text = "$themeCount Themes", style = MochiFont.caption(11.sp), color = MochiColor.textSecondary)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                         Icon(imageVector = Icons.Filled.Favorite, contentDescription = null, tint = MochiColor.pink, modifier = Modifier.size(11.dp))
-                        Text(text = creator.likeCount.let { if (it >= 1000) "${it / 1000}.${(it % 1000) / 100}K" else "$it" }, style = MochiFont.caption(11.sp), color = MochiColor.textSecondary)
+                        Text(text = likeCount.let { if (it >= 1000) "${it / 1000}.${(it % 1000) / 100}K" else "$it" }, style = MochiFont.caption(11.sp), color = MochiColor.textSecondary)
                     }
                 }
             }
             FollowButton(isFollowing = isFollowing, onClick = onToggleFollow)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
-            val previewThemes = MockData.shopThemes.let { list -> List(3) { i -> list[(rank * 3 + i) % list.size] } }
-            previewThemes.forEach { theme ->
-                ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.weight(1f).aspectRatio(1f))
+        if (previewThemes != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(MochiSpacing.sm)) {
+                previewThemes.forEach { theme ->
+                    ThemeArt(assetName = theme.imageAssetName, seed = theme.id, modifier = Modifier.weight(1f).aspectRatio(1f))
+                }
             }
         }
     }

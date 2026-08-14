@@ -10,6 +10,7 @@ import com.mochi.keyboard.features.auth.AuthViewModel
 import com.mochi.keyboard.features.community.CommunityViewModel
 import com.mochi.keyboard.features.create.CreateThemeViewModel
 import com.mochi.keyboard.features.home.HomeViewModel
+import com.mochi.keyboard.features.leaderboard.LeaderboardViewModel
 import com.mochi.keyboard.features.paywall.PaywallViewModel
 import com.mochi.keyboard.features.search.SearchViewModel
 import com.mochi.keyboard.features.settings.SettingsViewModel
@@ -48,6 +49,11 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
                 container.userRepository,
                 container.followRepository,
                 container.searchHistoryRepository,
+                container.authRepository
+            ) as T
+            LeaderboardViewModel::class.java -> LeaderboardViewModel(
+                container.userRepository,
+                container.followRepository,
                 container.authRepository
             ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
