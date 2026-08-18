@@ -15,6 +15,7 @@ import com.mochi.keyboard.features.paywall.PaywallViewModel
 import com.mochi.keyboard.features.search.SearchViewModel
 import com.mochi.keyboard.features.settings.SettingsViewModel
 import com.mochi.keyboard.features.themes.ThemesViewModel
+import com.mochi.keyboard.features.wallpapers.WallpaperViewModel
 
 /** One factory for every ViewModel, since there's no DI framework wiring `@Inject` constructors —
  * add a branch here whenever a new screen gets a ViewModel. Screens whose ViewModel needs a
@@ -55,6 +56,11 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
                 container.userRepository,
                 container.followRepository,
                 container.authRepository
+            ) as T
+            WallpaperViewModel::class.java -> WallpaperViewModel(
+                container.wallpaperRepository,
+                container.wallpaperLibraryRepository,
+                container.billingRepository
             ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

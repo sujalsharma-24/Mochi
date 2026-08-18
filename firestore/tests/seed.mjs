@@ -78,6 +78,20 @@ const themes = [
   },
 ];
 
+// The locked feature spec calls for "5 animated wallpapers at launch (all premium)", but this seed
+// mixes in one free wallpaper so both the locked and unlocked WallpaperExploreScreen states are
+// actually exercisable against the emulator - same reasoning the `themes` seed mix above uses.
+// Ids intentionally match android/.../features/wallpapers/WallpaperExploreScreen.kt's bundled
+// wallpaperArt map keys so the real Firestore-backed grid renders the same art as the MockData
+// fallback, not a placeholder box.
+const liveWallpapers = [
+  { id: 'wallpaper_cloudy_day', name: 'Cloudy Day', previewUrl: '', assetUrl: '', isPremium: true },
+  { id: 'wallpaper_sakura_dream_wp', name: 'Sakura Dream', previewUrl: '', assetUrl: '', isPremium: false },
+  { id: 'wallpaper_galaxy_explorer', name: 'Galaxy Explorer', previewUrl: '', assetUrl: '', isPremium: true },
+  { id: 'wallpaper_pastel_dreams', name: 'Pastel Dreams', previewUrl: '', assetUrl: '', isPremium: true },
+  { id: 'wallpaper_rainbow_bliss', name: 'Rainbow Bliss', previewUrl: '', assetUrl: '', isPremium: true },
+];
+
 async function main() {
   const testEnv = await initializeTestEnvironment({
     projectId: PROJECT_ID,
@@ -102,9 +116,13 @@ async function main() {
         updatedAt: now,
       });
     }
+    for (const wallpaper of liveWallpapers) {
+      const { id, ...data } = wallpaper;
+      await setDoc(doc(firestore, 'liveWallpapers', id), data);
+    }
   });
 
-  console.log(`Seeded ${themes.length} themes into the '${PROJECT_ID}' emulator project.`);
+  console.log(`Seeded ${themes.length} themes and ${liveWallpapers.length} live wallpapers into the '${PROJECT_ID}' emulator project.`);
   await testEnv.cleanup();
 }
 

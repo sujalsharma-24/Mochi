@@ -128,7 +128,10 @@ fun AppNavHost() {
             )
         }
         composable(Route.WALLPAPERS) {
-            WallpaperExploreScreen()
+            WallpaperExploreScreen(
+                onBack = { navController.popBackStack() },
+                onUnlockPremium = { navController.navigate(Route.PAYWALL) }
+            )
         }
     }
 }

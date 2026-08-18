@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -165,7 +166,7 @@ private fun ThemesScreenContent(
                 .offset(y = ThemesMetrics.contentTop)
         ) {
             Spacer(modifier = Modifier.height(ThemesMetrics.headerTop))
-            ThemesHeader(onSearchClick)
+            ThemesHeader(onSearchClick, onWallpapersClick)
 
             Spacer(modifier = Modifier.height(ThemesMetrics.headerToPills))
             CategoryBar(selected = category, onSelect = { category = it })
@@ -185,11 +186,17 @@ private fun ThemesScreenContent(
 // region Header
 
 @Composable
-private fun ThemesHeader(onSearchClick: () -> Unit) {
+private fun ThemesHeader(onSearchClick: () -> Unit, onWallpapersClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().height(ThemesMetrics.circleButton)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             ThemesCircleButton(icon = Icons.AutoMirrored.Filled.ArrowBack)
             Spacer(modifier = Modifier.weight(1f))
+            // No affordance for this exists in docs/figma/8.png (Figma is authoritative and shows
+            // no Live Wallpapers entry point on this frame) - added per the feature spec's Screen 4
+            // "Live Wallpapers section" placement, same "check the spec rather than guess" approach
+            // Session 21 used for Leaderboard's identical dead-callback bug.
+            ThemesCircleButton(icon = Icons.Filled.Wallpaper, onClick = onWallpapersClick)
+            Spacer(modifier = Modifier.width(8.dp))
             ThemesCircleButton(icon = Icons.Filled.Search, onClick = onSearchClick)
         }
 
