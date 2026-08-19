@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Status-bar notification icon: the OS renders only this shape's alpha channel as a flat
+         white silhouette (API 21+ ignores fillColor entirely), so a solid Mochi-dot circle is
+         enough - no need for real brand art here. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2 C6.48,2 2,6.48 2,12 C2,17.52 6.48,22 12,22 C17.52,22 22,17.52 22,12 C22,6.48 17.52,2 12,2 Z" />
+</vector>

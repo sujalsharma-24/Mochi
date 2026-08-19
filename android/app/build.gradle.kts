@@ -87,6 +87,10 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("com.google.firebase:firebase-appcheck-debug")
 
+    // WA5: push notifications. FCM piggybacks on the same Firebase project google-services.json
+    // already registers - no separate account/billing tier needed, unlike RevenueCat/Twilio.
+    implementation("com.google.firebase:firebase-messaging-ktx")
+
     // WA0 foundation: RevenueCat wraps Play Billing for the locked $2.99/mo · $19.99/yr
     // subscription. See BillingRepository - inert until a real RevenueCat API key replaces the
     // placeholder, same gated pattern as AuthRepository.googleWebClientId.

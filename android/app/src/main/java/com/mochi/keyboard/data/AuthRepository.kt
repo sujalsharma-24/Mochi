@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -119,6 +120,20 @@ class AuthRepository(
             val uid = result.user?.uid ?: error("Sign-in succeeded but no user id was returned")
             userRepository.createUserProfile(uid)
         }
+    }
+
+    /** Called after every successful sign-in (see AuthViewModel.runAuthAction) - a token can exist
+     * on-device before the user who owns it is known (e.g. generated at first app install, before
+     * any account exists), so re-associating it with whichever uid just signed in is necessary even
+     * though MochiFirebaseMessagingService.onNewToken also writes it on the (rarer) refresh case. */
+    suspend fun syncFcmToken() {
+        val token = FirebaseMessaging.getInstance().token.await()
+        updateFcmToken(token)
+    }
+
+    suspend fun updateFcmToken(token: String) {
+        val uid = auth.currentUser?.uid ?: return
+        userRepository.updateFcmToken(uid, token)
     }
 
     fun signOut() = auth.signOut()

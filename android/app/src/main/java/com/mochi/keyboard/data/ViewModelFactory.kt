@@ -42,7 +42,8 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
             ) as T
             SettingsViewModel::class.java -> SettingsViewModel(
                 container.settingsRepository,
-                container.authRepository
+                container.authRepository,
+                container.userRepository
             ) as T
             PaywallViewModel::class.java -> PaywallViewModel(container.billingRepository) as T
             SearchViewModel::class.java -> SearchViewModel(

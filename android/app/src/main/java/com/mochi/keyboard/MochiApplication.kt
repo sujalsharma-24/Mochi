@@ -12,6 +12,7 @@ import com.google.firebase.firestore.MemoryCacheSettings
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.mochi.keyboard.data.AppContainer
+import com.mochi.keyboard.notifications.NotificationChannels
 
 /**
  * The real Firebase project now exists (android/app/google-services.json, project "mochi-940bd")
@@ -32,6 +33,8 @@ class MochiApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        NotificationChannels.ensureCreated(this)
 
         // Every build on this project so far is a debug-signed sideload (gradlew installDebug via
         // adb, see android/README.md) - Play Integrity attestation fails for those (it expects a

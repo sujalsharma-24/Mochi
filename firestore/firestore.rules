@@ -48,7 +48,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'displayName', 'avatarUrl', 'bio', 'languagePreference',
-          'settings', 'updatedAt'
+          'settings', 'updatedAt', 'fcmToken', 'notificationsEnabled'
         ]);
 
       allow delete: if false; // deletion goes through the onAccountDelete callable only

@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Required at runtime on API 33+ to actually show a notification; requested in MainActivity. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".MochiApplication"
@@ -32,6 +34,18 @@
             <meta-data
                 android:name="android.view.im"
                 android:resource="@xml/method" />
+        </service>
+
+        <!-- Data-only messages only (no "notification" payload from the server), so this always
+             fires onMessageReceived and builds the notification itself - consistent foreground/
+             background behavior instead of relying on FCM's own auto-display for backgrounded/
+             killed-app cases and a manual build for the foreground case. -->
+        <service
+            android:name=".notifications.MochiFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
         </service>
     </application>
 

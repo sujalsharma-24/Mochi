@@ -1,5 +1,6 @@
 package com.mochi.keyboard.data.model
 
+import com.google.firebase.firestore.PropertyName
 import com.mochi.keyboard.model.ProfileSummary
 
 /**
@@ -24,7 +25,17 @@ data class UserDocument(
     val themeCount: Long = 0,
     val likesGivenCount: Long = 0,
     val likesReceivedCount: Long = 0,
-    val isDeleted: Boolean = false
+    // Same is-prefix getter-stripping footgun ThemeDocument.isPremium/isPublished hit (see that
+    // file's comment) - without this, Firestore's mapper resolves the Kotlin `isDeleted` getter to
+    // field "deleted", not the real document field "isDeleted" that createUserProfile/onAccountDelete
+    // actually write, silently deserializing every user as never-deleted. Found incidentally while
+    // adding WA5's fcmToken/notificationsEnabled fields to this same file, not part of that slice's
+    // own scope, but a one-line fix for a real pre-existing bug (e.g. searchableUsers' `!it.isDeleted`
+    // filter never actually excluded a deleted account).
+    @get:PropertyName("isDeleted")
+    val isDeleted: Boolean = false,
+    val fcmToken: String = "",
+    val notificationsEnabled: Boolean = true
 )
 
 fun UserDocument.toProfileSummary(): ProfileSummary = ProfileSummary(

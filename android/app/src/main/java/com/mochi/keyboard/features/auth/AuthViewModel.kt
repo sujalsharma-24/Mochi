@@ -83,6 +83,9 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             runCatching { block() }
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isLoading = false)
+                    // Best-effort: a token-fetch failure (e.g. no Play Services) shouldn't block
+                    // sign-in from completing.
+                    runCatching { authRepository.syncFcmToken() }
                     onSuccess()
                 }
                 .onFailure { e ->

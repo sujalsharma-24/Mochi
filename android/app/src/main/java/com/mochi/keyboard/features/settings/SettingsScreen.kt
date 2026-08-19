@@ -81,14 +81,17 @@ private fun SettingsScreenPreview() {
         onAutocorrectChange = {},
         onSwipeTypingChange = {},
         onHapticFeedbackChange = {},
-        onKeyClickSoundChange = {}
+        onKeyClickSoundChange = {},
+        onNotificationsChange = {}
     )
 }
 
-/** Ported from docs/figma/7.png. Account identity + Log Out/Delete Account and the 4 keyboard
- * toggles are real (SettingsViewModel -> SettingsRepository, DataStore-backed) - everything else
- * on this screen (Appearance/Preferences/Storage/Privacy/Help) is still the original static
- * placeholder UI, out of this slice's scope. */
+/** Ported from docs/figma/7.png. Account identity + Log Out/Delete Account, the 4 keyboard toggles
+ * (SettingsViewModel -> SettingsRepository, DataStore-backed), and PREFERENCES' Notifications
+ * toggle (WA5 - SettingsViewModel -> UserRepository, Firestore-backed since a Cloud Function needs
+ * to read it server-side before sending a push) are real - everything else on this screen
+ * (Appearance/Language/Storage/Privacy/Help) is still the original static placeholder UI, out of
+ * scope. */
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}, onSignedOut: () -> Unit = {}) {
     val viewModel: SettingsViewModel = viewModel(factory = rememberMochiViewModelFactory())
@@ -104,7 +107,8 @@ fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}, onSig
         onAutocorrectChange = viewModel::setAutocorrectEnabled,
         onSwipeTypingChange = viewModel::setSwipeTypingEnabled,
         onHapticFeedbackChange = viewModel::setHapticFeedbackEnabled,
-        onKeyClickSoundChange = viewModel::setKeyClickSoundEnabled
+        onKeyClickSoundChange = viewModel::setKeyClickSoundEnabled,
+        onNotificationsChange = viewModel::setNotificationsEnabled
     )
 }
 
@@ -119,10 +123,10 @@ private fun SettingsScreenContent(
     onAutocorrectChange: (Boolean) -> Unit,
     onSwipeTypingChange: (Boolean) -> Unit,
     onHapticFeedbackChange: (Boolean) -> Unit,
-    onKeyClickSoundChange: (Boolean) -> Unit
+    onKeyClickSoundChange: (Boolean) -> Unit,
+    onNotificationsChange: (Boolean) -> Unit
 ) {
     var isDark by remember { mutableStateOf(false) }
-    var notificationsOn by remember { mutableStateOf(true) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize().background(MochiGradient.background)) {
@@ -198,8 +202,8 @@ private fun SettingsScreenContent(
                 }
                 SettingsRow(Icons.Filled.Notifications, "Notifications", "Manage notification preferences") {
                     Switch(
-                        checked = notificationsOn,
-                        onCheckedChange = { notificationsOn = it },
+                        checked = uiState.notificationsEnabled,
+                        onCheckedChange = onNotificationsChange,
                         colors = SwitchDefaults.colors(checkedTrackColor = MochiColor.purple, checkedThumbColor = Color.White)
                     )
                 }

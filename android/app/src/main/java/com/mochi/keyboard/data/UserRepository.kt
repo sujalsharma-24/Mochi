@@ -67,6 +67,17 @@ class UserRepository(private val firestore: FirebaseFirestore) {
         }.associate { it.id to (it.toObject(UserDocument::class.java) ?: UserDocument()) }
     }
 
+    /** Called after sign-in and on FCM token refresh (see AuthRepository.updateFcmToken /
+     * MochiFirebaseMessagingService.onNewToken) - this is what functions/src/notifications.ts reads
+     * to know where to actually deliver a push. */
+    suspend fun updateFcmToken(uid: String, token: String) {
+        firestore.collection("users").document(uid).update("fcmToken", token).await()
+    }
+
+    suspend fun setNotificationsEnabled(uid: String, enabled: Boolean) {
+        firestore.collection("users").document(uid).update("notificationsEnabled", enabled).await()
+    }
+
     suspend fun createUserProfile(uid: String) {
         val now = FieldValue.serverTimestamp()
         val profile = hashMapOf(
