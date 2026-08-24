@@ -25,16 +25,26 @@ GitHub's public REST API (`api.github.com/repos/.../actions/runs`), not the web 
 | Area | Status |
 |---|---|
 | Firebase iOS SDK + App Container (dormant until `GoogleService-Info.plist` exists) | ✅ Done |
-| Auth (Email, Google, Apple, Phone OTP) | ✅ Done, CI-compiling as of commit `73c56cf` |
+| Auth (Email, Google, Apple, Phone OTP) | ✅ Code done — CI compile status uncertain, see below |
 | Onboarding (Splash + 4-page) | ✅ Done |
+| Theme Detail + Theme/Like/Follow repositories | ✅ Code done, not yet wired into navigation |
 | Home, Fonts, Themes, Community, Create, Profile, Search (tab UI) | 🔄 Real screens exist, still on `MockData` — not yet wired |
-| Theme Detail | ⏳ Not built (doesn't exist on iOS at all yet) |
 | Settings | ⏳ Not built |
 | Paywall | ⏳ Not built |
 | Wallpapers | ⏳ Not built |
 | Leaderboard | ⏳ Not built |
 | Push notifications (FCM) | ⏳ Not started |
 | App Store prep | ⏳ Not started |
+
+**CI status note (2026-08-24):** the first two pushes (`ca36b2d`, `73c56cf`) both failed CI
+(`exit code 70`, no compiler-level detail available — see Verification constraint above). Found by
+hand-review: a real `@ViewBuilder`-on-stored-property mistake and a missing `import UIKit`, both
+fixed in `73c56cf`. That push *still* failed, which led to the actual likely root cause: `project.yml`
+pinned `firebase-ios-sdk` to `from: 10.29.0`, a version that doesn't exist — checked properly via
+each package's `/releases` API this time (not `/tags`, which returned misleadingly-sorted old data
+and caused one wrong intermediate guess), giving the real current majors: firebase-ios-sdk 12.18.0,
+GoogleSignIn-iOS 9.2.0. Fixed in `37110a2`. **Not yet confirmed green** — polling CI for that push as
+this doc is being written; update this note once it resolves either way.
 
 ---
 
@@ -70,6 +80,19 @@ catalog) rather than the 3 mismatched placeholder images that were already sitti
 straight to the existing tab UI (today's behavior, unchanged) whenever `AppContainer.shared` is nil
 — keeps CI green with zero special-casing until the plist lands.
 
+### Theme Detail + Theme/Like/Follow repositories
+`ThemeDetailView` + `ThemeDetailViewModel`, porting `android/.../features/themedetail/
+ThemeDetailScreen.kt` (no Figma source exists for this screen on either platform — Android designed
+it from the locked feature spec, this follows Android's version rather than inventing a second one).
+New `ThemeDocument` (Firestore schema mirror), `ThemeRepository`, `LikeRepository`,
+`FollowRepository` — same query shapes and document contracts as their Android equivalents.
+`KeyboardTheme` gained `description`/`creatorUid`/`downloadCount` fields (defaulted, so every
+existing `MockData` call site kept compiling unchanged). **Not yet wired into navigation** — tapping
+a theme card anywhere still does nothing; that wiring is bundled into whichever screen's own slice
+needs it next (Home/Themes), not built in isolation. `isUserPremium` is hardcoded `false` (no
+Paywall/RevenueCat SDK on iOS yet) — a documented gap, not an oversight, matching how Android's own
+Theme Detail shipped before its Paywall slice existed.
+
 ---
 
 ## 🔄 In progress / next up
@@ -83,24 +106,24 @@ screen comes next in the queue below.
 
 Same screen order Android's `WA4` went through, adjusted for what already exists as UI-only on iOS:
 
-1. **Theme Detail** — doesn't exist on iOS yet at all (Android built it as an Android-only screen
-   originally, per the WA4 plan). Needed before Themes/Home/Community/Search can deep-link into it.
-2. **Themes, Home, Community, Search, Profile, Create & Publish** — real screens exist, still 100%
-   `MockData`. Each needs its own repository (`ThemeRepository`, `LikeRepository`,
-   `FollowRepository`, `CreateRepository`, `StorageRepository`, etc., mirrored from
-   `android/.../data/`) and ViewModel, one screen at a time, verified against CI each time.
-3. **Settings** — doesn't exist on iOS yet. Needed for: sign-out, delete-account (repository call
+1. **Themes, Home, Community, Search, Profile, Create & Publish** — real screens exist, still 100%
+   `MockData`. Each needs its own ViewModel wired to the repositories that now exist
+   (`ThemeRepository`/`LikeRepository`/`FollowRepository`) plus new ones as needed
+   (`CreateRepository`, `StorageRepository`, `UserRepository` extensions, etc., mirrored from
+   `android/.../data/`), one screen at a time, verified against CI each time. Wiring a screen's theme
+   cards to actually navigate into the now-built Theme Detail is part of this step, not separate.
+2. **Settings** — doesn't exist on iOS yet. Needed for: sign-out, delete-account (repository call
    already exists), notification toggle, keyboard-preference toggles (persist only, no IME to
    enforce them — matches Android's own documented scope limit).
-4. **Paywall** — doesn't exist on iOS yet. Needs the RevenueCat iOS SDK (not yet added) +
+3. **Paywall** — doesn't exist on iOS yet. Needs the RevenueCat iOS SDK (not yet added) +
    entitlement gating on Theme Detail / Profile, same pattern as Android's `BillingRepository`.
-5. **Wallpapers** — doesn't exist on iOS yet.
-6. **Leaderboard** — doesn't exist on iOS yet (Android-only screen currently; port if/when the rest
+4. **Wallpapers** — doesn't exist on iOS yet.
+5. **Leaderboard** — doesn't exist on iOS yet (Android-only screen currently; port if/when the rest
    of Community is real).
-7. **Push notifications (FCM)** — `FirebaseMessaging` SPM product already added; no notification
+6. **Push notifications (FCM)** — `FirebaseMessaging` SPM product already added; no notification
    handling, permission request, or token-capture-on-launch built yet (only sign-in-time token sync
    exists so far, in `AuthRepository.syncFcmToken`).
-8. **App Store prep** — not started; lower priority since this is the platform the client cares
+7. **App Store prep** — not started; lower priority since this is the platform the client cares
    about shipping to, but real device verification (Sujal's friend) comes before any store
    submission concern.
 
