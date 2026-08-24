@@ -32,6 +32,36 @@ final class ScreenshotUITests: XCTestCase {
             Thread.sleep(forTimeInterval: 1.5)
             capture(app, name: tab.fileName)
         }
+
+        // Profile and Search are pushed over the tab bar rather than being tabs themselves, so each
+        // needs its host tab reselected before its trigger button exists.
+        tapAndCapture(app, tabIdentifier: "tab.community", triggerIdentifier: "community.openProfile", fileName: "06-profile", backIdentifier: "profile.back")
+        tapAndCapture(app, tabIdentifier: "tab.themes", triggerIdentifier: "themes.openSearch", fileName: "07-search", backIdentifier: "search.back")
+    }
+
+    private func tapAndCapture(_ app: XCUIApplication, tabIdentifier: String, triggerIdentifier: String, fileName: String, backIdentifier: String) {
+        let tabButton = app.buttons[tabIdentifier]
+        guard tabButton.waitForExistence(timeout: 5) else {
+            XCTFail("Tab button \(tabIdentifier) never appeared")
+            return
+        }
+        tabButton.tap()
+        Thread.sleep(forTimeInterval: 1.0)
+
+        let trigger = app.buttons[triggerIdentifier]
+        guard trigger.waitForExistence(timeout: 5) else {
+            XCTFail("Trigger button \(triggerIdentifier) never appeared")
+            return
+        }
+        trigger.tap()
+        Thread.sleep(forTimeInterval: 1.5)
+        capture(app, name: fileName)
+
+        let back = app.buttons[backIdentifier]
+        if back.waitForExistence(timeout: 5) {
+            back.tap()
+            Thread.sleep(forTimeInterval: 1.0)
+        }
     }
 
     private func capture(_ app: XCUIApplication, name: String) {

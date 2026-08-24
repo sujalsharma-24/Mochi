@@ -6,6 +6,8 @@ struct RootView: View {
     /// the bar unselected, i.e. as a screen pushed *over* the tabs. It is presented in their place
     /// and keeps the bar visible; picking any tab dismisses it.
     @State private var showProfile = false
+    /// Same pushed-over-the-tabs treatment as Profile, opened from Themes' search icon.
+    @State private var showSearch = false
     /// Theme Detail covers everything, including Profile, the same way Android's nav graph pushes
     /// `themeDetail/{themeId}` as its own destination rather than nesting it under a tab.
     @State private var selectedTheme: KeyboardTheme?
@@ -24,12 +26,14 @@ struct RootView: View {
                         ThemeDetailView(theme: theme, onBack: { selectedTheme = nil })
                     } else if showProfile {
                         ProfileView(onBack: { showProfile = false })
+                    } else if showSearch {
+                        SearchView(onBack: { showSearch = false })
                     } else {
                         switch selected {
                         case .keyboard: HomeView(onThemeClick: { theme in selectedTheme = theme })
                         case .fonts: FontsView()
                         case .create: CreateThemeView()
-                        case .themes: ThemesView()
+                        case .themes: ThemesView(onOpenSearch: { showSearch = true })
                         case .community: CommunityView(onOpenProfile: { showProfile = true })
                         }
                     }
@@ -39,11 +43,12 @@ struct RootView: View {
 
                 if selectedTheme == nil {
                     MochiTabBar(selected: Binding(
-                        get: { showProfile ? nil : selected },
+                        get: { (showProfile || showSearch) ? nil : selected },
                         set: { tab in
                             if let tab {
                                 selected = tab
                                 showProfile = false
+                                showSearch = false
                             }
                         }
                     ))

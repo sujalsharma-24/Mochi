@@ -79,6 +79,7 @@ struct SearchView: View {
                     .background(MochiGradient.primaryButton)
                     .clipShape(Circle())
             }
+            .accessibilityIdentifier("search.back")
 
             HStack(spacing: MochiSpacing.sm) {
                 TextField("", text: $query, prompt: Text("Search themes, creators..").foregroundColor(MochiColor.textSecondary))

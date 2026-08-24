@@ -1,15 +1,17 @@
 import SwiftUI
 
-/// Real art cropped from the client's Figma export (docs/figma/1.png), reused directly from
-/// android/app/.../res/drawable-nodpi/ where it was already extracted and validated against
-/// Figma across several sessions. Anything not in this set falls back to the generated
-/// KeyboardPreviewPlaceholder until the client provides isolated assets for the rest of the
-/// 250-theme catalog. Mirrors android/.../components/ThemeArt.kt's knownThemeArt map.
+/// Real art from Assets.xcassets — either cropped from the client's Figma export or, since the
+/// asset catalog landed, delivered directly by the client per-theme. Anything not in this set
+/// falls back to the generated KeyboardPreviewPlaceholder until the client provides isolated
+/// assets for the rest of the 250-theme catalog. Mirrors android/.../components/ThemeArt.kt's
+/// knownThemeArt map.
 private let knownThemeArt: Set<String> = [
     "theme_fantasy_castle_night", "theme_space_vibe", "theme_dreamy_castle",
     "theme_cozy_sakura_cafe", "theme_sakura_train", "theme_pastel_rainbow",
     // Cropped from docs/figma/2.png for Community's Top Themes row.
-    "theme_kawaii_boba", "theme_pastel_pink_sky"
+    "theme_kawaii_boba", "theme_pastel_pink_sky",
+    // Added with the client's asset catalog delivery; used by Search's "Forest Theme" result.
+    "theme_forest"
 ]
 
 private let knownFontArt: Set<String> = [

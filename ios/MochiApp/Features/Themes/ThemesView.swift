@@ -156,6 +156,8 @@ private enum Type {
 }
 
 struct ThemesView: View {
+    var onOpenSearch: () -> Void = {}
+
     /// The same seven categories the Fonts frame uses, with the same marks.
     private enum Category: String, CaseIterable, Identifiable {
         case all = "All", cute = "Cute", handwritten = "Handwritten", minimal = "Minimal"
@@ -244,7 +246,10 @@ struct ThemesView: View {
             HStack(spacing: 0) {
                 circleButton(systemName: "arrow.left")
                 Spacer(minLength: 0)
-                circleButton(systemName: "magnifyingglass")
+                Button(action: onOpenSearch) {
+                    circleButton(systemName: "magnifyingglass")
+                }
+                .accessibilityIdentifier("themes.openSearch")
             }
 
             VStack(spacing: Metrics.titleToSubtitle) {
