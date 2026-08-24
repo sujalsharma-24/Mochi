@@ -23,6 +23,7 @@ final class AppContainer {
     let themeRepository: ThemeRepository
     let likeRepository: LikeRepository
     let followRepository: FollowRepository
+    let reportRepository: ReportRepository
 
     private init() {
         auth = Auth.auth()
@@ -35,5 +36,6 @@ final class AppContainer {
         themeRepository = ThemeRepository(firestore: firestore)
         likeRepository = LikeRepository(firestore: firestore)
         followRepository = FollowRepository(firestore: firestore)
+        reportRepository = ReportRepository(firestore: firestore)
     }
 }

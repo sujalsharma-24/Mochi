@@ -37,7 +37,10 @@ struct RootView: View {
                             onOpenSearch: { showSearch = true },
                             onThemeClick: { theme in selectedTheme = theme }
                         )
-                        case .community: CommunityView(onOpenProfile: { showProfile = true })
+                        case .community: CommunityView(
+                            onOpenProfile: { showProfile = true },
+                            onThemeClick: { theme in selectedTheme = theme }
+                        )
                         }
                     }
                 }

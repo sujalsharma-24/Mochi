@@ -180,6 +180,7 @@ private enum Type {
 
 struct CommunityView: View {
     var onOpenProfile: () -> Void = {}
+    var onThemeClick: (KeyboardTheme) -> Void = {}
 
     /// Figma spells the placeholder "serch themes, creators.." — kept verbatim, like the fourth
     /// creator tile's "Choose" CTA.
@@ -189,6 +190,30 @@ struct CommunityView: View {
 
     @State private var selectedTab: FeedTab = .forYou
     @State private var query: String = ""
+    @State private var reportingTheme: KeyboardTheme?
+
+    @StateObject private var viewModel = CommunityViewModel(container: AppContainer.shared)
+
+    /// Loading/Error fall back to MockData so the pixel-tuned layout never breaks (same convention
+    /// as Home/Themes); a genuinely-empty tab under `.data` (e.g. no follows yet on "Following") is
+    /// real data, not an error, so it's shown as-is rather than masked with MockData.
+    private var topThemes: [KeyboardTheme] {
+        if case .data(let feedThemes, _, _) = viewModel.uiState { return Array(feedThemes.prefix(3)) }
+        return MockData.communityTopThemes
+    }
+
+    /// `nil` means Loading/Error (or no container) — render MockData's static, non-interactive
+    /// tiles. A non-nil (possibly empty) array means real data — each tile's Follow button is live.
+    private var realCreators: [CommunityCreatorUi]? {
+        if case .data(_, _, let creators) = viewModel.uiState { return creators }
+        return nil
+    }
+
+    /// Same `nil`-means-MockData convention as `realCreators`.
+    private var realLatestThemes: [KeyboardTheme]? {
+        if case .data(_, let latestThemes, _) = viewModel.uiState { return latestThemes }
+        return nil
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -243,6 +268,23 @@ struct CommunityView: View {
                 SparkleField()
             }
             .ignoresSafeArea()
+        }
+        .confirmationDialog("Report theme", isPresented: Binding(
+            get: { reportingTheme != nil },
+            set: { if !$0 { reportingTheme = nil } }
+        ), titleVisibility: .visible) {
+            // Reasons kept short and generic on purpose — reportTheme() just stores whichever
+            // string is picked verbatim; functions/src/reports.ts' auto-hide trigger only reads
+            // themeId/status, not reason, so this list has no server-side contract to match.
+            ForEach(["Spam", "Inappropriate content", "Copyright violation", "Other"], id: \.self) { reason in
+                Button(reason) {
+                    if let theme = reportingTheme {
+                        viewModel.reportTheme(themeId: theme.id, reason: reason)
+                    }
+                    reportingTheme = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { reportingTheme = nil }
         }
     }
 
@@ -322,7 +364,10 @@ struct CommunityView: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { selectedTab = tab }
+                    .onTapGesture {
+                        selectedTab = tab
+                        viewModel.selectTab(tab.rawValue)
+                    }
             }
         }
     }
@@ -349,7 +394,7 @@ struct CommunityView: View {
     private var topThemesRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: Metrics.themeCardGap) {
-                ForEach(Array(MockData.communityTopThemes.enumerated()), id: \.element.id) { index, theme in
+                ForEach(Array(topThemes.enumerated()), id: \.element.id) { index, theme in
                     topThemeCard(theme, rank: index + 1)
                 }
             }
@@ -397,6 +442,8 @@ struct CommunityView: View {
         .frame(width: Metrics.themeCard)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture { onThemeClick(theme) }
         .shadow(color: MochiColor.purpleDark.opacity(0.13), radius: 5, y: 3)
         .overlay(alignment: .bottomTrailing) {
             DownloadButton(diameter: Metrics.downloadButton)
@@ -417,21 +464,51 @@ struct CommunityView: View {
 
     // MARK: - Popular Creators
 
+    /// `realCreators == nil` means Loading/Error (or no container) — render MockData's static,
+    /// non-interactive tiles. A non-nil (possibly empty) array means real data — each tile's Follow
+    /// button is live, backed by `viewModel.toggleFollow`.
     private var creatorsRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: Metrics.creatorCardGap) {
-                ForEach(MockData.communityCreators) { creator in
-                    creatorCard(creator)
+                if let realCreators {
+                    ForEach(realCreators) { creator in
+                        creatorTile(
+                            name: creator.name,
+                            avatarAssetName: "avatar_user",
+                            themeCount: creator.themeCount,
+                            isVerified: false,
+                            ctaTitle: creator.isFollowing ? "Following" : "Follow",
+                            onCtaTap: { viewModel.toggleFollow(creator.uid) }
+                        )
+                    }
+                } else {
+                    ForEach(MockData.communityCreators) { creator in
+                        creatorTile(
+                            name: creator.name,
+                            avatarAssetName: creator.avatarAssetName,
+                            themeCount: creator.themeCount,
+                            isVerified: creator.isVerified,
+                            ctaTitle: creator.ctaTitle,
+                            onCtaTap: nil
+                        )
+                    }
                 }
             }
         }
         .padding(.horizontal, -Metrics.rowBleed)
     }
 
-    private func creatorCard(_ creator: CommunityCreator) -> some View {
+    private func creatorTile(
+        name: String,
+        avatarAssetName: String,
+        themeCount: Int,
+        isVerified: Bool,
+        ctaTitle: String,
+        onCtaTap: (() -> Void)?
+    ) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: Metrics.creatorAvatarGap) {
-                Image(creator.avatarAssetName)
+                Image(avatarAssetName)
                     .resizable()
                     .scaledToFill()
                     .frame(width: Metrics.creatorAvatar, height: Metrics.creatorAvatar)
@@ -439,14 +516,14 @@ struct CommunityView: View {
 
                 VStack(alignment: .leading, spacing: 1 * S) {
                     HStack(spacing: 2 * S) {
-                        Text(creator.name)
+                        Text(name)
                             .font(MochiFont.itemName(Type.creatorName))
                             .foregroundStyle(MochiColor.textPrimary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.96) // shrink a hair rather than ever ellipsise
-                        if creator.isVerified { VerifiedSeal() }
+                        if isVerified { VerifiedSeal() }
                     }
-                    Text("\(creator.themeCount) Themes")
+                    Text("\(themeCount) Themes")
                         .font(MochiFont.caption(Type.creatorThemes))
                         .foregroundStyle(MochiColor.textMuted)
                         .lineLimit(1)
@@ -467,12 +544,14 @@ struct CommunityView: View {
             // Centred on the TILE, not on the padded content box — the insets above are asymmetric
             // (Figma's are), so centring inside them would push the capsule ~1pt right of where the
             // design puts it, which is dead centre.
-            Text(creator.ctaTitle)
+            Text(ctaTitle)
                 .font(MochiFont.button(Type.followLabel))
                 .foregroundStyle(MochiColor.textPrimary)
                 .frame(width: Metrics.followSize.width, height: Metrics.followSize.height)
                 .background(MochiGradient.softButton, in: Capsule())
                 .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { onCtaTap?() }
         }
         .padding(.top, 5.4 * S)
         .padding(.bottom, 5.2 * S)
@@ -484,15 +563,24 @@ struct CommunityView: View {
 
     // MARK: - Latest Creations
 
+    /// `realLatestThemes == nil` means Loading/Error — render MockData's static cards, tap/report
+    /// both no-ops. A non-nil list is real data — card tap opens the theme, the ellipsis opens the
+    /// report dialog.
     private var latestCreations: some View {
         VStack(spacing: Metrics.latestCardGap) {
-            ForEach(MockData.communityLatest) { post in
-                latestCard(post)
+            if let realLatestThemes {
+                ForEach(realLatestThemes) { theme in
+                    latestCard(theme.toCommunityPost(), onClick: { onThemeClick(theme) }, onReport: { reportingTheme = theme })
+                }
+            } else {
+                ForEach(MockData.communityLatest) { post in
+                    latestCard(post)
+                }
             }
         }
     }
 
-    private func latestCard(_ post: CommunityPost) -> some View {
+    private func latestCard(_ post: CommunityPost, onClick: @escaping () -> Void = {}, onReport: @escaping () -> Void = {}) -> some View {
         HStack(spacing: 0) {
             Image(post.thumbAssetName)
                 .resizable()
@@ -559,6 +647,8 @@ struct CommunityView: View {
                     .font(.system(size: 9 * S, weight: .black))
                     .foregroundStyle(MochiColor.textPrimary)
                     .padding(.leading, 9.8)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onReport() }
             }
             .padding(.trailing, Metrics.latestTrailing)
         }
@@ -568,6 +658,8 @@ struct CommunityView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture { onClick() }
         .shadow(color: MochiColor.purpleDark.opacity(0.13), radius: 5, y: 3)
     }
 
