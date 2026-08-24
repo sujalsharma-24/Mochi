@@ -65,12 +65,47 @@ jobs:
       - name: Build and run screenshot UI test
         working-directory: ios
         run: |
+          # Raw logs and artifact zips can't be downloaded without repo-admin auth (see
+          # docs/IOS_FUNCTIONAL_STATUS.md), so on failure we can't just look at the log later —
+          # we have to surface the actual error text as GitHub Check annotations instead, since
+          # those ARE readable anonymously via the REST API. `set +e` here so a non-zero
+          # xcodebuild exit doesn't kill the script before we get a chance to do that; pipefail
+          # (on by default for GitHub Actions' bash steps) still lets $? reflect xcodebuild's
+          # real exit code through the `tee` pipe.
+          set +e
           xcodebuild test \
             -project Mochi.xcodeproj \
             -scheme MochiApp \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResult.xcresult \
-            TEST_RUNNER_SCREENSHOT_DIR="$(pwd)/screenshots"
+            TEST_RUNNER_SCREENSHOT_DIR="$(pwd)/screenshots" \
+            2>&1 | tee build.log
+          STATUS=$?
+
+          if [ "$STATUS" -ne 0 ]; then
+            echo "xcodebuild exited with $STATUS — extracting failure detail as annotations"
+            PATTERN='error:|BUILD FAILED|TEST FAILED|Fatal error|fatalError|EXC_BAD_ACCESS|Thread [0-9]+: |Assertion failed|Testing failed:'
+            if grep -qE "$PATTERN" build.log; then
+              grep -nE "$PATTERN" build.log | head -n 30 | while IFS= read -r line; do
+                # ::error:: annotations are single-line; strip embedded newlines/CRs defensively.
+                clean=$(printf '%s' "$line" | tr -d '\r' | tr '\n' ' ')
+                echo "::error::${clean}"
+              done
+            else
+              echo "::error::xcodebuild failed with exit $STATUS but no recognizable error pattern was found — see the last lines of the log below"
+              tail -n 60 build.log
+            fi
+          fi
+
+          exit $STATUS
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mochi-ios-build-log
+          path: ios/build.log
+          if-no-files-found: ignore
 
       - name: Upload screenshots
         if: always()
