@@ -3,9 +3,32 @@ import SwiftUI
 /// Layout numbers live in `HomeMetrics` and `ActionCardTuning`, not here — see HomeMetrics.swift
 /// for where each came from and why the two action cards are configured separately.
 struct HomeView: View {
+    var onThemeClick: (KeyboardTheme) -> Void = {}
+
     @State private var libraryTab: LibraryTab = .fonts // Figma: FONTS is the default-active pill
 
+    @StateObject private var viewModel = HomeViewModel(container: AppContainer.shared)
+
     private enum LibraryTab { case fonts, themes }
+
+    /// Loading/Error fall back to the same MockData this screen always rendered — no spinner/error
+    /// view exists anywhere in the Figma export for Home, same convention every other screen in this
+    /// app follows. Only a genuinely empty catalog (`.empty`) shows a real empty row.
+    private var recentlyAppliedThemes: [KeyboardTheme] {
+        switch viewModel.uiState {
+        case .data(let recentlyApplied, _): return recentlyApplied
+        case .empty: return []
+        case .loading, .error: return MockData.popularThemes
+        }
+    }
+
+    private var popularThemes: [KeyboardTheme] {
+        switch viewModel.uiState {
+        case .data(_, let popular): return popular
+        case .empty: return []
+        case .loading, .error: return MockData.homePopularThemes
+        }
+    }
 
     /// 91px left / 87px right on the action-card row, 82-85px elsewhere — one 16pt margin.
     private static let screenMargin: CGFloat = 16
@@ -69,7 +92,7 @@ struct HomeView: View {
             Spacer(minLength: HomeMetrics.gapPillsSection)
             sectionHeader("Popular Themes")
             Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
-            themesRow(MockData.homePopularThemes)
+            themesRow(popularThemes)
 
             Spacer(minLength: HomeMetrics.gapThemesFonts)
             sectionHeader("Font Collection")
@@ -115,7 +138,7 @@ struct HomeView: View {
     /// Figma shows exactly 3 recently-applied cards filling the row edge-to-edge, no scrolling.
     private var recentlyAppliedRow: some View {
         HStack(alignment: .top, spacing: HomeMetrics.carouselGap) {
-            ForEach(MockData.popularThemes) { theme in
+            ForEach(recentlyAppliedThemes) { theme in
                 themeCard(theme, width: carouselCardWidth, artRadius: HomeMetrics.carouselArtRadius)
             }
         }
@@ -140,6 +163,8 @@ struct HomeView: View {
                 .frame(height: HomeMetrics.carouselNameReserve, alignment: .top)
         }
         .frame(width: width)
+        .contentShape(Rectangle())
+        .onTapGesture { onThemeClick(theme) }
     }
 
     private var quickActionCards: some View {

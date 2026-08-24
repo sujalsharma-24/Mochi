@@ -60,6 +60,15 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - REPLACE_WITH_IOS_REVERSED_CLIENT_ID
+        # FirebaseMessaging installs UIApplicationDelegate method-swizzling hooks automatically at
+        # launch (to catch APNs token registration) - this app has no explicit AppDelegate (pure
+        # SwiftUI App lifecycle) and, until GoogleService-Info.plist exists, FirebaseApp.configure()
+        # is never called at all (see FirebaseEnvironment.configureIfPossible). That combination is
+        # exactly the scenario Firebase's own docs warn can crash ("The default Firebase app has not
+        # been configured") if the swizzled hooks fire regardless. Disabling the proxy is the
+        # documented way to avoid it; push notifications' own future slice will need to forward the
+        # APNs device token to Messaging.messaging().apnsToken manually instead of relying on this.
+        FirebaseAppDelegateProxyEnabled: false
     # Sign-in-with-Apple entitlement deliberately NOT wired in yet (MochiApp.entitlements exists on
     # disk, unused) — with DEVELOPMENT_TEAM blank, Xcode's capability provisioning for this
     # entitlement needs a real Apple Developer Team even to build for the Simulator, which this CI
