@@ -60,11 +60,13 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - REPLACE_WITH_IOS_REVERSED_CLIENT_ID
-    entitlements:
-      path: MochiApp/App/MochiApp.entitlements
-      properties:
-        com.apple.developer.applesignin:
-          - Default
+    # Sign-in-with-Apple entitlement deliberately NOT wired in yet (MochiApp.entitlements exists on
+    # disk, unused) — with DEVELOPMENT_TEAM blank, Xcode's capability provisioning for this
+    # entitlement needs a real Apple Developer Team even to build for the Simulator, which this CI
+    # runner doesn't have. Re-add the `entitlements:` block once Sujal's Apple Developer Program
+    # enrollment exists (see docs/IOS_FUNCTIONAL_STATUS.md's blockers table) — the Swift-side
+    # Sign in with Apple code (AppleSignInCoordinator) doesn't need this to compile, only to
+    # actually authenticate on a real device.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app
