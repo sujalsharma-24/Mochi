@@ -1,6 +1,6 @@
 # Mochi iOS — Functional Build Status
 
-**Last updated:** 2026-08-24 (end of this session)
+**Last updated:** 2026-08-24 (CI went green this session — see below)
 **Scope:** Bringing the iOS app to feature parity with the Android app — real Firebase Auth/
 Firestore/Storage data and real Cloud Functions logic behind every screen, screen by screen, in the
 same order Android went through (see `docs/ANDROID_FUNCTIONAL_STATUS.md`). The Cloud Functions
@@ -39,11 +39,43 @@ token; only raw log/artifact *downloads* need auth ("Must have admin rights to R
 | Leaderboard | ⏳ Not built |
 | Push notifications (FCM) | ⏳ Not started |
 | App Store prep | ⏳ Not started |
-| **CI (`ios-screenshots.yml`)** | 🔴 **Still red as of this session's last push (`724a39f`) — unresolved, see below** |
+| **CI (`ios-screenshots.yml`)** | ✅ **Green as of `3fe8331` / `c9f34ab` — see below** |
 
 ---
 
-## CI debugging — read this first next session
+## CI is green — how we got there, and what's still open
+
+The `724a39f` fix (`FirebaseAppDelegateProxyEnabled: false`) turned out **not** to be the real fix —
+checked directly against the API (not cached): that run still failed with the exact same signature
+(exit 65, ~293KB xcresult, same step). What actually got CI green was a follow-up commit
+(`3fe8331`) that only changed the workflow's diagnostics (see below) — the underlying `xcodebuild
+test` invocation was untouched. That commit's run passed clean on the first try, and a second push
+(`c9f34ab`, adding the Search-navigation screenshot steps) passed again. Two consecutive green runs
+with no code-level fix in between points to **the original failures having been flaky/intermittent**
+(likely simulator boot timing on the runner), not a real bug in this session's Auth/Theme Detail
+code. Treat this as provisionally resolved, not proven — if it goes red again, the new diagnostics
+below should show the real cause immediately instead of requiring another multi-hour trail.
+
+**New: CI now self-diagnoses failures.** `ios-screenshots.yml`'s build step greps its log for
+`error:`/`BUILD FAILED`/`TEST FAILED`/`Fatal error`/crash patterns on non-zero exit and emits them as
+`::error::` workflow commands, which become GitHub Check annotations — readable anonymously via the
+same `check-runs/{id}/annotations` endpoint already in use, unlike raw logs/artifact downloads which
+still require auth. It also uploads the full `build.log` as an artifact (`mochi-ios-build-log`, not
+downloadable anonymously, but there for anyone with real repo access). **Next time CI fails, check
+annotations first** — no more guessing from exit codes and artifact-size deltas alone.
+
+**Known low-priority gap, not yet fixed:** `ScreenshotUITests.swift`'s `capture()` writes each PNG to
+`$SCREENSHOT_DIR` with `try?`, silently swallowing any write failure. Both green runs still logged
+`"No files were found with the provided path: ios/screenshots"` — the write is failing every time,
+silently. Screenshots are still captured as `XCTAttachment`s inside the uploaded `.xcresult` bundle
+(so not a total loss — Xcode can still show them to someone with real access), but the loose-PNG path
+that was meant to make screenshots easy to grab has never actually worked. Not investigated further
+this session (not blocking, and `try?` was swallowing the real error the same way logs have been
+opaque elsewhere) — worth a `try`/`print` swap next time someone touches this file.
+
+---
+
+## CI debugging trail (historical — superseded by the section above, kept for context)
 
 This ate most of this session. Full trail, so the next session doesn't re-derive it:
 
@@ -145,22 +177,20 @@ since no spinner/error UI exists anywhere in Home's Figma export; only genuine e
 empty row), tapping any Home theme card now pushes the real `ThemeDetailView` (`RootView` gained a
 `selectedTheme` overlay state, same pattern `showProfile` already used, tab bar hides while it's up).
 
-**`RootView.swift` note**: this file already had unrelated, pre-existing *uncommitted* work sitting
-in it before this session started (Search-screen navigation wiring — not this effort's work). To
-avoid entangling the two, `RootView.swift` was reconstructed by hand as "HEAD plus only this
-session's Theme Detail diff" before committing, so that pre-existing Search work (also present in
-`ThemesView.swift`, `SearchView.swift`, `Components/ThemeArt.swift`, `MochiUITests/
-ScreenshotUITests.swift`) is **still sitting untouched and uncommitted**, exactly as found. A future
-session touching any of these files again will need to make a real call about whether to keep
-excluding that work indefinitely (increasingly impractical — every future RootView.swift edit will
-re-hit this same entanglement) or fold it in; not decided this session.
+**`RootView.swift` note (resolved this session)**: the pre-existing uncommitted Search-navigation
+work (`ThemesView.swift`, `SearchView.swift`, `Components/ThemeArt.swift`, `MochiUITests/
+ScreenshotUITests.swift`) was left deliberately untouched for one session while Theme Detail was
+built around it. This session finished and committed it (`c9f34ab`): it turned out incomplete, not
+just uncommitted — the `themes.openSearch` button and `SearchView` existed but nothing in
+`RootView.swift` wired them together, so the search icon silently no-opped. Wired with the same
+pushed-over-the-tabs `@State` pattern already used for `showProfile`. No longer an open entanglement
+risk.
 
 ---
 
 ## ⏳ Pending, in planned order
 
-1. **Get CI green** — see debugging section above. Blocks confidently trusting any further code
-   without hand-review-only verification.
+1. ~~**Get CI green**~~ — done this session (provisionally — see above).
 2. **Themes, Fonts, Community, Search, Profile, Create & Publish** — real screens exist, still 100%
    `MockData`. Each needs its own ViewModel wired to the repositories that now exist
    (`ThemeRepository`/`LikeRepository`/`FollowRepository`) plus new ones as needed
@@ -195,11 +225,6 @@ re-hit this same entanglement) or fold it in; not decided this session.
 
 ## Other outstanding items
 
-- **Pre-existing uncommitted Search-navigation work** (not part of this effort) is sitting in
-  `ios/MochiApp/App/RootView.swift`, `Components/ThemeArt.swift`, `Features/Search/SearchView.swift`,
-  `Features/Themes/ThemesView.swift`, `MochiUITests/ScreenshotUITests.swift` since before this
-  effort started. Left untouched per Sujal's instruction (2026-08-24) — see the RootView.swift note
-  above for why this is getting harder to keep doing indefinitely.
 - `ScreenshotUITests.swift` has no way to skip past the new Auth gate yet — not needed until
   `AppContainer.shared` is actually non-nil (the plist exists), since until then `AppRootView` skips
   straight past it anyway.
