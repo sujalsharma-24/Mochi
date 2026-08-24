@@ -8,6 +8,14 @@ struct KeyboardTheme: Identifiable, Hashable {
     let likeCount: Int
     let isPremium: Bool
     let hashtags: [String]
+    /// Empty for every MockData-sourced theme (only Firestore-backed themes carry real copy) — Theme
+    /// Detail hides its description block when this is empty, matching Android's `isNotBlank()` guard.
+    var description: String = ""
+    /// Empty for every MockData-sourced theme — screens that offer a Follow action on the creator
+    /// (Theme Detail's CreatorRow) must guard on this being non-empty before calling FollowRepository,
+    /// same rule android/.../ThemeDetailScreen.kt's CreatorRow enforces.
+    var creatorUid: String = ""
+    var downloadCount: Int = 0
 
     var likeCountFormatted: String {
         likeCount.formattedCompact
