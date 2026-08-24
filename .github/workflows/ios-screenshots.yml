@@ -31,14 +31,36 @@ jobs:
       - name: Pick an available iPhone simulator
         id: sim
         run: |
-          NAME=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9A-Za-z ]+ \(' | sed 's/ (//' | sort -V | tail -1)
-          if [ -z "$NAME" ]; then
+          # Matching by name alone (the previous approach) breaks once a runner image ships more
+          # than one iOS runtime — two simulators can share the exact same device name (e.g. an
+          # "iPhone 16 Pro" under two different iOS versions), which makes xcodebuild's
+          # name-only `-destination` matching ambiguous and fails immediately, before any real
+          # build/test work happens. Matching by UDID is unambiguous regardless of how many
+          # runtimes are installed. Picks the iPhone with the highest available iOS runtime.
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          candidates = []
+          for runtime, devices in data["devices"].items():
+              if "iOS" not in runtime:
+                  continue
+              for d in devices:
+                  if d.get("isAvailable") and d.get("name", "").startswith("iPhone"):
+                      candidates.append((runtime, d["name"], d["udid"]))
+          candidates.sort(key=lambda c: c[0])
+          if not candidates:
+              sys.exit(1)
+          runtime, name, udid = candidates[-1]
+          print(f"Using simulator: {name} ({runtime}) udid={udid}", file=sys.stderr)
+          print(udid)
+          ' 2>/tmp/sim_log.txt)
+          cat /tmp/sim_log.txt
+          if [ -z "$UDID" ]; then
             echo "No iPhone simulator found" >&2
             xcrun simctl list devices available
             exit 1
           fi
-          echo "Using simulator: $NAME"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: Build and run screenshot UI test
         working-directory: ios
@@ -46,7 +68,7 @@ jobs:
           xcodebuild test \
             -project Mochi.xcodeproj \
             -scheme MochiApp \
-            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResult.xcresult \
             TEST_RUNNER_SCREENSHOT_DIR="$(pwd)/screenshots"
 
