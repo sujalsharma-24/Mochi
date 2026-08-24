@@ -1,6 +1,7 @@
 # Mochi iOS — Functional Build Status
 
-**Last updated:** 2026-08-24 (CI went green this session — see below)
+**Last updated:** 2026-08-24 (CI went green this session; Themes, Community, and Create & Publish
+wired to real data on top of that — see below)
 **Scope:** Bringing the iOS app to feature parity with the Android app — real Firebase Auth/
 Firestore/Storage data and real Cloud Functions logic behind every screen, screen by screen, in the
 same order Android went through (see `docs/ANDROID_FUNCTIONAL_STATUS.md`). The Cloud Functions
@@ -32,14 +33,20 @@ token; only raw log/artifact *downloads* need auth ("Must have admin rights to R
 | Auth (Email, Google, Apple, Phone OTP) | ✅ Code done |
 | Onboarding (Splash + 4-page) | ✅ Code done |
 | Theme Detail + Theme/Like/Follow repositories, wired to Home | ✅ Code done |
-| Fonts, Themes, Community, Create, Profile, Search (tab UI) | 🔄 Real screens exist, still on `MockData` — not yet wired |
+| Home | ✅ Real data, wired |
+| Themes | ✅ Real data, wired (Preview/Apply → Theme Detail) |
+| Community | ✅ Real data, wired (5 tabs, Follow, Report) |
+| Create & Publish | ✅ Real Firestore/Storage writes, wired |
+| Search (navigation only) | ✅ Themes → Search push wired; results still `MockData` |
+| Fonts | ➖ Intentionally MockData-permanent on both platforms (fixed built-in catalog, not Firestore-backed) |
+| Profile | 🔄 Real screen exists, still on `MockData` — not yet wired |
 | Settings | ⏳ Not built |
 | Paywall | ⏳ Not built |
 | Wallpapers | ⏳ Not built |
 | Leaderboard | ⏳ Not built |
 | Push notifications (FCM) | ⏳ Not started |
 | App Store prep | ⏳ Not started |
-| **CI (`ios-screenshots.yml`)** | ✅ **Green as of `3fe8331` / `c9f34ab` — see below** |
+| **CI (`ios-screenshots.yml`)** | ✅ **Green, 6 consecutive runs (`3fe8331` → `1ea4476`) — see below** |
 
 ---
 
@@ -72,6 +79,58 @@ silently. Screenshots are still captured as `XCTAttachment`s inside the uploaded
 that was meant to make screenshots easy to grab has never actually worked. Not investigated further
 this session (not blocking, and `try?` was swallowing the real error the same way logs have been
 opaque elsewhere) — worth a `try`/`print` swap next time someone touches this file.
+
+---
+
+## Screen-by-screen wiring — Themes, Community, Create & Publish (this session)
+
+With CI unblocked, the same session continued down Android's actual WA4 build order (confirmed
+against `docs/ANDROID_FUNCTIONAL_STATUS.md`'s own table: Home → Themes → Community → Create & Publish
+→ Profile → Settings → Paywall → Search → Leaderboard → Wallpapers). **Fonts is not part of this
+list** — it's a fixed built-in catalog on both platforms, not Firestore documents, so there's nothing
+to wire; Android's own status doc calls this out explicitly. Each screen below shipped as its own
+commit, CI-verified green before moving to the next.
+
+**Themes** (`cca7cfc`, with the Search-navigation fix as a separate prerequisite commit `c9f34ab`):
+new `ThemesViewModel` mirrors
+`ThemesViewModel.kt`'s Loading/Data/Empty/Error shape — but unlike Home, **any** non-`.data` state
+falls back to `MockData.themesGrid` (Android's `ThemesScreen.kt` does the same; this screen always
+shows *something*, it doesn't have a real "genuinely empty" treatment the way Home does). The
+Preview/Apply card buttons, previously inert styled `Text`, now push the existing `ThemeDetailView`.
+
+Also finished in this pass: the pre-existing uncommitted Search-navigation diff
+(`ThemesView`/`SearchView`/`ThemeArt`/`ScreenshotUITests`) turned out to be genuinely incomplete, not
+just uncommitted — the `themes.openSearch` button and `SearchView` existed but nothing in
+`RootView.swift` wired them together. Fixed with the same `@State` pushed-over-the-tabs pattern
+`showProfile` already used.
+
+**Community** (`35a4025`): new `CommunityViewModel` mirrors `CommunityViewModel.kt` — 5 feed tabs
+(Popular/Latest/Following/My Likes query `ThemeRepository` directly; "For you" has no dedicated query
+and stands in with `getTopRanked`, same gap Android has), Popular Creators derived from the top-ranked
+batch (no dedicated creator list/search query exists on either platform — a real-data approximation,
+not MockData, just bounded to whichever creators appear in the top 20 themes), a real Follow toggle
+with optimistic-UI rollback on failure, and theme reporting via a new **`ReportRepository`**
+(write-only, mirrors `reports/{id}`'s create-only security rule — same contract as Android's). Card
+taps now open Theme Detail. **Deliberately left unwired**: creator-tap-to-profile, matching Android's
+own `onCreatorClick` gap — neither platform has a "view another user's profile" screen yet built on
+iOS (that's the pending Profile step below), so wiring a navigation target that doesn't exist would
+just be a new dead callback, the exact anti-pattern flagged repeatedly in project memory.
+
+**Create & Publish** (`1ea4476`): new `CreateThemeViewModel` mirrors `CreateThemeViewModel.kt`. Save
+Draft and Publish Theme were previously inert styled panels with **no tap handler at all** — they now
+write real `themes/{id}` documents via a new **`CreateRepository`** (write-only; `moderationStatus`
+always starts `"pending"` regardless of `isPublished`, same reasoning Android's version documents —
+every read query filters on `moderationStatus == "approved"`, so a freshly-published theme is
+invisible in feeds either way until moderation runs, which isn't built on either platform yet). Preset
+background tiles encode as `"preset:{index}"` in `backgroundConfig.galleryImageUrl` (bundled assets,
+nothing to upload); picking a real photo through a new `PhotosPicker`-backed Gallery tile uploads
+through a new **`StorageRepository`** instead, mutually exclusive with the preset selection (picking
+one clears the other, matching Android's `presetBackground`/`galleryUri` pair). Used `PhotosUI`'s
+iOS-16-safe `.onChange(of:perform:)` overload, not the newer two-parameter one that needs iOS 17 —
+this project's deployment target is 16.0.
+
+**Next in the build order: Profile (own + other)**, then Settings, then Paywall, then Search's actual
+result-filtering (navigation is already wired), then Leaderboard, then Wallpapers.
 
 ---
 
@@ -191,26 +250,27 @@ risk.
 ## ⏳ Pending, in planned order
 
 1. ~~**Get CI green**~~ — done this session (provisionally — see above).
-2. **Themes, Fonts, Community, Search, Profile, Create & Publish** — real screens exist, still 100%
-   `MockData`. Each needs its own ViewModel wired to the repositories that now exist
-   (`ThemeRepository`/`LikeRepository`/`FollowRepository`) plus new ones as needed
-   (`CreateRepository`, `StorageRepository`, `UserRepository` extensions, etc., mirrored from
-   `android/.../data/`), one screen at a time. Wiring each screen's theme cards to navigate into the
-   now-built Theme Detail is part of this step, not separate (Home already did this as the template).
-3. **Settings** — doesn't exist on iOS yet. Needed for: sign-out, delete-account (repository call
+2. ~~**Themes, Community, Create & Publish**~~ — done this session, see the wiring section above.
+3. **Profile (own + other)** — real screen exists, still 100% `MockData`. Needs its own ViewModel;
+   "view another creator's profile" doesn't exist yet on iOS at all (Community's `onCreatorClick` is
+   deliberately left unwired pending this).
+4. **Search** — navigation is wired (Themes → Search push), but the results themselves are still
+   `MockData`. Android's Search is a live substring filter over a bounded pool, not a paid search
+   service — same approach applies here.
+5. **Settings** — doesn't exist on iOS yet. Needed for: sign-out, delete-account (repository call
    already exists), notification toggle, keyboard-preference toggles (persist only, no IME to
    enforce them — matches Android's own documented scope limit).
-4. **Paywall** — doesn't exist on iOS yet. Needs the RevenueCat iOS SDK (not yet added) +
+6. **Paywall** — doesn't exist on iOS yet. Needs the RevenueCat iOS SDK (not yet added) +
    entitlement gating on Theme Detail / Profile, same pattern as Android's `BillingRepository`.
-5. **Wallpapers** — doesn't exist on iOS yet.
-6. **Leaderboard** — doesn't exist on iOS yet (Android-only screen currently; port if/when the rest
+7. **Wallpapers** — doesn't exist on iOS yet.
+8. **Leaderboard** — doesn't exist on iOS yet (Android-only screen currently; port if/when the rest
    of Community is real).
-7. **Push notifications (FCM)** — `FirebaseMessaging` SPM product already added (proxy disabled, see
+9. **Push notifications (FCM)** — `FirebaseMessaging` SPM product already added (proxy disabled, see
    CI section — manual APNs token forwarding will be needed here); no notification handling,
    permission request, or token-capture-on-launch built yet (only sign-in-time token sync exists so
    far, in `AuthRepository.syncFcmToken`).
-8. **App Store prep** — not started; real device verification (Sujal's friend) comes before any
-   store submission concern.
+10. **App Store prep** — not started; real device verification (Sujal's friend) comes before any
+    store submission concern.
 
 ---
 
