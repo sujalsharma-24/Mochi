@@ -15,16 +15,16 @@ settings:
 # Firebase/Google/RevenueCat all ship as Swift Package Manager products — no CocoaPods needed, which
 # matters here since this repo has no Mac to run `pod install` from (see README's XcodeGen note).
 packages:
-  # Version floors checked against the packages' real published tags (via GitHub's tags API) rather
-  # than assumed from memory — firebase-ios-sdk's latest tag is v8.15.0 as of 2026-08-24, not the
-  # 10.x/11.x range an earlier pass here assumed, which made SPM resolution fail outright in CI
-  # (no version satisfies ">=10.29.0, <11.0.0" when nothing above v8.x has been tagged).
+  # Version floors checked against each package's real GitHub Releases (not raw git tags — that
+  # endpoint returned old/prerelease-branch tags sorted in a misleading order and sent one earlier
+  # pass here to the wrong major entirely). Latest as of 2026-08-24: firebase-ios-sdk 12.18.0
+  # (2026-08-19), GoogleSignIn-iOS 9.2.0 (2026-06-15).
   FirebaseSDK:
     url: https://github.com/firebase/firebase-ios-sdk
-    from: 8.0.0
+    from: 12.0.0
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
-    from: 7.1.0
+    from: 9.0.0
 
 targets:
   MochiApp:
