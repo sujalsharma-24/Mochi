@@ -24,6 +24,8 @@ final class AppContainer {
     let likeRepository: LikeRepository
     let followRepository: FollowRepository
     let reportRepository: ReportRepository
+    let createRepository: CreateRepository
+    let storageRepository: StorageRepository
 
     private init() {
         auth = Auth.auth()
@@ -37,5 +39,7 @@ final class AppContainer {
         likeRepository = LikeRepository(firestore: firestore)
         followRepository = FollowRepository(firestore: firestore)
         reportRepository = ReportRepository(firestore: firestore)
+        createRepository = CreateRepository(firestore: firestore)
+        storageRepository = StorageRepository(storage: storage)
     }
 }

@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// Built against docs/figma/4.png — the Create Custom Theme frame — the same way HomeView is built
@@ -82,11 +83,18 @@ private struct CreateThemeCanvas: View {
     let k: CGFloat
 
     @State private var tab: EditorTab = .fonts
-    @State private var background: Int = 0
+    /// `nil` when a gallery photo is picked instead — mutually exclusive with `galleryImageData`,
+    /// matching android/.../CreateThemeScreen.kt's `presetBackground: Int?` / `galleryUri: Uri?`.
+    @State private var background: Int? = 0
     @State private var keyShape: Int = 0
     @State private var fontStyle: Int = 0
     @State private var themeName: String = ""
     @State private var tags: [String] = ["Cute", "Purple", "Dream", "Cloud"]
+
+    @State private var galleryPickerItem: PhotosPickerItem?
+    @State private var galleryImageData: Data?
+
+    @StateObject private var viewModel = CreateThemeViewModel(container: AppContainer.shared)
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -101,8 +109,40 @@ private struct CreateThemeCanvas: View {
             fontStyleSection
             livePreviewCard
             nameAndTags
+            statusBanner
             actionButtons
         }
+        // `of:perform:` rather than the two-parameter `of:initial:_:` — this project's deployment
+        // target is iOS 16, and the newer overload needs 17.
+        .onChange(of: galleryPickerItem) { newItem in
+            Task {
+                if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                    galleryImageData = data
+                    background = nil
+                }
+            }
+        }
+        .onChange(of: viewModel.publishState) { newState in
+            if case .success = newState {
+                themeName = ""
+                tags = []
+                galleryImageData = nil
+                galleryPickerItem = nil
+                background = 0
+            }
+        }
+    }
+
+    private func save(publish: Bool) {
+        viewModel.save(
+            name: themeName,
+            tags: tags,
+            presetBackgroundIndex: background,
+            galleryImageData: galleryImageData,
+            keyShapeIndex: keyShape,
+            fontStyleIndex: fontStyle,
+            publish: publish
+        )
     }
 
     // MARK: Scaling helpers
@@ -346,17 +386,22 @@ private struct CreateThemeCanvas: View {
 
             // 86x84px of ink, stroked about 12px — drawn rather than taken from SF, whose `plus`
             // has no size at which both its bar length and its weight match the frame's.
-            sourceTile(index: 0, glyph: AnyView(
-                ZStack {
-                    Capsule().frame(width: s(86), height: s(12))
-                    Capsule().frame(width: s(12), height: s(84))
-                }
-                .foregroundStyle(MochiColor.logoSolid)
-            ), glyphHeight: 84, caption: "Gallery")
+            PhotosPicker(selection: $galleryPickerItem, matching: .images) {
+                sourceTile(index: 0, glyph: AnyView(
+                    ZStack {
+                        Capsule().frame(width: s(86), height: s(12))
+                        Capsule().frame(width: s(12), height: s(84))
+                    }
+                    .foregroundStyle(MochiColor.logoSolid)
+                ), glyphHeight: 84, caption: "Gallery", isSelected: galleryImageData != nil)
+            }
+            .buttonStyle(.plain)
 
+            // Colors has no gesture wired, matching the saturation-square precedent elsewhere on
+            // this screen — only Gallery became real (a system photo picker + Storage upload).
             sourceTile(index: 1, glyph: AnyView(
                 ColorWheelGlyph().frame(width: s(108), height: s(108))
-            ), glyphHeight: 108, caption: "Colors")
+            ), glyphHeight: 108, caption: "Colors", isSelected: false)
 
             ForEach(0..<4, id: \.self) { artwork in
                 artworkTile(artwork)
@@ -368,20 +413,25 @@ private struct CreateThemeCanvas: View {
     /// and caption are placed against their own measurements rather than stacked, because the two
     /// marks are different heights (84px and 108px) and a shared VStack lets the taller one push
     /// its caption down out of line with the other tile's.
-    private func sourceTile(index: Int, glyph: AnyView, glyphHeight: CGFloat, caption: String) -> some View {
+    private func sourceTile(index: Int, glyph: AnyView, glyphHeight: CGFloat, caption: String, isSelected: Bool) -> some View {
         let x = tileX(index)
         let centre = x + Self.tileWidth / 2
-        return ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: s(30), style: .continuous)
-                .fill(Color.white)
-                .overlay(
-                    RoundedRectangle(cornerRadius: s(30), style: .continuous)
-                        .stroke(MochiColor.logoSolid, lineWidth: panelStroke)
-                )
-                .modifier(box(x, Self.tileTop, Self.tileWidth, Self.tileHeight))
+        return ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: s(30), style: .continuous)
+                    .fill(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: s(30), style: .continuous)
+                            .stroke(MochiColor.logoSolid, lineWidth: panelStroke)
+                    )
+                    .modifier(box(x, Self.tileTop, Self.tileWidth, Self.tileHeight))
 
-            centred(glyph, at: centre, top: 1815 - glyphHeight / 2, height: glyphHeight)
-            centredInk(caption, at: centre, capTop: 1900, size: 40, .regular, MochiColor.logoSolid)
+                centred(glyph, at: centre, top: 1815 - glyphHeight / 2, height: glyphHeight)
+                centredInk(caption, at: centre, capTop: 1900, size: 40, .regular, MochiColor.logoSolid)
+            }
+            if isSelected {
+                checkBadge(52).offset(x: s(x + Self.tileWidth - 26), y: s(Self.tileTop - 16))
+            }
         }
     }
 
@@ -406,7 +456,11 @@ private struct CreateThemeCanvas: View {
         }
         .frame(width: s(Self.tileWidth), height: s(Self.tileHeight), alignment: .topLeading)
         .offset(x: s(x), y: s(Self.tileTop))
-        .onTapGesture { background = artwork }
+        .onTapGesture {
+            background = artwork
+            galleryImageData = nil
+            galleryPickerItem = nil
+        }
     }
 
     // MARK: KEY SHAPE — four 178px chips on a 208px pitch, each holding a 100px preview.
@@ -727,6 +781,27 @@ private struct CreateThemeCanvas: View {
     /// Measured left edges of the four chips; the frame's own pitch drifts by a few pixels.
     private static let tagX: [CGFloat] = [1000, 1241, 1491, 1741]
 
+    /// No Figma source for this — the design has no error/status affordance anywhere on the page,
+    /// same "no UI exists for this yet" gap android/.../CreateThemeScreen.kt's StatusBanner notes.
+    @ViewBuilder
+    private var statusBanner: some View {
+        let message: (text: String, color: Color)? = {
+            switch viewModel.publishState {
+            case .success(let published):
+                return (published ? "Published! It'll appear in Community once approved." : "Draft saved.", MochiColor.logoSolid)
+            case .error(let message):
+                return (message, MochiColor.heart)
+            case .idle, .saving:
+                return nil
+            }
+        }()
+        if let message {
+            centredInk(message.text, at: 1080, capTop: 3330, size: 34, .regular, message.color)
+        }
+    }
+
+    private var isSaving: Bool { viewModel.publishState == .saving }
+
     // MARK: Save Draft / Publish Theme — two 977x186px halves with a 50px gutter.
 
     private var actionButtons: some View {
@@ -738,10 +813,14 @@ private struct CreateThemeCanvas: View {
                         .stroke(MochiColor.outline, lineWidth: panelStroke)
                 )
                 .modifier(box(CreateFrame.contentLeft, 3356, 977, 186))
+                .contentShape(Rectangle())
+                .onTapGesture { if !isSaving { save(publish: false) } }
 
             RoundedRectangle(cornerRadius: s(38), style: .continuous)
                 .fill(MochiGradient.softButton)
                 .modifier(box(1105, 3356, 977, 186))
+                .contentShape(Rectangle())
+                .onTapGesture { if !isSaving { save(publish: true) } }
 
             buttonLabel(
                 // Neither half centres its label on the button: the frame sets both rows a little
