@@ -33,7 +33,10 @@ struct RootView: View {
                         case .keyboard: HomeView(onThemeClick: { theme in selectedTheme = theme })
                         case .fonts: FontsView()
                         case .create: CreateThemeView()
-                        case .themes: ThemesView(onOpenSearch: { showSearch = true })
+                        case .themes: ThemesView(
+                            onOpenSearch: { showSearch = true },
+                            onThemeClick: { theme in selectedTheme = theme }
+                        )
                         case .community: CommunityView(onOpenProfile: { showProfile = true })
                         }
                     }

@@ -157,6 +157,17 @@ private enum Type {
 
 struct ThemesView: View {
     var onOpenSearch: () -> Void = {}
+    var onThemeClick: (KeyboardTheme) -> Void = {}
+
+    @StateObject private var viewModel = ThemesViewModel(container: AppContainer.shared)
+
+    /// Real Firestore data only replaces the grid once it's actually loaded — Loading/Empty/Error
+    /// fall back to MockData, same convention as ThemesScreen.kt (this screen always shows
+    /// *something*, unlike Home's real-empty-state handling).
+    private var themes: [KeyboardTheme] {
+        if case .data(let themes) = viewModel.uiState { return themes }
+        return MockData.themesGrid
+    }
 
     /// The same seven categories the Fonts frame uses, with the same marks.
     private enum Category: String, CaseIterable, Identifiable {
@@ -399,7 +410,7 @@ struct ThemesView: View {
 
     private var cardGrid: some View {
         VStack(spacing: Metrics.cardGap) {
-            ForEach(Array(MockData.themesGrid.chunked(into: 3).enumerated()), id: \.offset) { _, row in
+            ForEach(Array(themes.chunked(into: 3).enumerated()), id: \.offset) { _, row in
                 HStack(spacing: Metrics.cardGap) {
                     ForEach(row) { theme in
                         themeCard(theme)
@@ -496,6 +507,7 @@ struct ThemesView: View {
                         .frame(height: Metrics.cardButtonHeight)
                         .background(Color.white, in: Capsule())
                         .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+                        .onTapGesture { onThemeClick(theme) }
 
                     Text("Apply")
                         .font(MochiFont.body(Type.applyButton))
@@ -503,6 +515,7 @@ struct ThemesView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: Metrics.cardButtonHeight)
                         .background(MochiGradient.themeButton, in: Capsule())
+                        .onTapGesture { onThemeClick(theme) }
                 }
 
                 Color.clear.frame(height: Metrics.bodyBottom)
