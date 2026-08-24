@@ -12,6 +12,16 @@ settings:
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
 
+# Firebase/Google/RevenueCat all ship as Swift Package Manager products — no CocoaPods needed, which
+# matters here since this repo has no Mac to run `pod install` from (see README's XcodeGen note).
+packages:
+  FirebaseSDK:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 10.29.0
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: 7.1.0
+
 targets:
   MochiApp:
     type: application
@@ -39,6 +49,18 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # Google Sign-In's redirect back into the app. REPLACE_WITH_IOS_REVERSED_CLIENT_ID once
+        # GoogleService-Info.plist exists — it's that file's REVERSED_CLIENT_ID value verbatim (a
+        # com.googleusercontent.apps.<id> string). Harmless as a placeholder: an unmatched URL
+        # scheme just means the OAuth redirect dead-ends in Safari, nothing crashes.
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - REPLACE_WITH_IOS_REVERSED_CLIENT_ID
+    entitlements:
+      path: MochiApp/App/MochiApp.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app
@@ -48,6 +70,23 @@ targets:
         # off the requirement rather than fabricate a placeholder icon. Set this back to "AppIcon"
         # once a real appiconset is added to Assets.xcassets.
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    dependencies:
+      - package: FirebaseSDK
+        product: FirebaseAuth
+      - package: FirebaseSDK
+        product: FirebaseFirestore
+      - package: FirebaseSDK
+        product: FirebaseFunctions
+      - package: FirebaseSDK
+        product: FirebaseStorage
+      - package: FirebaseSDK
+        product: FirebaseMessaging
+      - package: FirebaseSDK
+        product: FirebaseAppCheck
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
 
   MochiUITests:
     type: bundle.ui-testing
