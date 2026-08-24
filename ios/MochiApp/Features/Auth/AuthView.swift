@@ -309,7 +309,7 @@ private struct AuthTextField<Trailing: View>: View {
     var systemImage: String?
     var isSecure: Bool = false
     var keyboardType: UIKeyboardType = .default
-    @ViewBuilder var trailing: () -> Trailing
+    var trailing: () -> Trailing
 
     init(text: Binding<String>, placeholder: String, systemImage: String?, isSecure: Bool = false, keyboardType: UIKeyboardType = .default, @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }) {
         self._text = text

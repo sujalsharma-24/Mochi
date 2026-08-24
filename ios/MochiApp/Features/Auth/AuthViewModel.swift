@@ -1,6 +1,7 @@
 import AuthenticationServices
 import FirebaseAuth
 import Foundation
+import UIKit
 
 struct AuthUiState {
     var isLoading = false

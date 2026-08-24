@@ -1,6 +1,8 @@
 import AuthenticationServices
 import CryptoKit
 import FirebaseAuth
+import Foundation
+import Security
 
 /// Bridges `ASAuthorizationController`'s delegate callbacks to `async/await` for
 /// `AuthRepository.signInWithApple`. Android has no equivalent of this file — Sign in with Apple is
