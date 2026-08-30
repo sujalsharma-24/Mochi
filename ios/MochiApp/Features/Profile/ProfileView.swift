@@ -520,20 +520,24 @@ struct ProfileView: View {
             .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
     }
 
-    /// Figma heads **both** cards "Liked Themes" with the same heart — the right-hand one lists
-    /// Followers / Following under it, and adds a chevron after its "See all". That is almost
-    /// certainly a copy-paste left in the design, but it is what the frame draws, so it is
-    /// reproduced rather than corrected.
+    /// The Figma frame heads **both** cards "Liked Themes" with the same heart — a copy-paste left
+    /// in the design; the right-hand card actually lists Followers / Following. Corrected here
+    /// (left = Liked Themes, right = Network) rather than reproduced verbatim.
     @ViewBuilder
     private func pairHeader(originX: CGFloat, chevron: Bool) -> some View {
-        Image(systemName: "heart.fill")
+        let title = chevron ? "Network" : "Liked Themes"
+        let iconName = chevron ? "person.2.fill" : "heart.fill"
+        let iconColor = chevron ? MochiColor.logoSolid : MochiColor.heart
+
+        Image(systemName: iconName)
             .resizable()
-            .foregroundColor(MochiColor.heart)
+            .scaledToFit()
+            .foregroundColor(iconColor)
             .frame(width: ProfileMetrics.pairHeart.width, height: ProfileMetrics.pairHeart.height)
             .place(x: originX + ProfileMetrics.pairHeartX,
                    y: ProfileMetrics.pairTop + ProfileMetrics.pairHeartTop)
 
-        figmaText("Liked Themes", MochiFont.heading(ProfileType.pairHeading),
+        figmaText(title, MochiFont.heading(ProfileType.pairHeading),
                   "Inter-SemiBold", MochiColor.textPrimary)
             .place(x: originX + ProfileMetrics.pairHeadingX,
                    capTop: ProfileMetrics.pairTop + ProfileMetrics.pairHeadingTop,

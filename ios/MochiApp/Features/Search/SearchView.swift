@@ -64,8 +64,12 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, MochiSpacing.md)
                 .padding(.top, MochiSpacing.md)
-                .padding(.bottom, 100)
+                // RootView keeps MochiTabBar (bar ~84pt + the Create FAB overhanging ~40pt above
+                // it) drawn over this screen, so the last section needs clearance to scroll fully
+                // clear of it — 100 left the FILTERS row and results grid pinned behind the bar.
+                .padding(.bottom, 140)
             }
+            .scrollIndicators(.hidden)
         }
     }
 

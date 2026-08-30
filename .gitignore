@@ -2,6 +2,7 @@
 ios/Mochi.xcodeproj/
 ios/**/xcuserdata/
 ios/DerivedData/
+ios/build/
 ios/screenshots/
 ios/TestResult.xcresult/
 /build/
@@ -25,6 +26,7 @@ android/local.properties
 *.env.local
 functions/.secret.local
 serviceAccountKey.json
+ios/MochiApp/GoogleService-Info.plist
 firestore/tests/node_modules/
 *-debug.log
 firestore-export/

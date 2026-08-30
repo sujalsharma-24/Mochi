@@ -708,10 +708,10 @@ private struct CreateThemeCanvas: View {
 
     private var nameAndTags: some View {
         ZStack(alignment: .topLeading) {
-            // Reproduced verbatim: the frame really does head the theme-name field "LETTER COLOR",
-            // a copy-paste left over from the block above it. Corrected to "THEME NAME" the moment
-            // the design is.
-            ink("LETTER COLOR", x: 83, capTop: 3118, size: 50.9, .bold)
+            // The Figma frame heads the theme-name field "LETTER COLOR" — a copy-paste left over
+            // from the KEY/LETTER COLOR block above it. Corrected here rather than reproduced: a
+            // name field labelled "LETTER COLOR" is a delivery defect regardless of the source.
+            ink("THEME NAME", x: 83, capTop: 3118, size: 50.9, .bold)
 
             HStack(spacing: s(14)) {
                 Text("TAGS").font(font(.bold, 50.9)).foregroundStyle(MochiColor.textPrimary)

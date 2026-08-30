@@ -32,6 +32,10 @@ targets:
     platform: iOS
     sources:
       - path: MochiApp
+      # Compiled into both targets rather than linked as a framework — see MochiShared/README.md.
+      # A dynamic framework would cost a dyld load on every single keyboard activation.
+      - path: MochiShared
+      - path: SharedAssets
     info:
       path: MochiApp/App/Info.plist
       properties:
@@ -86,6 +90,8 @@ targets:
         # once a real appiconset is added to Assets.xcassets.
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
     dependencies:
+      - target: MochiKeyboard
+        embed: true
       - package: FirebaseSDK
         product: FirebaseAuth
       - package: FirebaseSDK
@@ -102,6 +108,54 @@ targets:
         product: GoogleSignIn
       - package: GoogleSignIn
         product: GoogleSignInSwift
+
+  MochiKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MochiKeyboard
+      - path: MochiShared
+      # Keyboard background art only — deliberately NOT MochiApp/Assets.xcassets, which is 22 MB
+      # of screens, avatars and marketing tiles the extension has no use for and cannot afford
+      # under a ~30–48 MB dirty-memory ceiling. The extension is a separate bundle and does not
+      # inherit the app's catalogue, so any art a theme references has to live here.
+      - path: SharedAssets
+    info:
+      path: MochiKeyboard/Info.plist
+      properties:
+        CFBundleDisplayName: Mochi Keyboard
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            PrimaryLanguage: en-US
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            # Full Access is deliberately NOT requested.
+            #
+            # The theme system is architected so it is never needed: the app writes the theme
+            # document into the shared App Group container and the extension only reads it, which
+            # the default keyboard sandbox permits. Requesting it would show the user a sheet
+            # warning that this keyboard may transmit everything they type — the largest drop-off
+            # point in keyboard onboarding — and App Review guideline 4.4.1 requires the keyboard
+            # to work fully without it regardless.
+            #
+            # The two things it would buy are key click sounds (`playInputClick`) and haptics.
+            # Neither is worth that permission.
+            RequestsOpenAccess: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app.keyboard
+        # The extension is iPhone + iPad like its host. A keyboard that refuses to install on iPad
+        # is a support ticket, not a scope decision.
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # No custom fonts are registered here on purpose. The reference theme uses the system face
+        # (see BuiltInThemes), and an extension does NOT inherit the app's UIAppFonts — any theme
+        # that names a custom family needs that family added to this target's Info.plist and the
+        # font file added to this target's resources, or it silently falls back to the system face.
+        GENERATE_INFOPLIST_FILE: NO
+        # Same reason as the app target: no appiconset exists, and an extension does not need one.
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
 
   MochiUITests:
     type: bundle.ui-testing

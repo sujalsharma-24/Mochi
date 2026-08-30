@@ -9,10 +9,18 @@ on:
 
 jobs:
   screenshots:
-    runs-on: macos-15
+    # macOS 26 image so CI compiles on the same Xcode 26 / Swift 6 toolchain a real-device test
+    # (and any current Mac) uses. macos-15 ran an older Swift that silently accepted code the
+    # current compiler rejects — see commit "iOS: fix Swift 6.3 / Firebase 12 build breaks".
+    # If the macos-26 label is not yet available on this account, fall back to `macos-15` plus a
+    # `sudo xcode-select -s /Applications/Xcode_26.app` step.
+    runs-on: macos-26
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
 
       - name: Show Xcode version
         run: xcodebuild -version

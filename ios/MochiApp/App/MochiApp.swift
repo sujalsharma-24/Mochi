@@ -9,7 +9,15 @@ struct MochiApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if ThemeLabHarness.isEnabled {
+                ThemeLabHarness()
+            } else {
+                AppRootView()
+            }
+            #else
             AppRootView()
+            #endif
         }
     }
 }
