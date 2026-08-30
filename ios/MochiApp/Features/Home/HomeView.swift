@@ -92,18 +92,15 @@ struct HomeView: View {
             Spacer(minLength: HomeMetrics.gapCardsPills)
             libraryToggle
 
-            // The FONTS / THEMES pill above chooses which library section shows below it.
-            if libraryTab == .themes {
-                Spacer(minLength: HomeMetrics.gapPillsSection)
-                sectionHeader("Popular Themes", action: onGoToThemes)
-                Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
-                themesRow(popularThemes)
-            } else {
-                Spacer(minLength: HomeMetrics.gapPillsSection)
-                sectionHeader("Font Collection", action: onGoToFonts)
-                Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
-                fontsRow(MockData.fonts)
-            }
+            Spacer(minLength: HomeMetrics.gapPillsSection)
+            sectionHeader("Popular Themes", action: onGoToThemes)
+            Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
+            themesRow(popularThemes)
+
+            Spacer(minLength: HomeMetrics.gapThemesFonts)
+            sectionHeader("Font Collection", action: onGoToFonts)
+            Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
+            fontsRow(MockData.fonts)
 
             // Fixed, so the leftover height from the 16:9 -> 19.5:9 mismatch lands in the Spacers
             // above rather than pooling here as dead space.
