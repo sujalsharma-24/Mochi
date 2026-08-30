@@ -45,6 +45,55 @@ final class ScreenshotUITests: XCTestCase {
         // needs its host tab reselected before its trigger button exists.
         tapAndCapture(app, tabIdentifier: "tab.community", triggerIdentifier: "community.openProfile", fileName: "06-profile", backIdentifier: "profile.back")
         tapAndCapture(app, tabIdentifier: "tab.themes", triggerIdentifier: "themes.openSearch", fileName: "07-search", backIdentifier: "search.back")
+
+        captureThemeApplyFlow(app)
+        captureSearchResults(app)
+    }
+
+    /// Home theme card -> Theme Detail (live keyboard render) -> Apply -> the typable "try it" sheet.
+    /// Best-effort: a missing element here is logged, not a test failure — these are screenshots.
+    private func captureThemeApplyFlow(_ app: XCUIApplication) {
+        if app.buttons["tab.keyboard"].waitForExistence(timeout: 5) {
+            app.buttons["tab.keyboard"].tap()
+            Thread.sleep(forTimeInterval: 1.0)
+        }
+        // "Space vibe" is a non-premium card, so Theme Detail offers "Apply Theme" rather than
+        // "Unlock Premium".
+        let card = app.staticTexts["Space vibe"].firstMatch
+        guard card.waitForExistence(timeout: 5) else { return }
+        card.tap()
+        Thread.sleep(forTimeInterval: 1.5)
+        capture(app, name: "08-theme-detail")
+
+        let apply = app.buttons["Apply Theme"].firstMatch
+        guard apply.waitForExistence(timeout: 5) else { return }
+        apply.tap()
+        Thread.sleep(forTimeInterval: 1.5)
+        capture(app, name: "09-apply-try-sheet")
+        if app.buttons["Done"].firstMatch.waitForExistence(timeout: 3) {
+            app.buttons["Done"].firstMatch.tap()
+            Thread.sleep(forTimeInterval: 0.8)
+        }
+    }
+
+    /// Search with a real query typed, exercising the live catalogue filter.
+    private func captureSearchResults(_ app: XCUIApplication) {
+        let tabButton = app.buttons["tab.themes"]
+        guard tabButton.waitForExistence(timeout: 5) else { return }
+        tabButton.tap()
+        Thread.sleep(forTimeInterval: 0.8)
+        let trigger = app.buttons["themes.openSearch"]
+        guard trigger.waitForExistence(timeout: 5) else { return }
+        trigger.tap()
+        Thread.sleep(forTimeInterval: 1.0)
+
+        let field = app.textFields.firstMatch
+        if field.waitForExistence(timeout: 5) {
+            field.tap()
+            field.typeText("sakura")
+            Thread.sleep(forTimeInterval: 1.2)
+            capture(app, name: "10-search-results")
+        }
     }
 
     private func tapAndCapture(_ app: XCUIApplication, tabIdentifier: String, triggerIdentifier: String, fileName: String, backIdentifier: String) {

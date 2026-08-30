@@ -9,6 +9,32 @@ struct SearchResult: Identifiable, Hashable {
     let assetName: String
     let isFont: Bool
     let showMoreBadge: Bool
+    /// The catalogue theme this result stands for, when it's a theme — tapping it opens Theme Detail.
+    var theme: KeyboardTheme? = nil
+
+    init(theme: KeyboardTheme) {
+        self.id = "theme:\(theme.id)"
+        self.name = theme.name
+        self.label = "Theme"
+        self.likeCount = theme.likeCount
+        self.downloadCount = theme.downloadCount
+        self.assetName = theme.imageAssetName
+        self.isFont = false
+        self.showMoreBadge = true
+        self.theme = theme
+    }
+
+    init(font: FontItem) {
+        self.id = "font:\(font.id)"
+        self.name = font.name
+        self.label = "Font"
+        self.likeCount = 0
+        self.downloadCount = 0
+        self.assetName = font.artAssetName
+        self.isFont = true
+        self.showMoreBadge = true
+        self.theme = nil
+    }
 }
 
 private let typeFilters: [(name: String, icon: String)] = [
@@ -31,22 +57,53 @@ private let filterDropdowns: [(label: String, icon: String, isSelected: Bool)] =
 /// Ported from docs/figma/6.png. Android's SearchScreen.kt (chunked(2)) uses a 2-column results
 /// grid, but the Figma export clearly shows 4 columns — verified by cropping and inspecting the
 /// export directly, so this diverges from the Android port on that one point.
-private let searchResults: [SearchResult] = [
-    SearchResult(id: "pastel-rainbow", name: "Pastel Rainbow", label: "Theme", likeCount: 12_500, downloadCount: 3_400, assetName: "theme_pastel_rainbow", isFont: false, showMoreBadge: true),
-    SearchResult(id: "forest-theme", name: "Forest Theme", label: "Theme", likeCount: 908, downloadCount: 2_600, assetName: "theme_forest", isFont: false, showMoreBadge: true),
-    SearchResult(id: "pastel-pink-sky", name: "Pastel Pink Sky", label: "Theme", likeCount: 12_500, downloadCount: 3_100, assetName: "theme_pastel_pink_sky", isFont: false, showMoreBadge: true),
-    SearchResult(id: "sweet-handwriting", name: "Sweet Handwriting", label: "Font", likeCount: 755, downloadCount: 1_800, assetName: "font_typewriter_classic", isFont: true, showMoreBadge: true),
-    SearchResult(id: "sakura-train", name: "Sakura Train", label: "Theme", likeCount: 10_000, downloadCount: 2_400, assetName: "theme_sakura_train", isFont: false, showMoreBadge: false),
-    SearchResult(id: "space-vibe", name: "Space vibe", label: "Theme", likeCount: 805, downloadCount: 1_600, assetName: "theme_space_vibe", isFont: false, showMoreBadge: false),
-    SearchResult(id: "bold-strong", name: "Bold Strong", label: "Font", likeCount: 10_000, downloadCount: 2_100, assetName: "font_bold_strong", isFont: true, showMoreBadge: false),
-    SearchResult(id: "gothic-dark", name: "Gothic Dark", label: "Font", likeCount: 650, downloadCount: 1_000, assetName: "font_gothic_dark", isFont: true, showMoreBadge: false)
-]
-
+///
+/// Results are a live substring filter over the same catalogue the rest of the app browses
+/// (`MockData`) — no Firestore text index exists and there's no budget for a search service, so
+/// this is the same bounded-pool + client-side-filter shape Android's Search uses.
 struct SearchView: View {
     var onBack: () -> Void = {}
+    var onThemeClick: (KeyboardTheme) -> Void = { _ in }
 
     @State private var query = ""
     @State private var selectedType = "All"
+
+    /// Catalogue → result rows, filtered by the query text and the selected type chip.
+    private var results: [SearchResult] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        let themeRows: [SearchResult] = MockData.allThemes
+            .filter { theme in
+                guard !q.isEmpty else { return true }
+                return theme.name.lowercased().contains(q)
+                    || theme.creatorName.lowercased().contains(q)
+                    || theme.hashtags.contains { $0.lowercased().contains(q) }
+            }
+            .map(SearchResult.init(theme:))
+
+        let fontRows: [SearchResult] = MockData.fontCollection
+            .filter { font in
+                guard !q.isEmpty else { return true }
+                return font.name.lowercased().contains(q)
+                    || font.styleDescription.lowercased().contains(q)
+            }
+            .map(SearchResult.init(font:))
+
+        switch selectedType {
+        case "Theme": return themeRows
+        case "Font": return fontRows
+        case "Creators":
+            guard !q.isEmpty else { return themeRows }
+            return MockData.allThemes
+                .filter { $0.creatorName.lowercased().contains(q) }
+                .map(SearchResult.init(theme:))
+        default: return themeRows + fontRows
+        }
+    }
+
+    private var hasQuery: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         ZStack {
@@ -57,10 +114,15 @@ struct SearchView: View {
                     typeFilterChips
                     recentSearchesSection
                     trendingSearchesSection
-                    suggestionsSection
+                    if !hasQuery {
+                        suggestionsSection
+                    }
                     filtersSection
-                    searchResultsSection
-                    noResultsCard
+                    if results.isEmpty {
+                        noResultsCard
+                    } else {
+                        searchResultsSection
+                    }
                 }
                 .padding(.horizontal, MochiSpacing.md)
                 .padding(.top, MochiSpacing.md)
@@ -253,13 +315,17 @@ struct SearchView: View {
                     .font(MochiFont.title(13))
                     .foregroundStyle(MochiColor.textPrimary)
                 Spacer()
-                Text("128 Results")
+                Text("\(results.count) Result\(results.count == 1 ? "" : "s")")
                     .font(MochiFont.caption(12))
                     .foregroundStyle(MochiColor.textSecondary)
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: MochiSpacing.sm), count: 4), spacing: MochiSpacing.md) {
-                ForEach(searchResults) { item in
+                ForEach(results) { item in
                     ResultCard(item: item)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if let theme = item.theme { onThemeClick(theme) }
+                        }
                 }
             }
         }
@@ -278,23 +344,30 @@ struct SearchView: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 72, height: 72)
                 .clipShape(Circle())
-            Text("No results found for \"dreamy night\"")
+            Text(hasQuery ? "No results found for “\(query)”" : "Nothing to show yet")
                 .font(MochiFont.heading(15))
                 .foregroundStyle(MochiColor.purple)
+                .multilineTextAlignment(.center)
             Text("Try different keywords or browse categories instead.")
                 .font(MochiFont.body(12))
                 .lineSpacing(2)
                 .foregroundStyle(MochiColor.textSecondary)
                 .multilineTextAlignment(.center)
-            Text("Clear Search")
-                .font(MochiFont.button(13))
-                .foregroundStyle(MochiColor.purple)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
-                        .strokeBorder(MochiColor.purple.opacity(0.3))
-                )
+            if hasQuery {
+                Button {
+                    query = ""
+                } label: {
+                    Text("Clear Search")
+                        .font(MochiFont.button(13))
+                        .foregroundStyle(MochiColor.purple)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
+                                .strokeBorder(MochiColor.purple.opacity(0.3))
+                        )
+                }
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(MochiSpacing.md)

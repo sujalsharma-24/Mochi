@@ -27,10 +27,18 @@ struct RootView: View {
                     } else if showProfile {
                         ProfileView(onBack: { showProfile = false })
                     } else if showSearch {
-                        SearchView(onBack: { showSearch = false })
+                        SearchView(
+                            onBack: { showSearch = false },
+                            onThemeClick: { theme in selectedTheme = theme }
+                        )
                     } else {
                         switch selected {
-                        case .keyboard: HomeView(onThemeClick: { theme in selectedTheme = theme })
+                        case .keyboard: HomeView(
+                            onThemeClick: { theme in selectedTheme = theme },
+                            onGoToCreate: { selected = .create },
+                            onGoToThemes: { selected = .themes },
+                            onGoToFonts: { selected = .fonts }
+                        )
                         case .fonts: FontsView()
                         case .create: CreateThemeView()
                         case .themes: ThemesView(

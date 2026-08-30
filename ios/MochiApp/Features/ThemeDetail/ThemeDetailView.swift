@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Port of android/.../features/themedetail/ThemeDetailScreen.kt. No Figma source exists for this
 /// screen on either platform (see [[project-mochi-decisions]]'s Figma Ground Truth note) — layout
@@ -11,6 +12,12 @@ struct ThemeDetailView: View {
     var onCreatorClick: (String) -> Void = { _ in }
 
     @StateObject private var viewModel: ThemeDetailViewModel
+
+    @AppStorage(AppliedThemeStore.defaultsKey) private var appliedThemeId: String = ""
+    @State private var showTrySheet = false
+    @State private var trySheetIsApplied = false
+
+    private var isApplied: Bool { appliedThemeId == theme.id }
 
     init(theme: KeyboardTheme, onBack: @escaping () -> Void = {}, onUnlockPremium: @escaping () -> Void = {}, onCreatorClick: @escaping (String) -> Void = { _ in }) {
         self.theme = theme
@@ -37,22 +44,32 @@ struct ThemeDetailView: View {
                 VStack(spacing: 0) {
                     topBar
 
-                    ZStack(alignment: .topTrailing) {
-                        KeyboardThemeArt(assetName: theme.imageAssetName, seed: theme.id, ratio: 1.05)
+                    VStack(spacing: 6) {
+                        ZStack(alignment: .topTrailing) {
+                            keyboardPreview
 
-                        if theme.isPremium {
-                            HStack(spacing: 4) {
-                                Image(systemName: "star.fill")
-                                    .font(.system(size: 10))
-                                Text("Premium")
-                                    .font(MochiFont.caption(11))
+                            if theme.isPremium {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "star.fill")
+                                        .font(.system(size: 10))
+                                    Text("Premium")
+                                        .font(MochiFont.caption(11))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, MochiSpacing.sm)
+                                .padding(.vertical, 6)
+                                .background(MochiColor.premiumTag)
+                                .clipShape(Capsule())
+                                .padding(MochiSpacing.sm)
                             }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, MochiSpacing.sm)
-                            .padding(.vertical, 6)
-                            .background(MochiColor.premiumTag)
-                            .clipShape(Capsule())
-                            .padding(MochiSpacing.sm)
+                        }
+
+                        if !resolvedTheme.isExact {
+                            Text("Preview shown with a matching Mochi theme — this design’s own artwork is still in production.")
+                                .font(MochiFont.caption(11))
+                                .foregroundStyle(MochiColor.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .padding(.horizontal, MochiSpacing.md)
@@ -102,15 +119,61 @@ struct ThemeDetailView: View {
 
             VStack {
                 HStack(spacing: MochiSpacing.sm) {
-                    OutlineButton(title: "Preview") {}
-                    GradientButton(title: isLocked ? "Unlock Premium" : "Apply Theme") {
-                        if isLocked { onUnlockPremium() }
+                    OutlineButton(title: "Preview") {
+                        trySheetIsApplied = false
+                        showTrySheet = true
+                    }
+                    if isLocked {
+                        GradientButton(title: "Unlock Premium") { onUnlockPremium() }
+                    } else if isApplied {
+                        GradientButton(title: "Applied", systemImage: "checkmark") {
+                            trySheetIsApplied = false
+                            showTrySheet = true
+                        }
+                    } else {
+                        GradientButton(title: "Apply Theme") { applyTheme() }
                     }
                 }
                 .padding(MochiSpacing.md)
             }
             .background(Color.white)
         }
+        .sheet(isPresented: $showTrySheet) {
+            KeyboardTrySheet(marketplaceTheme: theme, applied: trySheetIsApplied)
+                .presentationDetents([.large])
+        }
+    }
+
+    /// The live keyboard surface for this theme, at its natural height, framed to read as a card.
+    private var keyboardPreview: some View {
+        GeometryReader { proxy in
+            KeyboardThemePreview(theme: resolvedTheme.theme)
+                .frame(
+                    width: proxy.size.width,
+                    height: KeyboardThemePreview.preferredHeight(
+                        for: resolvedTheme.theme,
+                        width: proxy.size.width
+                    )
+                )
+        }
+        .frame(height: KeyboardThemePreview.preferredHeight(
+            for: resolvedTheme.theme,
+            width: UIScreen.main.bounds.width - 2 * MochiSpacing.md
+        ))
+        .clipShape(RoundedRectangle(cornerRadius: MochiRadius.card, style: .continuous))
+        .shadow(color: MochiColor.purpleDark.opacity(0.14), radius: 6, y: 3)
+    }
+
+    private var resolvedTheme: RenderableTheme.Resolved {
+        RenderableTheme.resolve(for: theme)
+    }
+
+    private func applyTheme() {
+        AppliedThemeStore.apply(theme)
+        appliedThemeId = theme.id
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        trySheetIsApplied = true
+        showTrySheet = true
     }
 
     private var topBar: some View {

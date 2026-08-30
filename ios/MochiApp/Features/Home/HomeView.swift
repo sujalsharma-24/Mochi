@@ -4,6 +4,9 @@ import SwiftUI
 /// for where each came from and why the two action cards are configured separately.
 struct HomeView: View {
     var onThemeClick: (KeyboardTheme) -> Void = { _ in }
+    var onGoToCreate: () -> Void = {}
+    var onGoToThemes: () -> Void = {}
+    var onGoToFonts: () -> Void = {}
 
     @State private var libraryTab: LibraryTab = .fonts // Figma: FONTS is the default-active pill
 
@@ -89,15 +92,18 @@ struct HomeView: View {
             Spacer(minLength: HomeMetrics.gapCardsPills)
             libraryToggle
 
-            Spacer(minLength: HomeMetrics.gapPillsSection)
-            sectionHeader("Popular Themes")
-            Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
-            themesRow(popularThemes)
-
-            Spacer(minLength: HomeMetrics.gapThemesFonts)
-            sectionHeader("Font Collection")
-            Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
-            fontsRow(MockData.fonts)
+            // The FONTS / THEMES pill above chooses which library section shows below it.
+            if libraryTab == .themes {
+                Spacer(minLength: HomeMetrics.gapPillsSection)
+                sectionHeader("Popular Themes", action: onGoToThemes)
+                Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
+                themesRow(popularThemes)
+            } else {
+                Spacer(minLength: HomeMetrics.gapPillsSection)
+                sectionHeader("Font Collection", action: onGoToFonts)
+                Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
+                fontsRow(MockData.fonts)
+            }
 
             // Fixed, so the leftover height from the 16:9 -> 19.5:9 mismatch lands in the Spacers
             // above rather than pooling here as dead space.
@@ -116,23 +122,26 @@ struct HomeView: View {
 
             Spacer()
 
-            VStack(spacing: 5) {
-                // Single sparkle: home_background.png already bakes in an ambient sparkle near this
-                // corner, so no extra overlay is added here — a second one made it look like two
-                // stars stacked, when Figma shows exactly one.
-                Image("icon_create_custom")
-                    .resizable()
-                    .frame(width: HomeMetrics.createCustomIcon, height: HomeMetrics.createCustomIcon)
-                    .clipShape(Circle())
-                Text("Create Custom")
-                    .font(MochiFont.caption(HomeMetrics.createCustomLabel))
-                    .foregroundStyle(MochiColor.textPrimary)
+            Button(action: onGoToCreate) {
+                VStack(spacing: 5) {
+                    // Single sparkle: home_background.png already bakes in an ambient sparkle near
+                    // this corner, so no extra overlay is added here — a second one made it look
+                    // like two stars stacked, when Figma shows exactly one.
+                    Image("icon_create_custom")
+                        .resizable()
+                        .frame(width: HomeMetrics.createCustomIcon, height: HomeMetrics.createCustomIcon)
+                        .clipShape(Circle())
+                    Text("Create Custom")
+                        .font(MochiFont.caption(HomeMetrics.createCustomLabel))
+                        .foregroundStyle(MochiColor.textPrimary)
+                }
             }
+            .buttonStyle(.plain)
         }
     }
 
-    private func sectionHeader(_ title: String) -> some View {
-        SectionHeader(title: title, titleSize: HomeMetrics.sectionHeaderSize, actionSize: HomeMetrics.seeAllSize) {}
+    private func sectionHeader(_ title: String, action: @escaping () -> Void = {}) -> some View {
+        SectionHeader(title: title, titleSize: HomeMetrics.sectionHeaderSize, actionSize: HomeMetrics.seeAllSize, action: action)
     }
 
     /// Figma shows exactly 3 recently-applied cards filling the row edge-to-edge, no scrolling.
@@ -174,14 +183,16 @@ struct HomeView: View {
                 iconAsset: "icon_palette",
                 title: "Custom Create",
                 subtitle: "Design your own\nkeyboard",
-                buttonTitle: "Create"
+                buttonTitle: "Create",
+                action: onGoToCreate
             )
             actionCard(
                 ActionCardTuning.chooseLibrary,
                 iconAsset: "icon_library",
                 title: "Choose from\nLibrary",
                 subtitle: "Pick a created\nkeyboard",
-                buttonTitle: "Choose"
+                buttonTitle: "Choose",
+                action: onGoToThemes
             )
         }
     }
@@ -199,7 +210,8 @@ struct HomeView: View {
         iconAsset: String,
         title: String,
         subtitle: String,
-        buttonTitle: String
+        buttonTitle: String,
+        action: @escaping () -> Void = {}
     ) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: c.iconTextGap) {
@@ -225,7 +237,7 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
-            SlimPillButton(title: buttonTitle, c: c) {}
+            SlimPillButton(title: buttonTitle, c: c, action: action)
                 .offset(y: c.buttonVOffset)
         }
         .padding(.horizontal, c.hPad)
