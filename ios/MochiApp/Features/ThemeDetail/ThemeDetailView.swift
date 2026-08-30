@@ -8,11 +8,11 @@ struct ThemeDetailView: View {
     let theme: KeyboardTheme
     var onBack: () -> Void = {}
     var onUnlockPremium: () -> Void = {}
-    var onCreatorClick: (String) -> Void = {}
+    var onCreatorClick: (String) -> Void = { _ in }
 
     @StateObject private var viewModel: ThemeDetailViewModel
 
-    init(theme: KeyboardTheme, onBack: @escaping () -> Void = {}, onUnlockPremium: @escaping () -> Void = {}, onCreatorClick: @escaping (String) -> Void = {}) {
+    init(theme: KeyboardTheme, onBack: @escaping () -> Void = {}, onUnlockPremium: @escaping () -> Void = {}, onCreatorClick: @escaping (String) -> Void = { _ in }) {
         self.theme = theme
         self.onBack = onBack
         self.onUnlockPremium = onUnlockPremium

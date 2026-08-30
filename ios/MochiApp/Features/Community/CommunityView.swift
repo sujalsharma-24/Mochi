@@ -180,7 +180,7 @@ private enum Type {
 
 struct CommunityView: View {
     var onOpenProfile: () -> Void = {}
-    var onThemeClick: (KeyboardTheme) -> Void = {}
+    var onThemeClick: (KeyboardTheme) -> Void = { _ in }
 
     /// Figma spells the placeholder "serch themes, creators.." — kept verbatim, like the fourth
     /// creator tile's "Choose" CTA.

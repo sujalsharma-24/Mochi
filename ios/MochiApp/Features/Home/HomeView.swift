@@ -3,7 +3,7 @@ import SwiftUI
 /// Layout numbers live in `HomeMetrics` and `ActionCardTuning`, not here — see HomeMetrics.swift
 /// for where each came from and why the two action cards are configured separately.
 struct HomeView: View {
-    var onThemeClick: (KeyboardTheme) -> Void = {}
+    var onThemeClick: (KeyboardTheme) -> Void = { _ in }
 
     @State private var libraryTab: LibraryTab = .fonts // Figma: FONTS is the default-active pill
 

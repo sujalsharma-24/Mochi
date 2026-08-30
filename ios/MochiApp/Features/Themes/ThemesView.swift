@@ -157,7 +157,7 @@ private enum Type {
 
 struct ThemesView: View {
     var onOpenSearch: () -> Void = {}
-    var onThemeClick: (KeyboardTheme) -> Void = {}
+    var onThemeClick: (KeyboardTheme) -> Void = { _ in }
 
     @StateObject private var viewModel = ThemesViewModel(container: AppContainer.shared)
 
@@ -595,14 +595,8 @@ struct ThemesView: View {
     }
 }
 
-private extension Array {
-    /// Fixed-width rows for the card grid. `LazyVGrid` would also lay this out, but the grid needs
-    /// each card to keep its measured 118.62pt width rather than share the row equally, and a
-    /// `.fixed()` column set plus a trailing `Spacer` reproduces that less directly than this does.
-    func chunked(into size: Int) -> [[Element]] {
-        stride(from: 0, to: count, by: size).map { Array(self[$0 ..< Swift.min($0 + size, count)]) }
-    }
-}
+// `Array.chunked(into:)` for the card grid's fixed-width rows lives in the module-level
+// extension in Data/ThemeRepository.swift and is shared across the app target.
 
 #Preview {
     ThemesView()

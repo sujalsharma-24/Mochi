@@ -847,14 +847,8 @@ private extension CGFloat {
     var clamped01: CGFloat { Swift.min(Swift.max(self, 0), 1) }
 }
 
-private extension Array {
-    /// Fixed-width rows for the card grid. `LazyVGrid` would also lay this out, but the grid needs
-    /// each card to keep its measured 119.06pt width rather than share the row equally, and a
-    /// `.fixed()` column set plus a trailing `Spacer` reproduces that less directly than this does.
-    func chunked(into size: Int) -> [[Element]] {
-        stride(from: 0, to: count, by: size).map { Array(self[$0 ..< Swift.min($0 + size, count)]) }
-    }
-}
+// `Array.chunked(into:)` for the card grid's fixed-width rows lives in the module-level
+// extension in Data/ThemeRepository.swift and is shared across the app target.
 
 #Preview {
     FontsView()

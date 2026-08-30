@@ -369,7 +369,7 @@ private struct SocialIconButton: View {
 
 extension UIApplication {
     static func keyWindow() -> UIWindow? {
-        connectedScenes
+        shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows)
             .first(where: \.isKeyWindow)

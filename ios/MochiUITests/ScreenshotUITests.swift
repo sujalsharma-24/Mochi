@@ -13,6 +13,14 @@ final class ScreenshotUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
+        // The app launches on the Fonts tab (RootView's default selection), not Home — so the
+        // first real Home/Keyboard capture needs an explicit tap on that tab.
+        capture(app, name: "00-launch-default")
+
+        if app.buttons["tab.keyboard"].waitForExistence(timeout: 5) {
+            app.buttons["tab.keyboard"].tap()
+            Thread.sleep(forTimeInterval: 1.5)
+        }
         capture(app, name: "01-keyboard-home")
 
         let orderedTabs: [(identifier: String, fileName: String)] = [

@@ -44,7 +44,7 @@ enum FirebaseEnvironment {
 
         FirebaseApp.configure()
 
-        let providerFactory = useDebugAppCheck
+        let providerFactory: AppCheckProviderFactory = useDebugAppCheck
             ? AppCheckDebugProviderFactory()
             : AppAttestProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
