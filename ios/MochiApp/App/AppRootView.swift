@@ -24,7 +24,9 @@ struct AppRootView: View {
     init() {
         let signedIn = AppContainer.shared?.authRepository.currentUser != nil
         let seenOnboarding = UserDefaults.standard.bool(forKey: "mochi.hasSeenOnboarding")
-        _stage = State(initialValue: signedIn || seenOnboarding ? .main : .splash)
+        // UI tests need the tab UI immediately, not the splash/onboarding flow.
+        let skipForTests = ProcessInfo.processInfo.arguments.contains("UITEST_SKIP_ONBOARDING")
+        _stage = State(initialValue: signedIn || seenOnboarding || skipForTests ? .main : .splash)
     }
 
     var body: some View {

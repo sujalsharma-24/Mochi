@@ -11,6 +11,7 @@ final class ScreenshotUITests: XCTestCase {
 
     func testCaptureAllScreens() throws {
         let app = XCUIApplication()
+        app.launchArguments += ["UITEST_SKIP_ONBOARDING"]
         app.launch()
 
         // The app launches on the Fonts tab (RootView's default selection), not Home — so the
@@ -54,11 +55,12 @@ final class ScreenshotUITests: XCTestCase {
     /// The screens added for Android parity: Leaderboard, Wallpapers, Settings, Paywall.
     /// Best-effort — a missing element is logged, not a failure.
     private func captureParityScreens(_ app: XCUIApplication) {
+        returnToRoot(app)
         // Leaderboard: Community › "see all" beside Popular Creators.
         if app.buttons["tab.community"].waitForExistence(timeout: 5) {
             app.buttons["tab.community"].tap()
             Thread.sleep(forTimeInterval: 1.0)
-            let link = app.descendants(matching: .any)["community.openLeaderboard"].firstMatch
+            let link = app.buttons["community.openLeaderboard"].firstMatch
             if link.waitForExistence(timeout: 3) {
                 link.tap()
                 Thread.sleep(forTimeInterval: 1.5)
@@ -67,6 +69,7 @@ final class ScreenshotUITests: XCTestCase {
             }
         }
 
+        returnToRoot(app)
         // Wallpapers: Themes › "Wallpapers" pill.
         if app.buttons["tab.themes"].waitForExistence(timeout: 5) {
             app.buttons["tab.themes"].tap()
@@ -80,6 +83,7 @@ final class ScreenshotUITests: XCTestCase {
             }
         }
 
+        returnToRoot(app)
         // Settings: Community › Profile › gear.
         if app.buttons["tab.community"].waitForExistence(timeout: 5) {
             app.buttons["tab.community"].tap()
@@ -97,6 +101,7 @@ final class ScreenshotUITests: XCTestCase {
             }
         }
 
+        returnToRoot(app)
         // Paywall: Community › Profile › Upgrade Plan.
         if app.buttons["tab.community"].waitForExistence(timeout: 5) {
             app.buttons["tab.community"].tap()
@@ -122,34 +127,59 @@ final class ScreenshotUITests: XCTestCase {
         }
     }
 
+    /// Pop any pushed screens / dismiss any sheet until the tab bar is back. Uses `isHittable`
+    /// (not `exists`) so a back button sitting behind a presented sheet is skipped, not tapped
+    /// in a loop.
+    private func returnToRoot(_ app: XCUIApplication) {
+        for _ in 0..<8 {
+            if app.buttons["tab.keyboard"].waitForExistence(timeout: 2) { return }
+            if app.buttons["Done"].firstMatch.isHittable {
+                app.buttons["Done"].firstMatch.tap()
+                Thread.sleep(forTimeInterval: 0.6)
+                continue
+            }
+            let backIds = ["themeDetail.back", "settings.back", "leaderboard.back",
+                           "wallpapers.back", "search.back", "profile.back", "paywall.close"]
+            if let id = backIds.first(where: { app.buttons[$0].firstMatch.isHittable }) {
+                app.buttons[id].firstMatch.tap()
+                Thread.sleep(forTimeInterval: 0.6)
+                continue
+            }
+            // Last resort: edge-swipe to pop.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+            Thread.sleep(forTimeInterval: 0.6)
+        }
+    }
+
     /// Home theme card -> Theme Detail (live keyboard render) -> Apply -> the typable "try it" sheet.
     /// Best-effort: a missing element here is logged, not a test failure — these are screenshots.
     private func captureThemeApplyFlow(_ app: XCUIApplication) {
+        returnToRoot(app)
         if app.buttons["tab.keyboard"].waitForExistence(timeout: 5) {
             app.buttons["tab.keyboard"].tap()
             Thread.sleep(forTimeInterval: 1.0)
         }
-        // "Space vibe" is a non-premium card, so Theme Detail offers "Apply Theme" rather than
-        // "Unlock Premium".
         let card = app.staticTexts["Space vibe"].firstMatch
         guard card.waitForExistence(timeout: 5) else { return }
         card.tap()
         Thread.sleep(forTimeInterval: 1.5)
         capture(app, name: "08-theme-detail")
 
+        // "Apply Theme" the first time, "Applied" if a prior run already applied it.
         let apply = app.buttons["Apply Theme"].firstMatch
-        guard apply.waitForExistence(timeout: 5) else { return }
-        apply.tap()
+        let applied = app.buttons["Applied"].firstMatch
+        if apply.waitForExistence(timeout: 3) { apply.tap() }
+        else if applied.exists { applied.tap() }
+        else { returnToRoot(app); return }
         Thread.sleep(forTimeInterval: 1.5)
         capture(app, name: "09-apply-try-sheet")
-        if app.buttons["Done"].firstMatch.waitForExistence(timeout: 3) {
-            app.buttons["Done"].firstMatch.tap()
-            Thread.sleep(forTimeInterval: 0.8)
-        }
+        returnToRoot(app)
     }
 
     /// Search with a real query typed, exercising the live catalogue filter.
     private func captureSearchResults(_ app: XCUIApplication) {
+        returnToRoot(app)
         let tabButton = app.buttons["tab.themes"]
         guard tabButton.waitForExistence(timeout: 5) else { return }
         tabButton.tap()
@@ -166,6 +196,7 @@ final class ScreenshotUITests: XCTestCase {
             Thread.sleep(forTimeInterval: 1.2)
             capture(app, name: "10-search-results")
         }
+        returnToRoot(app)
     }
 
     private func tapAndCapture(_ app: XCUIApplication, tabIdentifier: String, triggerIdentifier: String, fileName: String, backIdentifier: String) {

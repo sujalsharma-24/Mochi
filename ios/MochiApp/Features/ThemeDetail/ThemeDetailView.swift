@@ -179,6 +179,7 @@ struct ThemeDetailView: View {
     private var topBar: some View {
         HStack {
             CircleIconButton(systemImage: "chevron.left", action: onBack)
+                .accessibilityIdentifier("themeDetail.back")
             Spacer()
             CircleIconButton(systemImage: "square.and.arrow.up", action: {})
         }

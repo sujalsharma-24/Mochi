@@ -43,12 +43,14 @@ struct WallpapersView: View {
                     if !recentlyDownloaded.isEmpty { recentSection }
                     goPremiumBanner
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, MochiSpacing.md)
                 .padding(.top, MochiSpacing.md)
                 .padding(.bottom, 40)
             }
             .scrollIndicators(.hidden)
         }
+        .clipped()
     }
 
     private func tap(_ item: WallpaperItem) {
@@ -99,11 +101,14 @@ struct WallpapersView: View {
     }
 
     private var featuredBanner: some View {
-        Image("wallpaper_moonlight_night")
-            .resizable().scaledToFill()
+        Color.clear
+            .frame(height: (UIScreen.main.bounds.width - 2 * MochiSpacing.md) / 1.9)
             .frame(maxWidth: .infinity)
-            .aspectRatio(1.6, contentMode: .fill)
-            .frame(height: (UIScreen.main.bounds.width - 2 * MochiSpacing.md) / 1.6)
+            .overlay(
+                Image("wallpaper_moonlight_night")
+                    .resizable()
+                    .scaledToFill()
+            )
             .clipShape(RoundedRectangle(cornerRadius: MochiRadius.card, style: .continuous))
     }
 

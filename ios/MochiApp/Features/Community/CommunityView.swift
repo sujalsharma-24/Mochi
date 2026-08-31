@@ -385,12 +385,16 @@ struct CommunityView: View {
                 .font(MochiFont.title(Type.sectionTitle))
                 .foregroundStyle(MochiColor.textPrimary)
             Spacer()
-            Text("see all")
-                .font(MochiFont.body(Type.seeAll))
-                .foregroundStyle(MochiColor.textPrimary)
-                .contentShape(Rectangle())
-                .onTapGesture { seeAllAction?() }
-                .accessibilityIdentifier(seeAllAction != nil ? "community.openLeaderboard" : "community.seeAll.\(title)")
+            Button {
+                seeAllAction?()
+            } label: {
+                Text("see all")
+                    .font(MochiFont.body(Type.seeAll))
+                    .foregroundStyle(MochiColor.textPrimary)
+            }
+            .buttonStyle(.plain)
+            .disabled(seeAllAction == nil)
+            .accessibilityIdentifier(seeAllAction != nil ? "community.openLeaderboard" : "community.seeAll.\(title)")
         }
     }
 
