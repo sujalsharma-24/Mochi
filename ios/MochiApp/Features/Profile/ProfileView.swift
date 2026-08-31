@@ -22,7 +22,16 @@ struct ProfileView: View {
         var id: String { rawValue }
     }
 
+    /// `nil` = the signed-in user's own profile; a non-nil uid is another creator's. The screen is
+    /// still MockData-only for now, so `uid` only changes the "own vs other" affordances, not the
+    /// content — see the parity handoff.
+    var uid: String? = nil
     var onBack: () -> Void = {}
+    var onSettings: () -> Void = {}
+    var onPaywall: () -> Void = {}
+    var onThemeClick: (KeyboardTheme) -> Void = { _ in }
+
+    private var isOwnProfile: Bool { uid == nil }
 
     @State private var filter: DownloadFilter = .theme
 
@@ -48,6 +57,22 @@ struct ProfileView: View {
         // Fonts and Themes do it: a sibling that ignores the safe area drags the whole stack up
         // under the status bar and takes the header with it.
         .background(alignment: .top) { backdrop }
+        // The Settings gear is not in docs/figma/3.png — it's the entry point to the Settings
+        // screen (Android's Profile has `onSettingsClick`). Only on your own profile.
+        .overlay(alignment: .topTrailing) {
+            if isOwnProfile {
+                Button(action: onSettings) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(MochiColor.textPrimary)
+                        .frame(width: 40, height: 40)
+                        .background(Color.white.opacity(0.9), in: Circle())
+                }
+                .accessibilityIdentifier("profile.openSettings")
+                .padding(.trailing, ProfileMetrics.margin)
+                .padding(.top, 6)
+            }
+        }
     }
 
     /// The illustration is anchored to the **canvas** origin, not the screen's. It is a width-fit
@@ -274,7 +299,7 @@ struct ProfileView: View {
     }
 
     private var upgradePill: some View {
-        Button {} label: {
+        Button(action: onPaywall) {
             HStack(spacing: 0) {
                 Image("icon_crown")
                     .resizable()

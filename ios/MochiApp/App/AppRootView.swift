@@ -7,30 +7,90 @@ private enum AppStage {
     case main
 }
 
-/// Top-level flow gate, mirrors android/.../ui/AppNavHost.kt's Splash → Onboarding → Auth → Main
-/// graph. Same "already-signed-in skips straight to Main" rule Android uses (Firebase Auth persists
-/// its session locally, so there's no separate on-device "has seen onboarding" flag on either
-/// platform — re-showing onboarding to a signed-out user on every relaunch is the accepted
-/// behavior, not a bug).
+/// Top-level flow gate + the app's single `NavigationStack`. Mirrors android/.../ui/AppNavHost.kt's
+/// Splash → Onboarding → Auth → Main graph and its pushed destinations
+/// (`themeDetail`, `profile`, `settings`, `paywall`, `search`, `leaderboard`, `wallpapers`).
 ///
-/// If `AppContainer.shared` is nil (no GoogleService-Info.plist in the bundle yet — see
-/// FirebaseEnvironment), this whole gate is skipped and RootView shows immediately, exactly like
-/// the app behaved before this file existed. That keeps the CI screenshot pipeline
-/// (.github/workflows/ios-screenshots.yml) green with zero special-casing until the plist lands.
+/// Onboarding is shown once per install (tracked by `hasSeenOnboarding`), then the app opens
+/// straight to Main. When `AppContainer.shared` is non-nil and a user is already signed in, Splash
+/// and Onboarding are skipped exactly like Android. Auth is only reached from the onboarding
+/// "Get Started" and stays a dead-end until `GoogleService-Info.plist` exists — until then Main is
+/// reachable regardless so the app is fully explorable on mock data.
 struct AppRootView: View {
-    @State private var stage: AppStage = AppContainer.shared == nil ? .main : (AppContainer.shared?.authRepository.currentUser != nil ? .main : .splash)
+    @AppStorage("mochi.hasSeenOnboarding") private var hasSeenOnboarding = false
+    @State private var stage: AppStage
+    @State private var path: [AppRoute] = []
+
+    init() {
+        let signedIn = AppContainer.shared?.authRepository.currentUser != nil
+        let seenOnboarding = UserDefaults.standard.bool(forKey: "mochi.hasSeenOnboarding")
+        _stage = State(initialValue: signedIn || seenOnboarding ? .main : .splash)
+    }
 
     var body: some View {
         switch stage {
         case .splash:
             SplashView(onTimeout: { stage = .onboarding })
         case .onboarding:
-            OnboardingView(onFinished: { stage = .auth })
+            OnboardingView(onFinished: {
+                hasSeenOnboarding = true
+                stage = AppContainer.shared == nil ? .main : .auth
+            })
         case .auth:
             AuthView(onBack: { stage = .onboarding }, onAuthenticated: { stage = .main })
         case .main:
-            RootView()
+            NavigationStack(path: $path) {
+                RootView(path: $path)
+                    .navigationBarHidden(true)
+                    .navigationDestination(for: AppRoute.self) { route in
+                        destination(for: route)
+                            .navigationBarBackButtonHidden(true)
+                            .toolbar(.hidden, for: .navigationBar)
+                    }
+            }
         }
+    }
+
+    @ViewBuilder
+    private func destination(for route: AppRoute) -> some View {
+        switch route {
+        case .themeDetail(let theme):
+            ThemeDetailView(
+                theme: theme,
+                onBack: pop,
+                onUnlockPremium: { path.append(.paywall) },
+                onCreatorClick: { path.append(.profile(uid: $0)) }
+            )
+        case .profile(let uid):
+            ProfileView(
+                uid: uid,
+                onBack: pop,
+                onSettings: { path.append(.settings) },
+                onPaywall: { path.append(.paywall) },
+                onThemeClick: { path.append(.themeDetail($0)) }
+            )
+        case .search:
+            SearchView(onBack: pop, onThemeClick: { path.append(.themeDetail($0)) })
+        case .settings:
+            SettingsView(onBack: pop, onSignedOut: {
+                path.removeAll()
+                stage = AppContainer.shared == nil ? .main : .auth
+            })
+        case .paywall:
+            PaywallView(onClose: pop)
+        case .leaderboard:
+            LeaderboardView(
+                onBack: pop,
+                onSearch: { path.append(.search) },
+                onCreatorClick: { path.append(.profile(uid: $0)) }
+            )
+        case .wallpapers:
+            WallpapersView(onBack: pop, onUnlockPremium: { path.append(.paywall) })
+        }
+    }
+
+    private func pop() {
+        if !path.isEmpty { path.removeLast() }
     }
 }
 

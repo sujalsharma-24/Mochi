@@ -145,3 +145,15 @@ struct ProfileFollowRow: Identifiable, Hashable {
     let label: String
     let value: String
 }
+
+// MARK: - Wallpapers (docs/figma/10.png)
+
+/// One entry in the live-wallpapers catalogue. Mirrors android's `WallpaperDocument` — the real
+/// schema has no like count, so wallpaper cards never show one (unlike theme cards).
+struct WallpaperItem: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let isPremium: Bool
+    /// Bundled art key in Assets.xcassets; defaults to `id` since that's the naming convention.
+    var assetName: String { id }
+}

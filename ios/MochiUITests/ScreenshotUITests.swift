@@ -48,6 +48,78 @@ final class ScreenshotUITests: XCTestCase {
 
         captureThemeApplyFlow(app)
         captureSearchResults(app)
+        captureParityScreens(app)
+    }
+
+    /// The screens added for Android parity: Leaderboard, Wallpapers, Settings, Paywall.
+    /// Best-effort — a missing element is logged, not a failure.
+    private func captureParityScreens(_ app: XCUIApplication) {
+        // Leaderboard: Community › "see all" beside Popular Creators.
+        if app.buttons["tab.community"].waitForExistence(timeout: 5) {
+            app.buttons["tab.community"].tap()
+            Thread.sleep(forTimeInterval: 1.0)
+            let link = app.descendants(matching: .any)["community.openLeaderboard"].firstMatch
+            if link.waitForExistence(timeout: 3) {
+                link.tap()
+                Thread.sleep(forTimeInterval: 1.5)
+                capture(app, name: "11-leaderboard")
+                tapBackIfPresent(app, "leaderboard.back")
+            }
+        }
+
+        // Wallpapers: Themes › "Wallpapers" pill.
+        if app.buttons["tab.themes"].waitForExistence(timeout: 5) {
+            app.buttons["tab.themes"].tap()
+            Thread.sleep(forTimeInterval: 1.0)
+            let wp = app.buttons["themes.openWallpapers"].firstMatch
+            if wp.waitForExistence(timeout: 3) {
+                wp.tap()
+                Thread.sleep(forTimeInterval: 1.5)
+                capture(app, name: "12-wallpapers")
+                tapBackIfPresent(app, "wallpapers.back")
+            }
+        }
+
+        // Settings: Community › Profile › gear.
+        if app.buttons["tab.community"].waitForExistence(timeout: 5) {
+            app.buttons["tab.community"].tap()
+            Thread.sleep(forTimeInterval: 1.0)
+            if app.buttons["community.openProfile"].waitForExistence(timeout: 3) {
+                app.buttons["community.openProfile"].tap()
+                Thread.sleep(forTimeInterval: 1.2)
+                if app.buttons["profile.openSettings"].waitForExistence(timeout: 3) {
+                    app.buttons["profile.openSettings"].tap()
+                    Thread.sleep(forTimeInterval: 1.5)
+                    capture(app, name: "13-settings")
+                    tapBackIfPresent(app, "settings.back")
+                }
+                tapBackIfPresent(app, "profile.back")
+            }
+        }
+
+        // Paywall: Community › Profile › Upgrade Plan.
+        if app.buttons["tab.community"].waitForExistence(timeout: 5) {
+            app.buttons["tab.community"].tap()
+            Thread.sleep(forTimeInterval: 1.0)
+            if app.buttons["community.openProfile"].waitForExistence(timeout: 3) {
+                app.buttons["community.openProfile"].tap()
+                Thread.sleep(forTimeInterval: 1.2)
+                if app.buttons["profile.upgradePlan"].firstMatch.waitForExistence(timeout: 3) {
+                    app.buttons["profile.upgradePlan"].firstMatch.tap()
+                    Thread.sleep(forTimeInterval: 1.5)
+                    capture(app, name: "14-paywall")
+                    tapBackIfPresent(app, "paywall.close")
+                }
+            }
+        }
+    }
+
+    private func tapBackIfPresent(_ app: XCUIApplication, _ identifier: String) {
+        let back = app.buttons[identifier].firstMatch
+        if back.waitForExistence(timeout: 3) {
+            back.tap()
+            Thread.sleep(forTimeInterval: 0.8)
+        }
     }
 
     /// Home theme card -> Theme Detail (live keyboard render) -> Apply -> the typable "try it" sheet.

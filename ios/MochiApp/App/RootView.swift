@@ -1,73 +1,54 @@
 import SwiftUI
 
+/// The five-tab container. Every push (Theme Detail, Profile, Settings, Paywall, Leaderboard,
+/// Wallpapers, Search) goes on the `NavigationStack` path owned by `AppRootView` — this view only
+/// switches between the tabs and keeps `MochiTabBar` pinned over them, the same split Android's
+/// `RootScreen` + `AppNavHost` uses.
 struct RootView: View {
+    @Binding var path: [AppRoute]
     @State private var selected: MochiTab = .fonts
-    /// Profile is not a tab — docs/figma/3.png draws it with a back button and with every tab in
-    /// the bar unselected, i.e. as a screen pushed *over* the tabs. It is presented in their place
-    /// and keeps the bar visible; picking any tab dismisses it.
-    @State private var showProfile = false
-    /// Same pushed-over-the-tabs treatment as Profile, opened from Themes' search icon.
-    @State private var showSearch = false
-    /// Theme Detail covers everything, including Profile, the same way Android's nav graph pushes
-    /// `themeDetail/{themeId}` as its own destination rather than nesting it under a tab.
-    @State private var selectedTheme: KeyboardTheme?
 
     var body: some View {
-        // GeometryReader + an exact .frame(width:height:) rather than
-        // .frame(maxWidth: .infinity, maxHeight: .infinity) — the greedy-fill version let each
-        // page's own content (a ScrollView vs a plain VStack) influence how much size the Group
-        // actually claimed, which shifted MochiTabBar's "alignment: .bottom" position by ~17pt
-        // between pages. An explicit size removes that ambiguity so the bar sits identically on
-        // every tab regardless of what that tab contains.
+        // GeometryReader + an exact .frame(width:height:) rather than a greedy fill — the greedy
+        // version let each page's own content influence how much size the Group claimed, which
+        // shifted MochiTabBar's bottom alignment by ~17pt between pages.
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
                 Group {
-                    if let theme = selectedTheme {
-                        ThemeDetailView(theme: theme, onBack: { selectedTheme = nil })
-                    } else if showProfile {
-                        ProfileView(onBack: { showProfile = false })
-                    } else if showSearch {
-                        SearchView(
-                            onBack: { showSearch = false },
-                            onThemeClick: { theme in selectedTheme = theme }
-                        )
-                    } else {
-                        switch selected {
-                        case .keyboard: HomeView(
-                            onThemeClick: { theme in selectedTheme = theme },
+                    switch selected {
+                    case .keyboard:
+                        HomeView(
+                            onThemeClick: { path.append(.themeDetail($0)) },
                             onGoToCreate: { selected = .create },
                             onGoToThemes: { selected = .themes },
                             onGoToFonts: { selected = .fonts }
                         )
-                        case .fonts: FontsView()
-                        case .create: CreateThemeView()
-                        case .themes: ThemesView(
-                            onOpenSearch: { showSearch = true },
-                            onThemeClick: { theme in selectedTheme = theme }
+                    case .fonts:
+                        FontsView()
+                    case .create:
+                        CreateThemeView()
+                    case .themes:
+                        ThemesView(
+                            onOpenSearch: { path.append(.search) },
+                            onThemeClick: { path.append(.themeDetail($0)) },
+                            onWallpapers: { path.append(.wallpapers) }
                         )
-                        case .community: CommunityView(
-                            onOpenProfile: { showProfile = true },
-                            onThemeClick: { theme in selectedTheme = theme }
+                    case .community:
+                        CommunityView(
+                            onOpenProfile: { path.append(.profile(uid: nil)) },
+                            onThemeClick: { path.append(.themeDetail($0)) },
+                            onCreatorClick: { path.append(.profile(uid: $0)) },
+                            onLeaderboard: { path.append(.leaderboard) }
                         )
-                        }
                     }
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
                 .ignoresSafeArea(edges: .bottom)
 
-                if selectedTheme == nil {
-                    MochiTabBar(selected: Binding(
-                        get: { (showProfile || showSearch) ? nil : selected },
-                        set: { tab in
-                            if let tab {
-                                selected = tab
-                                showProfile = false
-                                showSearch = false
-                            }
-                        }
-                    ))
-                }
-
+                MochiTabBar(selected: Binding(
+                    get: { selected },
+                    set: { if let tab = $0 { selected = tab } }
+                ))
             }
         }
         .ignoresSafeArea(edges: .bottom)
@@ -75,5 +56,5 @@ struct RootView: View {
 }
 
 #Preview {
-    RootView()
+    RootView(path: .constant([]))
 }

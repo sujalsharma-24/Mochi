@@ -181,6 +181,8 @@ private enum Type {
 struct CommunityView: View {
     var onOpenProfile: () -> Void = {}
     var onThemeClick: (KeyboardTheme) -> Void = { _ in }
+    var onCreatorClick: (String) -> Void = { _ in }
+    var onLeaderboard: () -> Void = {}
 
     /// Figma spells the placeholder "serch themes, creators.." — kept verbatim, like the fourth
     /// creator tile's "Choose" CTA.
@@ -375,7 +377,10 @@ struct CommunityView: View {
     // MARK: - Section heading
 
     private func sectionHeading(_ title: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+        // "Popular Creators" › see all opens the Leaderboard (Ranked Creators), matching Android's
+        // `onLeaderboardClick` entry point from Community.
+        let seeAllAction: (() -> Void)? = title == "Popular Creators" ? onLeaderboard : nil
+        return HStack(alignment: .firstTextBaseline) {
             Text(title.uppercased())
                 .font(MochiFont.title(Type.sectionTitle))
                 .foregroundStyle(MochiColor.textPrimary)
@@ -383,6 +388,9 @@ struct CommunityView: View {
             Text("see all")
                 .font(MochiFont.body(Type.seeAll))
                 .foregroundStyle(MochiColor.textPrimary)
+                .contentShape(Rectangle())
+                .onTapGesture { seeAllAction?() }
+                .accessibilityIdentifier(seeAllAction != nil ? "community.openLeaderboard" : "community.seeAll.\(title)")
         }
     }
 
@@ -478,7 +486,8 @@ struct CommunityView: View {
                             themeCount: creator.themeCount,
                             isVerified: false,
                             ctaTitle: creator.isFollowing ? "Following" : "Follow",
-                            onCtaTap: { viewModel.toggleFollow(creator.uid) }
+                            onCtaTap: { viewModel.toggleFollow(creator.uid) },
+                            onTileTap: { onCreatorClick(creator.uid) }
                         )
                     }
                 } else {
@@ -489,7 +498,8 @@ struct CommunityView: View {
                             themeCount: creator.themeCount,
                             isVerified: creator.isVerified,
                             ctaTitle: creator.ctaTitle,
-                            onCtaTap: nil
+                            onCtaTap: nil,
+                            onTileTap: { onCreatorClick(creator.id) }
                         )
                     }
                 }
@@ -504,7 +514,8 @@ struct CommunityView: View {
         themeCount: Int,
         isVerified: Bool,
         ctaTitle: String,
-        onCtaTap: (() -> Void)?
+        onCtaTap: (() -> Void)?,
+        onTileTap: (() -> Void)? = nil
     ) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: Metrics.creatorAvatarGap) {
@@ -559,6 +570,8 @@ struct CommunityView: View {
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
         .shadow(color: MochiColor.purpleDark.opacity(0.13), radius: 5, y: 3)
+        .contentShape(Rectangle())
+        .onTapGesture { onTileTap?() }
     }
 
     // MARK: - Latest Creations

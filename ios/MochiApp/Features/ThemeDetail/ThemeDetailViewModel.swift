@@ -20,7 +20,10 @@ final class ThemeDetailViewModel: ObservableObject {
     @Published private(set) var isLiked = false
     @Published private(set) var likeCount: Int
     @Published private(set) var isFollowing = false
-    @Published private(set) var isUserPremium = false
+
+    /// Reads the local billing state — no RevenueCat/StoreKit yet, but the Paywall's
+    /// "Unlock anyway (demo)" flips this so the premium gate can be exercised end-to-end.
+    var isUserPremium: Bool { BillingRepository.shared.isUserPremium }
 
     private let container: AppContainer?
     private let themeId: String

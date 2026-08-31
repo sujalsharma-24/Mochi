@@ -120,6 +120,35 @@ enum MockData {
         CommunityPost(id: "latest-dreamy-fantasy", name: "Dreamy Fantasy", creatorName: "Kittyk", thumbAssetName: "latest_dreamy_fantasy", summary: "Cozy Cafe Cats To Keep You\nCompany While Typing", likeCount: 956, hashtags: ["blue", "soft", "aesthetic"], tagPalette: .peach)
     ]
 
+    // MARK: - Leaderboard / Ranked Creators (docs/figma/9.png)
+
+    /// The "Ranked Creators" list, in rank order. Same shape as `topCreators` (reuses `Creator`);
+    /// values mirror android's `MockData.rankedCreators`.
+    static let rankedCreators: [Creator] = [
+        Creator(id: "mochi-creator", displayName: "Mochi Creator", handle: "@mochicreator", avatarAssetName: "avatar_mochi_creator", themeCount: 128, likeCount: 12_500, isFollowing: true, isVerified: false),
+        Creator(id: "pixel-art-studio", displayName: "Pixel Art Studio", handle: "@pixelart.studio", avatarAssetName: "avatar_pixel_art", themeCount: 96, likeCount: 36_500, isFollowing: true, isVerified: false),
+        Creator(id: "vibe-studio", displayName: "Vibe Studio", handle: "@vibestudio", avatarAssetName: "avatar_vibe_studio", themeCount: 84, likeCount: 10_800, isFollowing: true, isVerified: false),
+        Creator(id: "dreamy-designs", displayName: "Dreamy Designs", handle: "@dreamydesigns", avatarAssetName: "avatar_dreamy_designs", themeCount: 72, likeCount: 8_800, isFollowing: true, isVerified: true),
+        Creator(id: "techy-keys", displayName: "Techy Keys", handle: "@techy.keys", avatarAssetName: "avatar_techy_keys", themeCount: 63, likeCount: 68_800, isFollowing: true, isVerified: false)
+    ]
+
+    // MARK: - Wallpapers (docs/figma/10.png)
+
+    /// The live-wallpapers grid. Mirrors android's `mockWallpapers`, extended to the full set of
+    /// bundled `wallpaper_*` art so the grid isn't three rows of the same five.
+    static let wallpapers: [WallpaperItem] = [
+        WallpaperItem(id: "wallpaper_cloudy_day", name: "Cloudy Day", isPremium: true),
+        WallpaperItem(id: "wallpaper_sakura_dream_wp", name: "Sakura Dream", isPremium: false),
+        WallpaperItem(id: "wallpaper_galaxy_explorer", name: "Galaxy Explorer", isPremium: true),
+        WallpaperItem(id: "wallpaper_pastel_dreams", name: "Pastel Dreams", isPremium: true),
+        WallpaperItem(id: "wallpaper_rainbow_bliss", name: "Rainbow Bliss", isPremium: false),
+        WallpaperItem(id: "wallpaper_moonlight_night", name: "Moonlight Night", isPremium: false),
+        WallpaperItem(id: "wallpaper_night_vibes", name: "Night Vibes", isPremium: true),
+        WallpaperItem(id: "wallpaper_nature_escape", name: "Nature Escape", isPremium: false),
+        WallpaperItem(id: "wallpaper_evening_glow", name: "Evening Glow", isPremium: true),
+        WallpaperItem(id: "wallpaper_cozy_town", name: "Cozy Town", isPremium: false)
+    ]
+
     static let topCreators: [Creator] = [
         Creator(id: "mochi-creator", displayName: "Mochi Creator", handle: "@mochicreator", avatarAssetName: "avatar_mochi_creator", themeCount: 128, likeCount: 12_500, isFollowing: false, isVerified: true),
         Creator(id: "pixel-art-studio", displayName: "Pixel Art Studio", handle: "@pixelart.studio", avatarAssetName: "avatar_pixel_art", themeCount: 96, likeCount: 36_500, isFollowing: false, isVerified: true),

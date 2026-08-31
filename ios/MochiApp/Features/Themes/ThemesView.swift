@@ -158,6 +158,7 @@ private enum Type {
 struct ThemesView: View {
     var onOpenSearch: () -> Void = {}
     var onThemeClick: (KeyboardTheme) -> Void = { _ in }
+    var onWallpapers: () -> Void = {}
 
     @StateObject private var viewModel = ThemesViewModel(container: AppContainer.shared)
 
@@ -378,8 +379,24 @@ struct ThemesView: View {
     // MARK: - Filter row
 
     /// Right-aligned; unlike the Fonts frame there is no "Soft by" capsule on the left of it.
+    /// The "Wallpapers" pill on the left is not in the Figma frame — it's the entry point to the
+    /// Wallpapers screen (Android surfaces it from Themes too, via `onWallpapersClick`).
     private var filterRow: some View {
         HStack(spacing: 0) {
+            Button(action: onWallpapers) {
+                HStack(spacing: 4) {
+                    Image(systemName: "photo.stack.fill").font(.system(size: Type.filter * 0.9))
+                    Text("Wallpapers").font(MochiFont.caption(Type.filter))
+                }
+                .foregroundStyle(MochiColor.logoSolid)
+                .padding(.horizontal, 10)
+                .frame(height: Metrics.filterHeight)
+                .background(Color.white, in: Capsule())
+                .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("themes.openWallpapers")
+
             Spacer(minLength: 0)
 
             HStack(spacing: Metrics.filterHeight * 0.16) {
