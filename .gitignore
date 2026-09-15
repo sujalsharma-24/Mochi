@@ -37,3 +37,11 @@ firestore-export/
 functions/node_modules/
 functions/lib/
 functions/.secret.local
+
+# Theme pipeline intermediates (scripts + reports in scratchpad/ are committed; these are regenerable)
+scratchpad/_plate_*.png
+scratchpad/*.orig
+__pycache__/
+
+# Claude Code local worktrees
+.claude/worktrees/

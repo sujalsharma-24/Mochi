@@ -1,0 +1,9 @@
+aetherGarden               Pane         coreL=0.69 dark=False cap=#F3BB68 ink=#221C28 busy=0.135 blur=2.0
+auroraMoonlitObservatory   Pane         coreL=0.21 dark=True  cap=#151D2C ink=#FFFFFF busy=0.098 blur=0.0
+cosmicDaydreamStation      Pane         coreL=0.53 dark=False cap=#CDABC4 ink=#120F16 busy=0.093 blur=0.0
+starlitCozyVillage         Letterpress  coreL=0.72 dark=False cap=#D9BAAA ink=#221C28 busy=0.122 blur=2.0
+sunsetStorybookJourney     Pearl        coreL=0.79 dark=False cap=#F2CEA7 ink=#221C28 busy=0.114 blur=2.0
+tideboundAtelier           Clay         coreL=0.53 dark=False cap=#D1AF81 ink=#120F16 busy=0.126 blur=2.0
+whisperingLakeCottage      Clay         coreL=0.70 dark=False cap=#E1C2A6 ink=#221C28 busy=0.131 blur=2.0
+whisperingMoonHarbor       Pearl        coreL=0.69 dark=False cap=#D7C0C1 ink=#221C28 busy=0.133 blur=2.0
+willowMoonCottage          Letterpress  coreL=0.69 dark=False cap=#CBBA91 ink=#221C28 busy=0.128 blur=2.0
