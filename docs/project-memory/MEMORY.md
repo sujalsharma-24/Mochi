@@ -1,5 +1,8 @@
 # Mochi Project — Memory Index
 
+## Current state (read first)
+- [project_mochi_ios_state.md](project_mochi_ios_state.md) — 2026-09-15 handover: iOS is the reference implementation, local-first (Firebase dormant), 140 themes, all screens built → full detail in `docs/IOS_CURRENT_STATE.md`. Session log below stops at Session 8 (2026-07-18) and is historical
+
 ## Project
 - [project_mochi_overview.md](project_mochi_overview.md) — Client, budget ($425), timeline (3wk), platform (iOS first → Android), tech stack, delivery terms
 - [project_mochi_features.md](project_mochi_features.md) — Complete locked V1 feature spec: all 10 screens, every feature, monetization, effects, stickers

@@ -1,5 +1,11 @@
 # Mochi iOS — Functional Build Status
 
+> **⚠️ Historical (last real update 2026-08-24).** The "At a glance" table below is out of date:
+> Settings, Paywall, Wallpapers and Leaderboard now exist, the keyboard extension ships 140
+> themes, and bundle IDs are `com.tanmaysingh.mochi*`. **Current state:
+> [`docs/IOS_CURRENT_STATE.md`](IOS_CURRENT_STATE.md).** This file is kept for its CI-debugging
+> trail and the reasoning behind the Firebase/Auth wiring.
+
 **Last updated:** 2026-08-24 (CI went green this session; Themes, Community, and Create & Publish
 wired to real data on top of that — see below)
 **Scope:** Bringing the iOS app to feature parity with the Android app — real Firebase Auth/
