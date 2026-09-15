@@ -22,6 +22,13 @@ protocol TextDocumentAdapter: AnyObject {
 final class KeyboardInputEngine {
     weak var document: TextDocumentAdapter?
 
+    /// The applied Mochi "font" — a Unicode lookalike transform (see `FontStyleCatalog`), or `nil`
+    /// for plain text. Set by `KeyboardViewController` on each activation from `FontStyleStore`.
+    /// Typed letters/digits are emitted through this style; everything the engine reads back out of
+    /// the document is normalised to plain text first, so autocap / suggestions / the double-space
+    /// period keep working while a style is on.
+    var appliedStyleID: String?
+
     /// Fired when the renderer needs to update — shift glyph, letter case, suggestion bar.
     var onStateChange: ((ShiftState, [SuggestionEngine.Suggestion]) -> Void)?
     var onPlaneChange: ((KeyboardPlane) -> Void)?
@@ -77,18 +84,29 @@ final class KeyboardInputEngine {
 
     /// Inserts literal text — a letter, an accent from the callout, or an emoji.
     func insert(_ text: String) {
-        document?.insertText(text)
+        document?.insertText(styled(text))
         shiftState = shiftState.afterCharacterInput
         emitState()
+    }
+
+    /// The active document context, read back as plain ASCII regardless of the applied style.
+    private var plainContext: String {
+        FontStyleCatalog.normalize(document?.contextBeforeInput)
+    }
+
+    /// Applies the current lookalike style to a run of text. A no-op when no style is applied, and
+    /// per-character — punctuation, emoji and other scripts pass through untouched.
+    private func styled(_ text: String) -> String {
+        FontStyleCatalog.style(for: appliedStyleID)?.styled(text) ?? text
     }
 
     func acceptSuggestion(_ text: String) {
         // Replace the partial word rather than appending to it. Deleting by character count is
         // safe here because `partialWord(before:)` returned exactly these characters from the same
         // context string.
-        let partial = SuggestionEngine.partialWord(before: document?.contextBeforeInput)
+        let partial = SuggestionEngine.partialWord(before: plainContext)
         for _ in 0..<partial.count { document?.deleteBackward() }
-        document?.insertText(text + " ")
+        document?.insertText(styled(text) + " ")
         shiftState = shiftState.afterCharacterInput
         refreshContextualState()
     }
@@ -100,7 +118,7 @@ final class KeyboardInputEngine {
     /// people do deliberately.
     private func insertSpace() {
         let now = Date.timeIntervalSinceReferenceDate
-        let context = document?.contextBeforeInput ?? ""
+        let context = plainContext
 
         if now - lastSpaceTime < 0.6,
            context.hasSuffix(" "),
@@ -154,7 +172,7 @@ final class KeyboardInputEngine {
             return
         }
 
-        let context = document?.contextBeforeInput ?? ""
+        let context = plainContext
         let trimmed = context.trimmingCharacters(in: .whitespaces)
         if context.isEmpty {
             shiftState = .oneShot
@@ -166,7 +184,7 @@ final class KeyboardInputEngine {
     }
 
     private func emitState() {
-        let partial = SuggestionEngine.partialWord(before: document?.contextBeforeInput)
+        let partial = SuggestionEngine.partialWord(before: plainContext)
         onStateChange?(shiftState, suggestionEngine.suggestions(forPartialWord: partial))
     }
 }

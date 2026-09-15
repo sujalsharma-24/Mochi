@@ -33,7 +33,10 @@ final class ThemeDetailViewModel: ObservableObject {
         self.container = container
         self.themeId = themeId
         self.creatorUid = creatorUid
-        self.likeCount = initialLikeCount
+        // The on-device record first: the heart has to reflect the user's own taps whether or not a
+        // backend exists, and without this it reset to grey every time the screen was rebuilt.
+        self.isLiked = LikedThemeStore.isLiked(themeId)
+        self.likeCount = initialLikeCount + (LikedThemeStore.isLiked(themeId) ? 1 : 0)
 
         guard let container, let uid = container.authRepository.currentUser?.uid else { return }
         Task {
@@ -51,10 +54,12 @@ final class ThemeDetailViewModel: ObservableObject {
     }
 
     func toggleLike() {
-        guard let container, let uid = container.authRepository.currentUser?.uid else { return }
         let wasLiked = isLiked
         isLiked = !wasLiked
         likeCount += wasLiked ? -1 : 1
+        LikedThemeStore.toggle(themeId)
+
+        guard let container, let uid = container.authRepository.currentUser?.uid else { return }
         Task {
             do {
                 if wasLiked {

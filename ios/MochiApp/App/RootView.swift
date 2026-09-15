@@ -6,7 +6,9 @@ import SwiftUI
 /// `RootScreen` + `AppNavHost` uses.
 struct RootView: View {
     @Binding var path: [AppRoute]
-    @State private var selected: MochiTab = .fonts
+    /// Owned by `AppRootView` so a pushed screen (Search) can pop back to a specific tab / font.
+    @Binding var selectedTab: MochiTab
+    @Binding var fontsSelection: String
 
     var body: some View {
         // GeometryReader + an exact .frame(width:height:) rather than a greedy fill — the greedy
@@ -15,18 +17,23 @@ struct RootView: View {
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
                 Group {
-                    switch selected {
+                    switch selectedTab {
                     case .keyboard:
                         HomeView(
                             onThemeClick: { path.append(.themeDetail($0)) },
-                            onGoToCreate: { selected = .create },
-                            onGoToThemes: { selected = .themes },
-                            onGoToFonts: { selected = .fonts }
+                            onGoToCreate: { selectedTab = .create },
+                            onGoToThemes: { selectedTab = .themes },
+                            onGoToFonts: { selectedTab = .fonts },
+                            onFontClick: { fontsSelection = $0.id; selectedTab = .fonts }
                         )
                     case .fonts:
-                        FontsView()
+                        FontsView(
+                            selectedFontID: $fontsSelection,
+                            onOpenPaywall: { path.append(.paywall) },
+                            onSeeAllDownloaded: { path.append(.downloadedFonts) }
+                        )
                     case .create:
-                        CreateThemeView()
+                        CreateThemeView(onBack: { selectedTab = .keyboard })
                     case .themes:
                         ThemesView(
                             onOpenSearch: { path.append(.search) },
@@ -38,7 +45,9 @@ struct RootView: View {
                             onOpenProfile: { path.append(.profile(uid: nil)) },
                             onThemeClick: { path.append(.themeDetail($0)) },
                             onCreatorClick: { path.append(.profile(uid: $0)) },
-                            onLeaderboard: { path.append(.leaderboard) }
+                            onLeaderboard: { path.append(.leaderboard) },
+                            onSeeAllTopThemes: { path.append(.themeCollection(.topThemes)) },
+                            onSeeAllLatest: { path.append(.themeCollection(.latest)) }
                         )
                     }
                 }
@@ -46,8 +55,8 @@ struct RootView: View {
                 .ignoresSafeArea(edges: .bottom)
 
                 MochiTabBar(selected: Binding(
-                    get: { selected },
-                    set: { if let tab = $0 { selected = tab } }
+                    get: { selectedTab },
+                    set: { if let tab = $0 { selectedTab = tab } }
                 ))
             }
         }
@@ -56,5 +65,5 @@ struct RootView: View {
 }
 
 #Preview {
-    RootView(path: .constant([]))
+    RootView(path: .constant([]), selectedTab: .constant(.keyboard), fontsSelection: .constant("handwritten-elegant"))
 }

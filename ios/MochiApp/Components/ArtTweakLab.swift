@@ -11,10 +11,11 @@ import UIKit
 /// repeat. Thirty-three illustrations at a minute a round trip is most of a day, and the person
 /// who can actually see the answer is not the one editing the file.
 ///
-/// So this inverts it. Tap an illustration to select it, drag the four sliders, then press **Copy**:
-/// the panel emits the exact `KeyArtPlacement` literals to paste into the theme. Nothing here is a
-/// mock — the keyboard on screen is the production `KeyboardSurfaceView` rendering the production
-/// tokens, so what gets dialled in is what the extension will draw.
+/// So this inverts it. Tap an illustration to select it, drag the sliders (position, size, opacity,
+/// brightness), then press **Copy All**: the panel emits every edited key's `KeyArtPlacement`
+/// literal in one block, ready to paste into the theme. Nothing here is a mock — the keyboard on
+/// screen is the production `KeyboardSurfaceView` rendering the production tokens, so what gets
+/// dialled in is what the extension will draw.
 struct ArtTweakLab: View {
     let theme: MochiKeyboardTheme
 
@@ -24,6 +25,26 @@ struct ArtTweakLab: View {
     @State private var placements: [String: KeyArtPlacement] = [:]
     @State private var selected: String?
     @State private var status: String?
+    /// Background framing, edited independently of any key's illustration. Starts at the theme's
+    /// authored value so the slider doesn't jump the art on first touch.
+    @State private var backgroundAnchor: Double
+
+    init(theme: MochiKeyboardTheme) {
+        self.theme = theme
+        _backgroundAnchor = State(initialValue: theme.surface.backgroundImage?.verticalAnchor ?? 0.5)
+    }
+
+    /// The theme actually handed to the bench — identical to `theme` except for the background's
+    /// vertical anchor, which is live-edited here rather than baked into `theme` itself. A computed
+    /// copy rather than mutating `theme` in place, so the emitted source always diffs against the
+    /// original authored value.
+    private var effectiveTheme: MochiKeyboardTheme {
+        guard var background = theme.surface.backgroundImage else { return theme }
+        background.verticalAnchor = backgroundAnchor
+        var next = theme
+        next.surface.backgroundImage = background
+        return next
+    }
 
     /// `-MochiThemeLabSelect <identity>` preselects a key and `-MochiThemeLabSeed x,y,scale,opacity`
     /// gives it a placement at launch.
@@ -44,7 +65,8 @@ struct ArtTweakLab: View {
             offsetX: parts[0],
             offsetY: parts[1],
             scale: parts[2],
-            opacity: parts.count > 3 ? parts[3] : nil
+            opacity: parts.count > 3 ? parts[3] : nil,
+            brightness: parts.count > 4 ? parts[4] : nil
         )
     }
 
@@ -120,6 +142,15 @@ struct ArtTweakLab: View {
                 step: 0.01,
                 set: update { $0.opacity = $1 }
             )
+            row(
+                "Brightness",
+                // No set-wide brightness token exists, so this always starts at 0 (unchanged) —
+                // there is nothing else for it to fall back to.
+                value: current.brightness ?? 0,
+                range: -1...1,
+                step: 0.01,
+                set: update { $0.brightness = $1 }
+            )
 
             buttons
         }
@@ -127,6 +158,27 @@ struct ArtTweakLab: View {
         .opacity(selected == nil ? 0.45 : 1)
         .padding(.horizontal, 14)
         .padding(.top, 8)
+
+        backgroundControls
+    }
+
+    /// Framing for the background plate itself — separate from any key's illustration, and never
+    /// disabled by the "select a key first" gate above, since there is nothing to select.
+    @ViewBuilder
+    private var backgroundControls: some View {
+        if theme.surface.backgroundImage != nil {
+            VStack(spacing: 6) {
+                Divider().background(Color.white.opacity(0.15)).padding(.vertical, 2)
+                row(
+                    "BG Anchor",
+                    value: backgroundAnchor,
+                    range: 0...1,
+                    step: 0.01,
+                    set: { backgroundAnchor = $0; status = nil }
+                )
+            }
+            .padding(.horizontal, 14)
+        }
     }
 
     private func row(
@@ -140,7 +192,9 @@ struct ArtTweakLab: View {
             Text(label)
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.75))
-                .frame(width: 52, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(width: 68, alignment: .leading)
 
             // Nudge buttons flank the slider because a slider is the wrong instrument for the last
             // 2% of this job: a 340pt track across a 0.3–2.5 range moves ~0.006 per point, so the
@@ -187,7 +241,7 @@ struct ArtTweakLab: View {
                 placements.removeAll()
                 status = "cleared every edit"
             }
-            action("Copy", tint: .cyan) { copy() }
+            action("Copy All", tint: .cyan) { copy() }
         }
         .padding(.top, 2)
     }
@@ -209,7 +263,7 @@ struct ArtTweakLab: View {
     private var bench: some View {
         GeometryReader { proxy in
             ArtTweakBench(
-                theme: theme,
+                theme: effectiveTheme,
                 placements: placements,
                 selected: selected,
                 onSelect: { identity in
@@ -239,7 +293,8 @@ struct ArtTweakLab: View {
                 offsetX: placement.offsetX,
                 offsetY: placement.offsetY,
                 scale: placement.scale,
-                opacity: placement.opacity
+                opacity: placement.opacity,
+                brightness: placement.brightness
             )
             status = nil
         }
@@ -274,25 +329,43 @@ struct ArtTweakLab: View {
     }
 
     private func swiftSource() -> String {
-        guard !placements.isEmpty else {
-            return "// No placements — every illustration is drawing at the set-wide defaults.\nplacements: [:]\n"
+        var sections: [String] = []
+
+        let originalAnchor = theme.surface.backgroundImage?.verticalAnchor
+        if let originalAnchor, abs(originalAnchor - backgroundAnchor) > 0.001 {
+            sections.append("""
+            // Background — paste as `verticalAnchor:` on this theme's ThemeBackgroundImage.
+            verticalAnchor: \(String(format: "%.2f", backgroundAnchor))
+            """)
         }
-        let body = placements.keys.sorted().map { identity -> String in
-            let p = placements[identity]!
-            var parts = [
-                String(format: "offsetX: %.3f", p.offsetX),
-                String(format: "offsetY: %.3f", p.offsetY),
-                String(format: "scale: %.3f", p.scale)
+
+        if placements.isEmpty {
+            sections.append("// No key placements — every illustration is drawing at the set-wide defaults.\nplacements: [:]")
+        } else {
+            let body = placements.keys.sorted().map { identity -> String in
+                let p = placements[identity]!
+                var parts = [
+                    String(format: "offsetX: %.3f", p.offsetX),
+                    String(format: "offsetY: %.3f", p.offsetY),
+                    String(format: "scale: %.3f", p.scale)
+                ]
+                if let opacity = p.opacity { parts.append(String(format: "opacity: %.2f", opacity)) }
+                if let brightness = p.brightness, brightness != 0 {
+                    parts.append(String(format: "brightness: %.2f", brightness))
+                }
+                return "    \"\(identity)\": KeyArtPlacement(\(parts.joined(separator: ", "))),"
+            }
+            sections.append("""
+            // Key art — paste as the `placements:` argument of this theme's KeyArtSet.
+            placements: [
+            \(body.joined(separator: "\n"))
             ]
-            if let opacity = p.opacity { parts.append(String(format: "opacity: %.2f", opacity)) }
-            return "    \"\(identity)\": KeyArtPlacement(\(parts.joined(separator: ", "))),"
+            """)
         }
+
         return """
         // Generated by ArtTweakLab for \(theme.name) (\(theme.id)).
-        // Paste as the `placements:` argument of this theme's KeyArtSet in BuiltInThemes.swift.
-        placements: [
-        \(body.joined(separator: "\n"))
-        ]
+        \(sections.joined(separator: "\n\n"))
         """
     }
 }
@@ -319,8 +392,13 @@ private struct ArtTweakBench: UIViewRepresentable {
     }
 
     func updateUIView(_ view: KeyboardSurfaceView, context: Context) {
-        // Only the placements and the ring are pushed on update. Re-applying the whole theme here
-        // would rebuild every key view on every slider tick, which drops the selection mid-drag.
+        // Only the placements and the ring are pushed unconditionally. Re-applying the whole theme
+        // on every tick would rebuild every key view mid-drag and drop the selection — `applyTheme`
+        // itself only touches the background layers, not key views (see its doc comment), but it's
+        // still gated on an actual change so a placement-only edit doesn't reload the background.
+        if view.theme != theme {
+            view.applyTheme(theme)
+        }
         view.updateKeyArtPlacements(placements)
         view.selectArtIdentity(selected)
     }

@@ -62,8 +62,17 @@ final class KeyboardSurfaceView: UIView {
     }
 
     private let baseLayer = CAGradientLayer()
+    /// Clips `artView`, which is deliberately sized *larger* than the keyboard to crop the art —
+    /// see `layoutArtFrame()`.
+    private let artClip = UIView()
     private let artView = UIImageView()
     private let scrimLayer = CAGradientLayer()
+    /// Renders `theme.effects`. Sits above the scrim and below the keys — ambient atmosphere behind
+    /// the caps, not a layer that could ever compete with a label for contrast. `isHidden` whenever
+    /// `effects.isEnabled` is false, which is the default for every theme that doesn't ask for this.
+    private let effectsEmitter = CAEmitterLayer()
+    private var effectsParticleImage: UIImage?
+    private var effectsParticleTint: ThemeColor?
     private let keyContainer = UIView()
     private var keyViews: [KeyView] = []
     private lazy var suggestionBar = SuggestionBarView(chrome: theme.chrome)
@@ -99,11 +108,16 @@ final class KeyboardSurfaceView: UIView {
 
         layer.addSublayer(baseLayer)
 
-        artView.contentMode = .scaleAspectFill
-        artView.clipsToBounds = true
-        addSubview(artView)
+        artView.contentMode = .scaleToFill
+        artClip.clipsToBounds = true
+        artClip.isUserInteractionEnabled = false
+        artClip.addSubview(artView)
+        addSubview(artClip)
 
         layer.addSublayer(scrimLayer)
+
+        effectsEmitter.isHidden = true
+        layer.addSublayer(effectsEmitter)
 
         addSubview(suggestionBar)
         suggestionBar.onSelect = { [weak self] text in
@@ -160,6 +174,7 @@ final class KeyboardSurfaceView: UIView {
 
         suggestionBar.applyChrome(theme.chrome)
         emojiPlane?.applyTheme(theme, metrics: metrics)
+        applyEffects(theme.effects)
 
         for keyView in keyViews {
             keyView.apply(
@@ -170,6 +185,87 @@ final class KeyboardSurfaceView: UIView {
             )
         }
         setNeedsLayout()
+    }
+
+    // MARK: - Effects
+
+    /// Builds (or tears down) the ambient particle emitter from `theme.effects`.
+    ///
+    /// This is the one place `ThemeEffects` actually draws anything — previously the token was
+    /// declared and ignored. `CAEmitterLayer` rather than a per-frame `draw(_:)` loop or a SpriteKit
+    /// scene, per TRD ADR-002: it is GPU-composited, costs nothing when `isHidden`, and needs no
+    /// timer of its own.
+    private func applyEffects(_ effects: ThemeEffects) {
+        guard effects.isEnabled, effects.birthRate > 0 else {
+            effectsEmitter.isHidden = true
+            effectsEmitter.emitterCells = nil
+            return
+        }
+        effectsEmitter.isHidden = false
+
+        let tint = effects.tint ?? ThemeColor(red: 1, green: 1, blue: 1)
+        if effectsParticleImage == nil || effectsParticleTint != tint
+            || effects.particleImageName != effectsParticleAssetName {
+            effectsParticleImage = Self.makeParticleImage(named: effects.particleImageName, tint: tint)
+            effectsParticleTint = tint
+            effectsParticleAssetName = effects.particleImageName
+        }
+
+        let cell = CAEmitterCell()
+        // Hard-capped regardless of what a theme document asks for: this is ambient atmosphere, not
+        // a fireworks show, and the extension's dirty-memory ceiling has no headroom for a runaway
+        // particle count — see `ThemeEffects.birthRate`'s own doc comment.
+        cell.birthRate = Float(min(effects.birthRate, 14))
+        cell.lifetime = 4.5
+        cell.lifetimeRange = 1.5
+        // A wide emission cone plus a steady downward pull reads as ambient drift regardless of
+        // which way `emissionLongitude`'s zero point happens to face — `yAcceleration` alone
+        // dominates the trajectory well before a particle's ~4.5s lifetime is up.
+        cell.velocity = 8
+        cell.velocityRange = 6
+        cell.emissionRange = .pi * 2
+        cell.yAcceleration = 16
+        cell.scale = 0.16
+        cell.scaleRange = 0.10
+        cell.alphaSpeed = -0.22
+        cell.spin = 0.4
+        cell.spinRange = 0.9
+        cell.contents = effectsParticleImage?.cgImage
+        effectsEmitter.emitterCells = [cell]
+    }
+
+    /// Which `particleImageName` `effectsParticleImage` was built for, so a theme that only changes
+    /// `tint` regenerates the texture but one that changes nothing does not.
+    private var effectsParticleAssetName: String?
+
+    /// A soft radial dot, tinted to the theme's `effects.tint` (or white). Generated once and cached
+    /// rather than shipped as a bundled asset: no "sparkle" artwork exists for this to reference, and
+    /// a tiny procedural texture is both honest about that and cheaper than decoding a PNG for
+    /// something this small. `particleImageName` is still honoured first when a theme names a real
+    /// bundled asset, so authored content is never silently overridden.
+    private static func makeParticleImage(named particleImageName: String?, tint: ThemeColor) -> UIImage? {
+        if let particleImageName, let bundled = UIImage(named: particleImageName) {
+            return bundled
+        }
+        let diameter: CGFloat = 14
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: diameter, height: diameter))
+        return renderer.image { context in
+            let colors = [
+                tint.uiColor.withAlphaComponent(0.9).cgColor,
+                tint.uiColor.withAlphaComponent(0).cgColor
+            ] as CFArray
+            guard let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: colors,
+                locations: [0, 1]
+            ) else { return }
+            context.cgContext.drawRadialGradient(
+                gradient,
+                startCenter: CGPoint(x: diameter / 2, y: diameter / 2), startRadius: 0,
+                endCenter: CGPoint(x: diameter / 2, y: diameter / 2), endRadius: diameter / 2,
+                options: []
+            )
+        }
     }
 
     func setPlane(_ newPlane: KeyboardPlane) {
@@ -475,9 +571,16 @@ final class KeyboardSurfaceView: UIView {
         CATransaction.setDisableActions(true)
         baseLayer.frame = bounds
         scrimLayer.frame = bounds
+        effectsEmitter.frame = bounds
+        // A line source across the top edge: particles originate along the whole width and drift
+        // down through the keyboard, which reads as ambient rather than coming from one spot.
+        effectsEmitter.emitterPosition = CGPoint(x: bounds.midX, y: 0)
+        effectsEmitter.emitterSize = CGSize(width: bounds.width, height: 1)
+        effectsEmitter.emitterShape = .line
         CATransaction.commit()
 
-        artView.frame = bounds
+        artClip.frame = bounds
+        layoutArtFrame()
 
         // The completions bar is meaningless on the emoji plane, so it is hidden there and the
         // panel takes the full height instead. The keyboard's *total* height is deliberately left
@@ -522,9 +625,6 @@ final class KeyboardSurfaceView: UIView {
         guard bounds.size != artSizeInUse else { return }
         artSizeInUse = bounds.size
 
-        artView.contentMode = backgroundImage.scalesToFill ? .scaleAspectFill : .scaleAspectFit
-        artView.layer.contentsRect = CGRect(x: 0, y: 0, width: 1, height: 1)
-
         let image = ThemeImageLoader.loadBackground(
             backgroundImage,
             targetSize: bounds.size,
@@ -536,22 +636,55 @@ final class KeyboardSurfaceView: UIView {
         // the theme is legible in exactly that state, so this needs no further handling.
         artView.isHidden = image == nil
 
-        if let image, backgroundImage.scalesToFill {
-            applyVerticalAnchor(backgroundImage.verticalAnchor, imageSize: image.size)
-        }
+        layoutArtFrame()
     }
 
-    /// Biases which horizontal band of the art survives an aspect-fill crop.
-    private func applyVerticalAnchor(_ anchor: Double, imageSize: CGSize) {
-        guard imageSize.width > 0, imageSize.height > 0, bounds.height > 0 else { return }
-        let scale = bounds.width / imageSize.width
-        let scaledHeight = imageSize.height * scale
-        guard scaledHeight > bounds.height else { return }
+    /// Sizes the art inside `artClip`, biasing which horizontal band survives the crop.
+    ///
+    /// The art is laid out by **frame**, oversized and offset inside a clipping view, rather than
+    /// by setting `contentsRect` on the image view's layer. `UIImageView` owns its layer's
+    /// contents — it rewrites `contents`, and with it the sampling rectangle, whenever the image or
+    /// the layout changes — so a `contentsRect` written from outside is liable to be dropped on the
+    /// next pass. That is not theoretical: on device it silently discarded the whole background
+    /// plate for every theme that crops (which is all of them), leaving the flat `baseFill` showing
+    /// and the art loaded, unhidden, correctly framed and simply never drawn.
+    private func layoutArtFrame() {
+        let box = artClip.bounds
+        guard let image = artView.image, image.size.width > 0, image.size.height > 0,
+              box.width > 0, box.height > 0 else {
+            artView.frame = box
+            return
+        }
 
-        let visibleFraction = bounds.height / scaledHeight
-        let originY = (1 - visibleFraction) * CGFloat(anchor)
+        guard theme.surface.backgroundImage?.scalesToFill ?? true else {
+            // Aspect-fit: the whole image, letterboxed over `baseFill`.
+            artView.contentMode = .scaleAspectFit
+            artView.frame = box
+            return
+        }
+
         artView.contentMode = .scaleToFill
-        artView.layer.contentsRect = CGRect(x: 0, y: originY, width: 1, height: visibleFraction)
+        let aspect = image.size.width / image.size.height
+        let filledHeight = box.width / aspect
+        if filledHeight >= box.height {
+            // Taller than the box once width-matched: crop vertically, biased by the anchor.
+            let anchor = CGFloat(theme.surface.backgroundImage?.verticalAnchor ?? 0.5)
+            artView.frame = CGRect(
+                x: 0,
+                y: -(filledHeight - box.height) * anchor,
+                width: box.width,
+                height: filledHeight
+            )
+        } else {
+            // Wider than the box once height-matched: crop horizontally, centred.
+            let filledWidth = box.height * aspect
+            artView.frame = CGRect(
+                x: -(filledWidth - box.width) / 2,
+                y: 0,
+                width: filledWidth,
+                height: box.height
+            )
+        }
     }
 
     // MARK: - Memory
@@ -568,6 +701,10 @@ final class KeyboardSurfaceView: UIView {
         // Per-key illustrations are the second largest reclaimable allocation after the plate, and
         // like it they regenerate from the bundle on the next layout pass.
         KeyArtStore.shared.releaseAll()
+        // The particle texture is tiny next to the plate, but there is no reason to keep it either —
+        // it regenerates from `applyEffects` the next time a theme is (re)applied.
+        effectsEmitter.emitterCells = nil
+        effectsParticleImage = nil
     }
 
     deinit {

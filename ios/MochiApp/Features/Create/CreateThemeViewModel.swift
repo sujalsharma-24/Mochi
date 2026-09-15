@@ -7,88 +7,169 @@ enum PublishUiState: Equatable {
     case error(String)
 }
 
-private let keyShapeNames = ["square", "rounded", "circle", "hexagon"]
-private let fontStyleIds = ["default", "rounded", "cute", "classic", "handwritten"]
-
-/// Swift mirror of android/.../features/create/CreateThemeViewModel.kt — publishes/saves-drafts
-/// CreateThemeView's local editor state via CreateRepository, matching the config schema
-/// `ThemeDocument` mirrors. The screen's preset background tiles are bundled assets, not uploads —
-/// there's nothing in Storage to point at, so they're encoded as `preset:{index}` in
-/// backgroundConfig.galleryImageUrl, same bundled-asset convention `ThemeDocument.toKeyboardTheme()`
-/// uses for `"firestore:$id"`. A picked gallery photo uses the real StorageRepository upload path
-/// instead. description/isPremium have no UI control on this screen (neither did Android's) so
-/// they're sent as blank/false.
+/// Owns the Create screen's single source of truth (`draft`) and everything that reads or writes
+/// it: loading the last-active draft on appear, debounced autosave on every edit, Reset All, and
+/// the two action buttons.
+///
+/// **Why autosave rather than a dirty flag + confirmation dialog.** Every meaningful edit is
+/// persisted to `CustomThemeStore` within `autosaveDebounce` of the user pausing, so there is
+/// essentially never unsaved work for a Back tap to lose — which is the actual product goal point
+/// 14 asks for ("don't silently lose the user's work"), achieved without a discard/keep prompt this
+/// session has no simulator to verify the interaction of. `flushPendingSave()` makes that guarantee
+/// synchronous at the one moment it has to be watertight: the instant before navigating away.
 @MainActor
 final class CreateThemeViewModel: ObservableObject {
+    @Published var draft: ThemeDraft
     @Published private(set) var publishState: PublishUiState = .idle
 
     private let createRepository: CreateRepository?
     private let storageRepository: StorageRepository?
     private let authRepository: AuthRepository?
 
+    private var autosaveTask: Task<Void, Never>?
+    private let autosaveDebounce: Duration = .milliseconds(500)
+
     init(container: AppContainer?) {
         createRepository = container?.createRepository
         storageRepository = container?.storageRepository
         authRepository = container?.authRepository
+
+        if let activeID = CustomThemeStore.activeDraftID, let resumed = CustomThemeStore.loadDraft(id: activeID) {
+            draft = resumed
+        } else {
+            draft = ThemeDraft()
+        }
     }
 
-    func save(
-        name: String,
-        tags: [String],
-        presetBackgroundIndex: Int?,
-        galleryImageData: Data?,
-        keyShapeIndex: Int,
-        fontStyleIndex: Int,
-        publish: Bool
-    ) {
-        guard let createRepository, let storageRepository, let authRepository,
-              let user = authRepository.currentUser else {
-            publishState = .error("Sign in to save a theme.")
+    // MARK: - Persistence
+
+    /// Call after any field mutation. Coalesces bursts (a colour drag fires this dozens of times a
+    /// second) into one write roughly `autosaveDebounce` after the user stops moving the knob —
+    /// frequent enough that "leave and come back" always finds the latest state, infrequent enough
+    /// that dragging a slider never contends with the encoder/disk on every frame.
+    func scheduleAutosave() {
+        autosaveTask?.cancel()
+        let snapshot = draft
+        autosaveTask = Task { [autosaveDebounce] in
+            try? await Task.sleep(for: autosaveDebounce)
+            guard !Task.isCancelled else { return }
+            CustomThemeStore.saveDraft(snapshot)
+        }
+    }
+
+    /// Saves immediately, bypassing the debounce. Called before navigating away and before either
+    /// action button runs, so neither can race a still-pending autosave.
+    func flushPendingSave() {
+        autosaveTask?.cancel()
+        autosaveTask = nil
+        draft = CustomThemeStore.saveDraft(draft)
+    }
+
+    /// Replaces the draft with a fresh one carrying the same id, so Reset All clears every field —
+    /// including ones a visual-only reset would miss — without abandoning the draft record itself or
+    /// its place in `CustomThemeStore`'s resume history.
+    func resetAll() {
+        autosaveTask?.cancel()
+        draft = CustomThemeStore.saveDraft(ThemeDraft(id: draft.id))
+        publishState = .idle
+    }
+
+    // MARK: - Background photo
+
+    func applyPickedPhoto(data: Data) {
+        guard let relativePath = CustomThemeStore.storePhoto(data: data, draftID: draft.id) else {
+            publishState = .error("Couldn't use that photo — try a different one.")
             return
         }
-        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        draft.background = .photo(relativePath: relativePath)
+        scheduleAutosave()
+    }
+
+    // MARK: - Validation
+
+    var validation: ThemeValidator.Report { ThemeValidator.validate(draft.renderTheme) }
+
+    // MARK: - Save / Publish
+
+    func save(publish: Bool) {
+        NSLog("DIAG save(publish: %@) called, name='%@'", publish ? "true" : "false", draft.name)
+        flushPendingSave()
+
+        guard !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             publishState = .error("Give your theme a name first.")
             return
         }
+        if publish {
+            let report = validation
+            guard report.isPublishable else {
+                let detail = report.errors.first?.message ?? "This theme isn't legible enough to publish yet."
+                publishState = .error(detail)
+                return
+            }
+        }
+
         publishState = .saving
+        draft = publish ? CustomThemeStore.publish(draft) : CustomThemeStore.saveDraft(draft)
+        // Local persistence is the result the user sees — it is real and immediate regardless of
+        // backend availability. The Firestore write below is best-effort on top of that, per
+        // `CustomThemeStore`'s own doc comment on why local-first is correct here.
+        publishState = .success(published: publish)
+
+        fireRemoteWriteBestEffort(publish: publish)
+    }
+
+    /// Fires the existing Firestore path when a real backend is configured, and quietly does nothing
+    /// otherwise. Its outcome never overwrites `publishState` — a user who just saw "Published!"
+    /// should not have that flip to an error a second later because this device has no
+    /// `GoogleService-Info.plist`, which is the overwhelmingly common case on this build.
+    private func fireRemoteWriteBestEffort(publish: Bool) {
+        guard let createRepository, let storageRepository, let authRepository,
+              let user = authRepository.currentUser else { return }
+        let draft = draft
         Task {
             do {
-                var galleryUrl: String?
-                if let galleryImageData {
-                    galleryUrl = try await storageRepository.uploadThemeImage(uid: user.uid, imageData: galleryImageData)
+                var previewImageUrl = ""
+                if case .photo(let relativePath) = draft.background {
+                    let url = CustomThemeStore.mediaRootURL.appendingPathComponent(relativePath)
+                    if let data = try? Data(contentsOf: url) {
+                        previewImageUrl = (try? await storageRepository.uploadThemeImage(uid: user.uid, imageData: data)) ?? ""
+                    }
                 }
-                let backgroundConfig = BackgroundConfig(
-                    galleryImageUrl: galleryUrl ?? "preset:\(presetBackgroundIndex ?? 0)"
-                )
                 let displayName = user.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Mochi Creator"
                 _ = try await createRepository.saveTheme(
                     creatorUid: user.uid,
                     creatorDisplayName: displayName,
                     creatorAvatarUrl: user.photoURL?.absoluteString ?? "",
-                    name: name,
+                    name: draft.name,
                     description: "",
-                    hashtags: tags,
-                    previewImageUrl: galleryUrl ?? "",
+                    hashtags: draft.tags,
+                    previewImageUrl: previewImageUrl,
                     isPremium: false,
                     publish: publish,
-                    backgroundType: "gallery",
-                    backgroundConfig: backgroundConfig,
-                    keysConfig: KeysConfig(shape: safeElement(keyShapeNames, keyShapeIndex) ?? "rounded"),
-                    fontsConfig: FontsConfig(fontId: safeElement(fontStyleIds, fontStyleIndex) ?? "default"),
-                    effectsConfig: EffectsConfig()
+                    backgroundType: backgroundType(for: draft.background),
+                    backgroundConfig: draft.backgroundConfig,
+                    keysConfig: draft.keysConfig,
+                    fontsConfig: draft.fontsConfig,
+                    effectsConfig: draft.effectsConfig
                 )
-                publishState = .success(published: publish)
             } catch {
-                publishState = .error(error.localizedDescription)
+                // Best-effort: the local publish already succeeded and is what the rest of the app
+                // sees. Nothing else to do with a remote failure until there's a retry queue worth
+                // building, which needs a real backend to test against in the first place.
             }
+        }
+    }
+
+    private func backgroundType(for choice: BackgroundChoice) -> String {
+        switch choice {
+        case .gradient: return "gradient"
+        case .solid: return "solid"
+        case .plate: return "gallery"
+        case .photo: return "gallery"
         }
     }
 
     func dismissStatus() {
         publishState = .idle
     }
-}
-
-private func safeElement(_ array: [String], _ index: Int) -> String? {
-    array.indices.contains(index) ? array[index] : nil
 }

@@ -111,10 +111,68 @@ extension ThemeColor {
     var cgColor: CGColor {
         uiColor.cgColor
     }
+
+    /// The other direction of the bridge above — for reading back whatever a system colour control
+    /// (SwiftUI's `ColorPicker`, which includes a real eyedropper tool) handed the Create screen.
+    init(uiColor: UIColor) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        self.init(red: Double(r), green: Double(g), blue: Double(b), alpha: Double(a))
+    }
 }
 #endif
 
 extension ThemeColor {
+    /// `hue`/`saturation`/`brightness` in 0...1 (hue wraps — pass anything and it is normalised into
+    /// range). Added for the Create screen's saturation-square-and-hue-rail picker, which is an HSB
+    /// control by construction; everywhere else in the theme system stays sRGB, so this is the one
+    /// conversion boundary rather than a second colour representation spreading through the model.
+    init(hue: Double, saturation: Double, brightness: Double, alpha: Double = 1) {
+        let h = hue - floor(hue)
+        let s = saturation.clamped01
+        let v = brightness.clamped01
+        let sector = Int(h * 6)
+        let fraction = h * 6 - Double(sector)
+        let p = v * (1 - s)
+        let q = v * (1 - fraction * s)
+        let t = v * (1 - (1 - fraction) * s)
+        let (r, g, b): (Double, Double, Double)
+        switch sector % 6 {
+        case 0: (r, g, b) = (v, t, p)
+        case 1: (r, g, b) = (q, v, p)
+        case 2: (r, g, b) = (p, v, t)
+        case 3: (r, g, b) = (p, q, v)
+        case 4: (r, g, b) = (t, p, v)
+        default: (r, g, b) = (v, p, q)
+        }
+        self.init(red: r, green: g, blue: b, alpha: alpha)
+    }
+
+    /// The inverse of the initialiser above. Used to seed a picker's knob position from a colour
+    /// that arrived by some other route (the system colour picker's eyedropper, a tapped RECENT
+    /// swatch), so the square and rail always agree with whatever colour is actually current instead
+    /// of silently resetting to wherever they last were.
+    var hsbComponents: (hue: Double, saturation: Double, brightness: Double) {
+        let maxC = max(red, green, blue)
+        let minC = min(red, green, blue)
+        let delta = maxC - minC
+        let brightness = maxC
+        let saturation = maxC <= 0 ? 0 : delta / maxC
+        guard delta > 0.0001 else { return (0, saturation, brightness) }
+
+        var hue: Double
+        if maxC == red {
+            hue = ((green - blue) / delta).truncatingRemainder(dividingBy: 6)
+        } else if maxC == green {
+            hue = (blue - red) / delta + 2
+        } else {
+            hue = (red - green) / delta + 4
+        }
+        hue /= 6
+        if hue < 0 { hue += 1 }
+        return (hue, saturation, brightness)
+    }
+
     func withAlpha(_ newAlpha: Double) -> ThemeColor {
         ThemeColor(red: red, green: green, blue: blue, alpha: newAlpha)
     }

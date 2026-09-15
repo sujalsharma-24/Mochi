@@ -22,6 +22,12 @@ final class KeyView: UIControl {
     /// trims that bleed back to the cap's shape.
     private let artClipView = UIView()
     private let artView = UIImageView()
+    /// A flat black/white wash over the illustration only, driven by `KeyArtPlacement.brightness`.
+    /// Sits between `artView` and the label so it tints the art without touching the cap fill.
+    /// Masked to the illustration's own alpha channel — see `layoutArt()` — so it tints the motif,
+    /// not a rectangle around it.
+    private let artBrightnessOverlay = UIView()
+    private let artBrightnessMask = CALayer()
     /// Bright hairline just inside the top edge — the pane's thickness catching light.
     private let bevelLayer = CAGradientLayer()
     private let bevelMask = CAShapeLayer()
@@ -29,6 +35,13 @@ final class KeyView: UIControl {
     private let innerShadowLayer = CAShapeLayer()
     private let label = UILabel()
     private let iconView = UIImageView()
+
+    /// Masks for `capShape == .hexagon`. `CALayer.cornerRadius` cannot express a hexagon, so a
+    /// non-rectangular shape gets its silhouette from a mask instead. Created once and left
+    /// detached (`mask` stays `nil` on both hosts) until a theme actually asks for a shape that
+    /// needs one — every rounded-rect theme, which today is all of them, never touches these.
+    private let capShapeMask = CAShapeLayer()
+    private let artShapeMask = CAShapeLayer()
 
     /// The theme's illustration set, if it has one.
     private var artSet: KeyArtSet?
@@ -86,6 +99,12 @@ final class KeyView: UIControl {
         artView.contentMode = .scaleAspectFill
         artView.isUserInteractionEnabled = false
         artClipView.addSubview(artView)
+
+        artBrightnessOverlay.isUserInteractionEnabled = false
+        artBrightnessOverlay.isHidden = true
+        artBrightnessMask.contentsGravity = .resizeAspectFill
+        artBrightnessOverlay.layer.mask = artBrightnessMask
+        artClipView.addSubview(artBrightnessOverlay)
 
         // Both sit above the artwork: the edge of a pane is in front of whatever is inside it.
         innerShadowLayer.fillRule = .evenOdd
@@ -171,14 +190,24 @@ final class KeyView: UIControl {
         self.artSet = artSet
 
         let radius = CGFloat(style.cornerRadiusOverride ?? Double(metrics.keyCornerRadius))
-        capLayer.cornerRadius = radius
-        // `.continuous` is not cosmetic here. The system keyboard's caps are superellipses, and a
-        // circular corner at the same radius reads visibly harder-edged next to them — this is one
-        // of the details that separates a themed keyboard from a convincing one.
-        capLayer.cornerCurve = .continuous
+        switch style.resolvedCapShape {
+        case .roundedRect:
+            capLayer.cornerRadius = radius
+            // `.continuous` is not cosmetic here. The system keyboard's caps are superellipses, and
+            // a circular corner at the same radius reads visibly harder-edged next to them — this
+            // is one of the details that separates a themed keyboard from a convincing one.
+            capLayer.cornerCurve = .continuous
+            capLayer.mask = nil
+            glossLayer.cornerRadius = radius
+            glossLayer.cornerCurve = .continuous
+        case .hexagon:
+            // The mask itself is sized in `layoutSubviews`, where `bounds` is actually known; this
+            // only turns off the native rounding so it cannot fight the mask.
+            capLayer.cornerRadius = 0
+            capLayer.mask = capShapeMask
+            glossLayer.cornerRadius = 0
+        }
         capLayer.masksToBounds = true
-        glossLayer.cornerRadius = radius
-        glossLayer.cornerCurve = .continuous
 
         if let border = style.border {
             capLayer.borderWidth = CGFloat(border.width)
@@ -202,8 +231,15 @@ final class KeyView: UIControl {
             glossLayer.isHidden = true
         }
 
-        artClipView.layer.cornerRadius = radius
-        artClipView.layer.cornerCurve = .continuous
+        switch style.resolvedCapShape {
+        case .roundedRect:
+            artClipView.layer.cornerRadius = radius
+            artClipView.layer.cornerCurve = .continuous
+            artClipView.layer.mask = nil
+        case .hexagon:
+            artClipView.layer.cornerRadius = 0
+            artClipView.layer.mask = artShapeMask
+        }
         // Resolved per key, not per set: a placement may pin this one illustration's opacity.
         if let artSet, let identity = definition.artIdentity {
             artClipView.alpha = CGFloat(artSet.resolvedOpacity(for: identity))
@@ -323,13 +359,54 @@ final class KeyView: UIControl {
         label.frame = bounds.offsetBy(dx: 0, dy: inkOffset)
         iconView.frame = bounds.offsetBy(dx: 0, dy: inkOffset)
 
-        layoutGlass(radius: capLayer.cornerRadius)
-        layoutSelectionRing(radius: capLayer.cornerRadius)
+        let radius = capLayer.cornerRadius
+        let outline = Self.outlinePath(for: style.resolvedCapShape, in: bounds, cornerRadius: radius)
+
+        if style.resolvedCapShape == .hexagon {
+            capShapeMask.frame = bounds
+            capShapeMask.path = outline.cgPath
+            artShapeMask.frame = bounds
+            artShapeMask.path = outline.cgPath
+        }
+
+        layoutGlass(radius: radius, outline: outline)
+        layoutSelectionRing(radius: radius)
 
         // An explicit shadow path avoids Core Animation deriving it from the layer's contents on
         // every frame — measurable on a 30-key grid, and free to provide since we know the shape.
-        let radius = capLayer.cornerRadius
-        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
+        layer.shadowPath = outline.cgPath
+    }
+
+    /// The cap's own silhouette, in `bounds`-local coordinates. Every consumer that needs to know
+    /// the cap's outline — the shadow, the glass bevel, the selection ring — asks this rather than
+    /// re-deriving `roundedRect` vs. hexagon itself, so the two stay impossible to disagree.
+    private static func outlinePath(for shape: KeyCapShape, in rect: CGRect, cornerRadius: CGFloat) -> UIBezierPath {
+        switch shape {
+        case .roundedRect:
+            return UIBezierPath(roundedRect: rect, cornerRadius: cornerRadius)
+        case .hexagon:
+            return hexagonPath(in: rect)
+        }
+    }
+
+    /// Flat top and bottom edges spanning the middle half of the width, points at mid-height —
+    /// identical geometry to the Create screen's `HexagonShape` chip preview, so the shape a user
+    /// picks there is the exact shape the real cap draws.
+    private static func hexagonPath(in rect: CGRect) -> UIBezierPath {
+        let w = rect.width
+        let points = [
+            CGPoint(x: rect.minX + w * 0.25, y: rect.minY),
+            CGPoint(x: rect.minX + w * 0.75, y: rect.minY),
+            CGPoint(x: rect.maxX, y: rect.midY),
+            CGPoint(x: rect.minX + w * 0.75, y: rect.maxY),
+            CGPoint(x: rect.minX + w * 0.25, y: rect.maxY),
+            CGPoint(x: rect.minX, y: rect.midY)
+        ]
+        let path = UIBezierPath()
+        path.move(to: points[0])
+        for point in points.dropFirst() { path.addLine(to: point) }
+        path.close()
+        return path
     }
 
     // MARK: - Selection ring (DEBUG tooling)
@@ -358,39 +435,50 @@ final class KeyView: UIControl {
     private func layoutSelectionRing(radius: CGFloat) {
         guard let selectionLayer else { return }
         selectionLayer.frame = bounds
-        selectionLayer.path = UIBezierPath(
-            roundedRect: bounds.insetBy(dx: 1, dy: 1),
-            cornerRadius: max(0, radius - 1)
-        ).cgPath
+        switch style.resolvedCapShape {
+        case .roundedRect:
+            selectionLayer.path = UIBezierPath(
+                roundedRect: bounds.insetBy(dx: 1, dy: 1),
+                cornerRadius: max(0, radius - 1)
+            ).cgPath
+        case .hexagon:
+            selectionLayer.path = Self.hexagonPath(in: bounds.insetBy(dx: 1, dy: 1)).cgPath
+        }
     }
 
-    private func layoutGlass(radius: CGFloat) {
+    private func layoutGlass(radius: CGFloat, outline: UIBezierPath) {
         guard let glass = style.glass, bounds.width > 1 else { return }
         let inset = CGFloat(glass.bevelWidth) / 2
+        let insetOutline = Self.outlinePath(
+            for: style.resolvedCapShape,
+            in: bounds.insetBy(dx: inset, dy: inset),
+            cornerRadius: max(0, radius - inset)
+        )
 
         bevelLayer.frame = bounds
         bevelMask.frame = bounds
-        bevelMask.path = UIBezierPath(
-            roundedRect: bounds.insetBy(dx: inset, dy: inset),
-            cornerRadius: max(0, radius - inset)
-        ).cgPath
+        bevelMask.path = insetOutline.cgPath
 
         // Even-odd: the filled region is the ring *outside* the cap, which the mask then hides,
         // leaving only the shadow it casts inward. This is the standard way to get an inner shadow
-        // out of Core Animation, which has no such property.
+        // out of Core Animation, which has no such property. The outer padding only has to clear
+        // the cap on every side by more than the shadow's own radius, so a shape-independent
+        // constant works as well as one derived from a corner radius that a hexagon doesn't have.
         innerShadowLayer.frame = bounds
-        let outer = UIBezierPath(rect: bounds.insetBy(dx: -radius * 3, dy: -radius * 3))
-        outer.append(UIBezierPath(roundedRect: bounds, cornerRadius: radius).reversing())
+        let padding = max(radius * 3, CGFloat(glass.innerShadowRadius) * 4, 24)
+        let outer = UIBezierPath(rect: bounds.insetBy(dx: -padding, dy: -padding))
+        outer.append(outline.reversing())
         innerShadowLayer.path = outer.cgPath
 
         let clip = CAShapeLayer()
-        clip.path = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
+        clip.path = outline.cgPath
         innerShadowLayer.mask = clip
     }
 
     private func layoutArt() {
         guard let artSet, let identity = definition.artIdentity, bounds.width > 1 else {
             artView.image = nil
+            artBrightnessOverlay.isHidden = true
             return
         }
         artClipView.frame = bounds
@@ -398,14 +486,15 @@ final class KeyView: UIControl {
         let scale = traitCollection.displayScale > 0 ? traitCollection.displayScale : UIScreen.main.scale
         let fills = artSet.fillKeys.contains(identity)
 
-        // The band the illustration occupies, flush to the cap's bottom edge. Anchoring to the
-        // edge rather than floating above it is what makes the artwork read as part of the cap
-        // instead of a sticker sitting in the middle of it.
+        // The band the illustration occupies. Anchored near the cap's bottom edge — reading as part
+        // of the cap rather than a sticker floating mid-face — but lifted clear of it by
+        // `bottomInsetFraction` so a tall motif doesn't crowd the very bottom rim. Inset 0 keeps the
+        // old flush behaviour; every batch-2 theme now carries a small positive inset.
         let base: CGRect = fills
             ? bounds
             : CGRect(
                 x: 0,
-                y: bounds.height * (1 - CGFloat(artSet.heightFraction)),
+                y: bounds.height * (1 - CGFloat(artSet.heightFraction) - CGFloat(artSet.bottomInsetFraction)),
                 width: bounds.width,
                 height: bounds.height * CGFloat(artSet.heightFraction)
               )
@@ -424,6 +513,20 @@ final class KeyView: UIControl {
         )
         artView.image = image
         artView.frame = band
+
+        let brightness = artSet.resolvedBrightness(for: identity)
+        if brightness == 0 {
+            artBrightnessOverlay.isHidden = true
+        } else {
+            artBrightnessOverlay.isHidden = false
+            artBrightnessOverlay.frame = band
+            artBrightnessOverlay.backgroundColor = brightness > 0 ? .white : .black
+            artBrightnessOverlay.alpha = CGFloat(min(1, abs(brightness)))
+            // Mirror artView's own image/gravity into the mask so the wash only lands on the
+            // illustration's actual pixels, not the transparent rest of its band.
+            artBrightnessMask.frame = artBrightnessOverlay.bounds
+            artBrightnessMask.contents = image?.cgImage
+        }
     }
 
     /// Scales `base` about its own centre, then offsets by a fraction of the **cap's** size.

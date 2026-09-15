@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Built against docs/figma/8.png (the Themes frame), measured rather than eyeballed — the same
 /// method HomeView uses against 1.png, CommunityView against 2.png and FontsView against 5.png.
@@ -22,15 +23,15 @@ import SwiftUI
 /// **Gaps between elements are the one vertical dimension `S` is NOT applied to.** Artwork aspect
 /// ratios also stay pinned to their measured values (the tiles are 640x440px crops), so the extra
 /// height goes to the white card bodies, which is where the enlarged type needs it.
-private let S: CGFloat = 1.22
+/// The design's own lift, multiplied by `ScreenScale` so the page holds its proportions on a
+/// larger phone rather than drawing 402-point sizes into a 440-point screen.
+private var S: CGFloat { 1.22 * ScreenScale.value }
 
 /// The category bar is the one block that takes **no** vertical lift at all. Its seven pills span
-/// the content width exactly in Figma — 40px inset, seven pills, six 59.5px gaps, 44px inset, and
-/// 2008px of content to hold them — and that budget is pure width, so there is no headroom to give
-/// the labels. Fonts settled for 1.13 and let "Other" scroll off; here 1.0 keeps all seven visible
-/// and flush, exactly as the frame draws them. The bar still scrolls, as a safety valve for larger
-/// Dynamic Type.
-private let SPill: CGFloat = 1.0
+/// the content width exactly in Figma, and that budget is pure width, so there is no headroom to
+/// give the labels. 1.0 keeps all seven visible and flush, exactly as the frame draws them. The bar
+/// still scrolls, as a safety valve for larger Dynamic Type.
+private var SPill: CGFloat { ScreenScale.value }
 
 private enum Metrics {
     /// px->pt for this export. Quoted so the raw Figma measurements below stay checkable.
@@ -53,34 +54,41 @@ private enum Metrics {
     static let badgeGlyph: CGFloat = 9.27 * S   // 50px, centred in the chip
     static let badgeToTitle: CGFloat = 4.26     // 23px, chip-right to "T"-left
     static let titleToSubtitle: CGFloat = 2.0   // 37px of ink gap, less Inter's own leading
-    static let headerToPills: CGFloat = 16.68   // 90px, disc-bottom to bar-top
+    static let headerToPills: CGFloat = 16.68 + 5.0 * ScreenScale.spacing   // 90px, disc-bottom to bar-top
 
     // MARK: Category bar — one white capsule, 2007x104px, outlined in #9C28B1 like the pills inside
-    // it, holding seven 76px-tall pills 59.5px apart. See `SPill`: this block is drawn at 1.0.
-    static let pillBarHeight: CGFloat = 19.28 * SPill   // 104px
+    // it, holding seven pills. See `SPill`: this block is drawn at 1.0.
+    //
+    // The bar is a touch taller than Figma's measured 104px (19.28pt) and the pills sit inside it
+    // with real vertical padding: at the measured height a selected pill's fill and an unselected
+    // pill's 0.5pt stroke were both being shaved by the bar's own edge — the "cut off along the
+    // bottom" the row showed. `pillBarVPad` gives the pills breathing room and the extra ~2pt of
+    // bar height keeps a small, even gap between the pill outline and the bar outline.
+    static let pillBarHeight: CGFloat = 21.5 * SPill
+    static let pillBarVPad: CGFloat = 2.6 * SPill
     static let pillHeight: CGFloat = 14.08 * SPill      // 76px
     static let pillBarInset: CGFloat = 7.41 * SPill     // 40px, bar-left to first pill
-    static let pillGap: CGFloat = 11.03 * SPill         // 59.5px
+    static let pillGap: CGFloat = 9.5 * SPill
+    static let pillPad: CGFloat = 6.0 * SPill           // label inset inside each pill
     static let pillIconGap: CGFloat = 3.00 * SPill      // 14-22px depending on the mark
-    static let pillsToFilter: CGFloat = 6.67            // 36px
+    static let pillsToFilter: CGFloat = 7.4 + 3.0 * ScreenScale.spacing             // 36px + the bar's 2pt of extra height
 
     // MARK: Filter row — a 234x104px capsule and a 133x104px one, both white with a #9C28B1
     // outline, ending flush with the right margin. Unlike the grid this row has slack to its left,
     // so `S` is applied to both axes and the two shapes keep their measured proportions.
     static let filterHeight: CGFloat = 19.28 * S
-    static let filterWidth: CGFloat = 43.37 * S
-    static let slidersWidth: CGFloat = 24.65 * S
-    static let filterGap: CGFloat = 8.34 * S    // 45px
-    static let filterToGrid: CGFloat = 6.67     // 36px
+    static let filterToGrid: CGFloat = 6.67 + 4.0 * ScreenScale.spacing     // 36px
     /// Both marks are small relative to the capsules that hold them — 39x36px and 44x36px inside
     /// shapes 104px tall — and both are stroked at 4px, which is 0.74pt before the lift.
-    static let funnelGlyph = CGSize(width: 7.23 * S, height: 6.67 * S)
-    static let slidersGlyph = CGSize(width: 8.15 * S, height: 6.67 * S)
     static let glyphStroke: CGFloat = 0.74 * S
 
     // MARK: Card grid — 640x640px cards (square at width scale) 44px apart in both axes, 56px
     // corner. 440px of art over a 200px white body; only the body takes `S`.
-    static let cardWidth: CGFloat = 118.62
+    /// Was a baked 118.62 — the value that made three cards plus two gaps span a 402pt screen
+    /// exactly. See `DesignGrid` for why that has to be computed instead.
+    static var cardWidth: CGFloat {
+        DesignGrid.columnWidth(columns: 3, margin: margin, gap: cardGap)
+    }
     static let cardGap: CGFloat = 8.15          // 44px
     static let cardRadius: CGFloat = 10.38      // 56px
     static let cardArtAspect: CGFloat = 640.0 / 440.0
@@ -109,14 +117,15 @@ private enum Metrics {
     // heading — the un-occluded frame shows the same gap, so it is not the popup's doing.
     /// 362px card-foot to heading-cap. 2.6pt of that is the heading's own internal leading, so the
     /// layout gap is the measurement less that.
-    static let gridToHeading: CGFloat = 64.49
+    static let gridToHeading: CGFloat = 64.49 + 6.0 * ScreenScale.spacing
     /// The heading row is inset a further 86px on both sides than the tiles under it — "MY" starts
     /// at 166px where the first tile starts at 80px, and "see all" ends at 2007px where the last
     /// tile ends at 2088px. Symmetric, so it is deliberate rather than a stray nudge.
     static let headingInset: CGFloat = 15.94
     static let headingToStrip: CGFloat = 4.18   // 38px ink-to-art, less the heading's descent
     static let seeAllGap: CGFloat = 2.60
-    /// Four 461x402px tiles 53px apart; 308px art over a 94px body. Four fill the row exactly.
+    /// Four 461x402px tiles 53px apart; 308px art over a 94px body. Four fill the row exactly — so
+    /// the expanded "see all" state is literally this row wrapped, `chunked(into: 4)`.
     static let downloadCard: CGFloat = 85.43
     static let downloadCardGap: CGFloat = 9.82  // 53px
     static let downloadArtAspect: CGFloat = 461.0 / 308.0
@@ -155,6 +164,45 @@ private enum Type {
     static let downloadName: CGFloat = 5.53 * S     // Medium;   "Pastel Rainbow" 215px
 }
 
+/// How the theme grid is ordered. The architecture is real; "Popular" ranks by `likeCount`, which
+/// is a documented placeholder on `ThemeCatalog` until real telemetry exists. "Newest" has no real
+/// dates either, so it sorts by reverse position in `ThemeCatalog.all` (newest = added last).
+private enum ThemeSortOption: String, CaseIterable, Identifiable {
+    case popular = "Popular", newest = "Newest", nameAsc = "A–Z"
+    var id: String { rawValue }
+
+    func orders(_ a: KeyboardTheme, _ b: KeyboardTheme) -> Bool {
+        switch self {
+        case .popular:
+            // Featured themes (the ones Home showcases, with real composited thumbnails) come
+            // first, in their editorial order; everything else falls back to the like-count rank.
+            if a.featuredRank != b.featuredRank {
+                return (a.featuredRank ?? .max) < (b.featuredRank ?? .max)
+            }
+            return a.likeCount > b.likeCount
+        case .newest:
+            let index = { (t: KeyboardTheme) in ThemeCatalog.all.firstIndex(of: t) ?? 0 }
+            return index(a) > index(b)
+        case .nameAsc:
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
+}
+
+/// The Filter control — the free/premium axis. Category is handled by the pills.
+private enum ThemeTierFilter: String, CaseIterable, Identifiable {
+    case all = "All Themes", free = "Free Only", premium = "Premium Only"
+    var id: String { rawValue }
+
+    func includes(_ theme: KeyboardTheme) -> Bool {
+        switch self {
+        case .all: return true
+        case .free: return !theme.isPremium
+        case .premium: return theme.isPremium
+        }
+    }
+}
+
 struct ThemesView: View {
     var onOpenSearch: () -> Void = {}
     var onThemeClick: (KeyboardTheme) -> Void = { _ in }
@@ -162,54 +210,52 @@ struct ThemesView: View {
 
     @StateObject private var viewModel = ThemesViewModel(container: AppContainer.shared)
 
+    @State private var category: ThemeCategory = .all
+    @State private var sortOption: ThemeSortOption = .popular
+    @State private var tierFilter: ThemeTierFilter = .all
+
+    /// Published Create Custom Theme drafts, loaded once on appear rather than re-read from disk on
+    /// every `body` evaluation — the pills and the two menus re-evaluate `body` on every tap, and
+    /// `CustomThemeStore.publishedCatalogueThemes()` walks `index.json` plus one file per theme.
+    @State private var publishedCustoms: [KeyboardTheme] = []
+    /// Mirrors `DownloadedThemeStore` — the "MY DOWNLOADED THEMES" strip, and the per-card
+    /// download-disc state. Kept in `@State` so a tap refreshes the UI.
+    @State private var downloadedIDs: [String] = DownloadedThemeStore.loadDownloadedThemeIDs()
+    /// Mirrors `AppliedThemeStore.appliedThemeId` so a card's Apply button can show "Applied".
+    @AppStorage(AppliedThemeStore.defaultsKey) private var appliedThemeId: String = ""
+
+    /// The downloaded strip switches from a horizontal scroller to a full inline grid on the same
+    /// page when this is set — Figma's "see all", kept on-page rather than pushed as a route.
+    @State private var showAllDownloaded = false
+
     /// Real Firestore data only replaces the grid once it's actually loaded — Loading/Empty/Error
-    /// fall back to MockData, same convention as ThemesScreen.kt (this screen always shows
-    /// *something*, unlike Home's real-empty-state handling).
-    private var themes: [KeyboardTheme] {
-        if case .data(let themes) = viewModel.uiState { return themes }
-        return MockData.themesGrid
+    /// fall back to the real built-in catalogue (`ThemeCatalog.all`), same convention as
+    /// ThemesScreen.kt (this screen always shows *something*).
+    ///
+    /// Published custom themes are prepended regardless of that backend state, newest first — this
+    /// is the local-first path point 13 asks for: publishing has to make a theme show up in the
+    /// application's actual theme system even before/without a Firestore backend.
+    private var baseThemes: [KeyboardTheme] {
+        let backend: [KeyboardTheme]
+        if case .data(let themes) = viewModel.uiState { backend = themes } else { backend = ThemeCatalog.all }
+        return publishedCustoms + backend
     }
 
-    /// The same seven categories the Fonts frame uses, with the same marks.
-    private enum Category: String, CaseIterable, Identifiable {
-        case all = "All", cute = "Cute", handwritten = "Handwritten", minimal = "Minimal"
-        case bold = "Bold", elegant = "Elegant", other = "Other"
-        var id: String { rawValue }
-
-        /// Each pill's width is measured rather than derived from its content. Letting the labels
-        /// size the pills put the row ~11pt over the content width and pushed "Other" off-screen,
-        /// because Inter's advance widths and the SF marks do not add up to the same padding Figma
-        /// used on each of the seven. These seven plus six 11.03pt gaps and the bar's two insets
-        /// come to 372.15pt — the content width to within a rounding error — so the row lands flush
-        /// at both ends exactly as the frame draws it.
-        var width: CGFloat {
-            switch self {
-            case .all:         return 36.14   // 195px
-            case .cute:        return 37.99   // 205px
-            case .handwritten: return 60.61   // 327px
-            case .minimal:     return 45.41   // 245px
-            case .bold:        return 33.55   // 181px
-            case .elegant:     return 43.55   // 235px
-            case .other:       return 33.18   // 179px
-            }
-        }
-
-        /// Ink width of the mark left of the label, so the SF symbols and the bow artwork are set
-        /// to the size Figma draws them at rather than to whatever their glyph metrics imply.
-        var iconWidth: CGFloat {
-            switch self {
-            case .all:         return 6.12    // 33px
-            case .cute:        return 9.82    // 53px
-            case .handwritten: return 6.86    // 37px
-            case .minimal:     return 7.97    // 43px
-            case .bold:        return 3.89    // 21px
-            case .elegant:     return 3.52    // 19px
-            case .other:       return 5.75    // 31px
-            }
-        }
+    /// The grid contents after the pills, the Filter and the Sort control have been applied.
+    private var displayedThemes: [KeyboardTheme] {
+        baseThemes
+            .filter { category == .all || $0.category == category }
+            .filter { tierFilter.includes($0) }
+            .sorted { sortOption.orders($0, $1) }
     }
 
-    @State private var category: Category = .all
+    /// The "MY DOWNLOADED THEMES" strip, resolved from the id list — a published custom theme first,
+    /// then the built-in catalogue. Order follows the id list (most-recently-downloaded last).
+    private var downloadedThemeItems: [KeyboardTheme] {
+        downloadedIDs.compactMap { id in
+            publishedCustoms.first { $0.id == id } ?? ThemeCatalog.theme(id: id)
+        }
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -248,6 +294,10 @@ struct ThemesView: View {
                 SparkleField()
             }
             .ignoresSafeArea()
+        }
+        .onAppear {
+            publishedCustoms = CustomThemeStore.publishedCatalogueThemes()
+            downloadedIDs = DownloadedThemeStore.loadDownloadedThemeIDs()
         }
     }
 
@@ -305,35 +355,64 @@ struct ThemesView: View {
 
     /// One outlined white capsule holding the whole row, which then scrolls inside it. The bar's
     /// own inset is applied as content padding rather than to the ScrollView, so pills can scroll
-    /// under the rounded ends instead of stopping short of them.
+    /// under the rounded ends instead of stopping short of them, and the pills carry vertical
+    /// padding so their outline clears the bar's — see `Metrics.pillBarVPad`.
+    /// The pills are laid out to **fill** the bar rather than to hug their own labels.
+    ///
+    /// Sized to content they left a wide empty stretch inside the capsule's right end, which read as
+    /// the row having run out rather than as a deliberate gap. `ViewThatFits` takes the spread
+    /// layout — even gaps flowing to the bar's own inset on both sides — whenever it fits, and falls
+    /// back to the scrolling row on a narrow screen or at large Dynamic Type, so nothing is ever
+    /// clipped. The eighth pill (Space) also earns its place: 25 of the catalogue's themes are
+    /// cosmic ones that previously had nowhere of their own to sit and landed under "Other".
     private var categoryBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Metrics.pillGap) {
-                ForEach(Category.allCases) { item in
-                    categoryPill(item)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                ForEach(Array(ThemeCategory.allCases.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { Spacer(minLength: Metrics.pillGap * 0.45) }
+                    categoryPill(item, compact: true)
                 }
             }
             .padding(.horizontal, Metrics.pillBarInset)
+            .padding(.vertical, Metrics.pillBarVPad)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Metrics.pillGap) {
+                    ForEach(ThemeCategory.allCases) { item in
+                        categoryPill(item)
+                    }
+                }
+                .padding(.horizontal, Metrics.pillBarInset)
+                .padding(.vertical, Metrics.pillBarVPad)
+            }
         }
         .frame(height: Metrics.pillBarHeight)
         .background(Color.white, in: Capsule())
+        .clipShape(Capsule())
         .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+        .accessibilityIdentifier("themes.categoryBar")
     }
 
-    private func categoryPill(_ item: Category) -> some View {
+    /// `compact` is the spread layout's pill: the eight of them plus the bar's own insets come to
+    /// within a point or two of the content width, so in that layout the label is allowed to shrink
+    /// a hair rather than push the last pill under the capsule's rounded end.
+    private func categoryPill(_ item: ThemeCategory, compact: Bool = false) -> some View {
         let isSelected = category == item
 
         return Button {
             category = item
         } label: {
-            HStack(spacing: Metrics.pillIconGap) {
+            HStack(spacing: compact ? Metrics.pillIconGap * 0.8 : Metrics.pillIconGap) {
                 categoryIcon(item)
                 Text(item.rawValue)
                     .font(MochiFont.body(Type.pill))
-                    .fixedSize()
+                    .lineLimit(1)
+                    .minimumScaleFactor(compact ? 0.82 : 1.0)
+                    .fixedSize(horizontal: !compact, vertical: false)
             }
             .foregroundStyle(MochiColor.textPrimary)
-            .frame(width: item.width, height: Metrics.pillHeight)
+            .padding(.horizontal, compact ? Metrics.pillPad * 0.82 : Metrics.pillPad)
+            .frame(height: Metrics.pillHeight)
             .background {
                 if isSelected {
                     Capsule().fill(MochiGradient.themeButton)
@@ -343,44 +422,46 @@ struct ThemesView: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("themes.category.\(item.rawValue)")
     }
 
-    /// Figma gives each category a different kind of mark: three are set in type ("Aa", "B", "E"),
-    /// three are line icons, and "Cute" is a rendered purple bow that is artwork rather than a
-    /// glyph — so it is the one that has to come out of the asset catalog.
+    /// Each category gets a small line/solid mark left of its label. "Cute" keeps the rendered
+    /// purple bow from the asset catalog (the one mark that is artwork, not a glyph); the rest are
+    /// SF Symbols chosen to read the category at a glance — a cup for Cozy, moon-and-stars for
+    /// Dreamy, a leaf for Nature, sparkles for Elegant.
     @ViewBuilder
-    private func categoryIcon(_ item: Category) -> some View {
+    private func categoryIcon(_ item: ThemeCategory) -> some View {
         Group {
             switch item {
             case .all:
-                Image(systemName: "square.grid.2x2.fill").font(.system(size: item.iconWidth * 0.95))
+                Image(systemName: "square.grid.2x2.fill").font(.system(size: Type.pill * 0.95))
             case .cute:
-                Image("icon_bow").resizable().scaledToFit()
-            case .handwritten:
-                PencilGlyph()
-                    .stroke(MochiColor.textPrimary,
-                            style: StrokeStyle(lineWidth: 0.55, lineCap: .round, lineJoin: .round))
-                    .frame(width: item.iconWidth, height: item.iconWidth)   // 37x37px
-            case .minimal:
-                Text("Aa").font(MochiFont.heading(Type.pill)).fixedSize()
-            case .bold:
-                Text("B").font(MochiFont.title(Type.pill)).fixedSize()
+                Image("icon_bow").resizable().scaledToFit().frame(height: Metrics.pillHeight * 0.62)
+            case .cozy:
+                Image(systemName: "cup.and.saucer.fill").font(.system(size: Type.pill * 0.95))
+            case .dreamy:
+                Image(systemName: "moon.stars.fill").font(.system(size: Type.pill * 0.95))
+            case .nature:
+                Image(systemName: "leaf.fill").font(.system(size: Type.pill * 0.95))
             case .elegant:
-                Text("E").font(MochiFont.heading(Type.pill)).fixedSize()
+                Image(systemName: "sparkles").font(.system(size: Type.pill * 1.0))
+            case .space:
+                Image(systemName: "globe.americas.fill").font(.system(size: Type.pill * 0.95))
             case .other:
                 TripleDot()
                     .fill(MochiColor.textPrimary)
-                    .frame(width: item.iconWidth, height: 1.48)   // 31x8px
+                    .frame(width: Type.pill * 0.95, height: 1.48)
             }
         }
-        .frame(width: item.iconWidth)
     }
 
     // MARK: - Filter row
 
-    /// Right-aligned; unlike the Fonts frame there is no "Soft by" capsule on the left of it.
-    /// The "Wallpapers" pill on the left is not in the Figma frame — it's the entry point to the
-    /// Wallpapers screen (Android surfaces it from Themes too, via `onWallpapersClick`).
+    /// Right-aligned; unlike the Fonts frame there is no "Sort by" capsule on the left of it. The
+    /// "Wallpapers" pill on the left is not in the Figma frame — it's the entry point to the
+    /// Wallpapers screen (Android surfaces it from Themes too). The two right-hand capsules are the
+    /// **Filter** (free/premium) and **Sort** (Popular / Newest / A–Z) controls; both are real
+    /// menus bound to state that the grid reads.
     private var filterRow: some View {
         HStack(spacing: 0) {
             Button(action: onWallpapers) {
@@ -399,85 +480,128 @@ struct ThemesView: View {
 
             Spacer(minLength: 0)
 
-            HStack(spacing: Metrics.filterHeight * 0.16) {
-                FunnelGlyph()
-                    .stroke(MochiColor.logoSolid,
-                            style: StrokeStyle(lineWidth: Metrics.glyphStroke, lineJoin: .round))
-                    .frame(width: Metrics.funnelGlyph.width, height: Metrics.funnelGlyph.height)
-                Text("Filter").font(MochiFont.caption(Type.filter))
-            }
-            .foregroundStyle(MochiColor.logoSolid)
-            .frame(width: Metrics.filterWidth, height: Metrics.filterHeight)
-            .background(Color.white, in: Capsule())
-            .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
-
-            Color.clear.frame(width: Metrics.filterGap)
-
-            SlidersGlyph()
-                .stroke(MochiColor.logoSolid,
-                        style: StrokeStyle(lineWidth: Metrics.glyphStroke, lineCap: .round))
-                .frame(width: Metrics.slidersGlyph.width, height: Metrics.slidersGlyph.height)
-                .frame(width: Metrics.slidersWidth, height: Metrics.filterHeight)
+            Menu {
+                Picker("Filter", selection: $tierFilter) {
+                    ForEach(ThemeTierFilter.allCases) { Text($0.rawValue).tag($0) }
+                }
+            } label: {
+                HStack(spacing: Metrics.filterHeight * 0.16) {
+                    FunnelGlyph()
+                        .stroke(MochiColor.logoSolid,
+                                style: StrokeStyle(lineWidth: Metrics.glyphStroke, lineJoin: .round))
+                        .frame(width: Type.filter * 0.95, height: Type.filter * 0.9)
+                    Text(tierFilter == .all ? "Filter" : tierFilter.rawValue)
+                        .font(MochiFont.caption(Type.filter))
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                .foregroundStyle(MochiColor.logoSolid)
+                .padding(.horizontal, 9)
+                .frame(height: Metrics.filterHeight)
                 .background(Color.white, in: Capsule())
                 .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+            }
+            .accessibilityIdentifier("themes.filter")
+
+            Color.clear.frame(width: 8.34 * S)
+
+            Menu {
+                Picker("Sort by", selection: $sortOption) {
+                    ForEach(ThemeSortOption.allCases) { Text($0.rawValue).tag($0) }
+                }
+                Picker("Category", selection: $category) {
+                    ForEach(ThemeCategory.allCases) { Text($0.rawValue).tag($0) }
+                }
+            } label: {
+                HStack(spacing: Metrics.filterHeight * 0.14) {
+                    SlidersGlyph()
+                        .stroke(MochiColor.logoSolid,
+                                style: StrokeStyle(lineWidth: Metrics.glyphStroke, lineCap: .round))
+                        .frame(width: Type.filter * 1.05, height: Type.filter * 0.9)
+                    Text(sortOption.rawValue)
+                        .font(MochiFont.caption(Type.filter))
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                .foregroundStyle(MochiColor.logoSolid)
+                .padding(.horizontal, 9)
+                .frame(height: Metrics.filterHeight)
+                .background(Color.white, in: Capsule())
+                .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+            }
+            .accessibilityIdentifier("themes.sort")
         }
     }
 
     // MARK: - Card grid
 
+    @ViewBuilder
     private var cardGrid: some View {
-        VStack(spacing: Metrics.cardGap) {
-            ForEach(Array(themes.chunked(into: 3).enumerated()), id: \.offset) { _, row in
-                HStack(spacing: Metrics.cardGap) {
-                    ForEach(row) { theme in
-                        themeCard(theme)
+        if displayedThemes.isEmpty {
+            Text("No themes match this filter")
+                .font(MochiFont.body(Type.cardTitle))
+                .foregroundStyle(MochiColor.textGreyWarm)
+                .frame(maxWidth: .infinity)
+                .frame(height: Metrics.cardWidth / Metrics.cardArtAspect)
+                .accessibilityIdentifier("themes.grid.empty")
+        } else {
+            // Lazy so only the visible rows of the up-to-28-card catalogue decode their plates.
+            LazyVStack(spacing: Metrics.cardGap) {
+                ForEach(Array(displayedThemes.chunked(into: 3).enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: Metrics.cardGap) {
+                        ForEach(row) { theme in
+                            themeCard(theme)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
     }
 
     private func themeCard(_ theme: KeyboardTheme) -> some View {
-        VStack(spacing: 0) {
-            Image(theme.imageAssetName)
-                .resizable()
-                .scaledToFill()
+        let isDownloaded = downloadedIDs.contains(theme.id)
+        let isApplied = appliedThemeId == theme.id
+
+        return VStack(spacing: 0) {
+            ThemePlateThumbnail(assetName: theme.imageAssetName,
+                                verticalAnchor: plateAnchor(for: theme))
                 .frame(width: Metrics.cardWidth,
                        height: Metrics.cardWidth / Metrics.cardArtAspect)
                 .clipped()
-                // The disc is already in the crop (it sits over the artwork in Figma, so it comes
-                // along with it). Drawing the live control at exactly the measured position covers
-                // the baked one pixel-for-pixel and makes it tappable.
+                // Tap the artwork to open the theme. Applied *before* the download overlay so the
+                // disc Button sits on top of this gesture and keeps its own tap in its corner.
+                .contentShape(Rectangle())
+                .onTapGesture { onThemeClick(theme) }
                 .overlay(alignment: .topTrailing) {
-                    Button {} label: {
+                    Button {
+                        let nowDownloaded = DownloadedThemeStore.toggle(theme.id)
+                        downloadedIDs = DownloadedThemeStore.loadDownloadedThemeIDs()
+                        if nowDownloaded {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                    } label: {
                         DownloadGlyph()
-                            .stroke(MochiColor.downloadGlyph,
+                            .stroke(isDownloaded ? MochiColor.logoSolid : MochiColor.downloadGlyph,
                                     style: StrokeStyle(lineWidth: Metrics.download * 0.046,
                                                        lineCap: .round, lineJoin: .round))
                             .frame(width: Metrics.download * 0.477, height: Metrics.download * 0.492)
-                            .frame(width: Metrics.download, height: Metrics.download)
-                            .background(Circle().fill(.white))
+                            .frame(width: Metrics.download + 10, height: Metrics.download + 10)
+                            .background(Circle().fill(isDownloaded ? MochiColor.lavender : .white)
+                                .frame(width: Metrics.download, height: Metrics.download))
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .padding(.trailing, Metrics.downloadTrailing)
-                    .padding(.top, Metrics.downloadTop)
+                    .padding(.trailing, Metrics.downloadTrailing - 5)
+                    .padding(.top, Metrics.downloadTop - 5)
+                    .accessibilityIdentifier("themes.card.\(theme.id).download")
                 }
 
             VStack(alignment: .leading, spacing: 0) {
                 Color.clear.frame(height: Metrics.bodyTopToTitle)
 
-                // The heart and its count are right-aligned against the *pair* of text lines, not
-                // against either one: in Figma the heart's centre lands on the midpoint between the
-                // title's cap and the byline's baseline.
                 HStack(alignment: .center, spacing: 0) {
                     VStack(alignment: .leading, spacing: Metrics.titleToByline) {
-                        // Deliberately no `minimumScaleFactor` on either line. The longest name in
-                        // the grid ("Fantasy Castle Night") needs 80.3pt of an ~81pt column, and
-                        // at that margin SwiftUI took *any* permitted shrink rather than none —
-                        // even `layoutPriority` and a 0.85 floor left the title 12% under size with
-                        // clear space beside it. Truncation on an overlong name is the honest
-                        // failure here; silently off-size type is not, and Figma sets no shrunk
-                        // text anywhere on the page.
                         Text(theme.name)
                             .font(MochiFont.caption(Type.cardTitle))
                             .foregroundStyle(MochiColor.textPrimary)
@@ -488,19 +612,10 @@ struct ThemesView: View {
                             .foregroundStyle(MochiColor.creatorLink)
                             .lineLimit(1)
                     }
-                    // Without this the `Spacer` competes with the text column for the row's slack
-                    // and SwiftUI resolves the tie by letting `minimumScaleFactor` shrink the title
-                    // — it came out 12% under its set size with 11pt of clear space still to its
-                    // right. The priority makes the column take its ideal width first and the
-                    // Spacer absorb only what is genuinely left over.
                     .layoutPriority(1)
 
                     Spacer(minLength: 1)
 
-                    // The heart is pinned to its measured 5.19x4.63pt ink box. Left to its own
-                    // advance width, SF's `heart.fill` claims several points more than it draws,
-                    // and that surplus came straight off the title's share of the row — enough for
-                    // `minimumScaleFactor` to shrink "Fantasy Castle Night" by 12%.
                     HStack(spacing: Metrics.heartToCount) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: Type.likeCount * 1.20))
@@ -524,15 +639,19 @@ struct ThemesView: View {
                         .frame(height: Metrics.cardButtonHeight)
                         .background(Color.white, in: Capsule())
                         .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+                        .contentShape(Capsule())
                         .onTapGesture { onThemeClick(theme) }
+                        .accessibilityIdentifier("themes.card.\(theme.id).preview")
 
-                    Text("Apply")
+                    Text(isApplied ? "Applied" : "Apply")
                         .font(MochiFont.body(Type.applyButton))
                         .foregroundStyle(MochiColor.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: Metrics.cardButtonHeight)
                         .background(MochiGradient.themeButton, in: Capsule())
-                        .onTapGesture { onThemeClick(theme) }
+                        .contentShape(Capsule())
+                        .onTapGesture { applyTheme(theme) }
+                        .accessibilityIdentifier("themes.card.\(theme.id).apply")
                 }
 
                 Color.clear.frame(height: Metrics.bodyBottom)
@@ -540,9 +659,35 @@ struct ThemesView: View {
             .padding(.horizontal, Metrics.cardPad)
             .frame(width: Metrics.cardWidth, height: Metrics.cardBodyHeight)
             .background(Color.white)
+            .contentShape(Rectangle())
+            .onTapGesture { onThemeClick(theme) }
         }
         .frame(width: Metrics.cardWidth)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        .overlay {
+            if isApplied {
+                RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
+                    .stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline * 4)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("themes.card.\(theme.id)")
+    }
+
+    /// Applies `theme` through the app's one apply path (`AppliedThemeStore` → App Group hand-off),
+    /// which also records it as downloaded. No parallel apply logic lives here.
+    private func applyTheme(_ theme: KeyboardTheme) {
+        AppliedThemeStore.apply(theme)
+        appliedThemeId = theme.id
+        downloadedIDs = DownloadedThemeStore.loadDownloadedThemeIDs()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// The built-in theme's own authored `verticalAnchor`, so a 118pt tile keeps the same band of
+    /// the plate the keyboard does. Shared with Community's Top Themes row — see
+    /// `KeyboardTheme.plateVerticalAnchor`.
+    private func plateAnchor(for theme: KeyboardTheme) -> Double {
+        theme.plateVerticalAnchor
     }
 
     // MARK: - My downloaded themes
@@ -554,47 +699,92 @@ struct ThemesView: View {
                     .font(MochiFont.title(Type.sectionTitle))
                     .foregroundStyle(MochiColor.textPrimary)
                 Spacer(minLength: 4)
-                HStack(spacing: Metrics.seeAllGap) {
-                    Text("see all").font(MochiFont.body(Type.seeAll))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: Type.seeAll * 0.80, weight: .regular))
+
+                // Only offered once there's more than one row's worth to reveal.
+                if downloadedThemeItems.count > 4 {
+                    Button {
+                        withAnimation(.snappy) { showAllDownloaded.toggle() }
+                    } label: {
+                        HStack(spacing: Metrics.seeAllGap) {
+                            Text(showAllDownloaded ? "show less" : "see all")
+                                .font(MochiFont.body(Type.seeAll))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: Type.seeAll * 0.80, weight: .regular))
+                                .rotationEffect(.degrees(showAllDownloaded ? 90 : 0))
+                        }
+                        .foregroundStyle(MochiColor.logoSolid)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("themes.downloaded.seeAll")
                 }
-                .foregroundStyle(MochiColor.logoSolid)
             }
             .padding(.horizontal, Metrics.headingInset)
 
             Color.clear.frame(height: Metrics.headingToStrip)
 
-            // Bleeds back out of the page gutter so the fourth tile reaches the right margin
-            // exactly as it does in Figma, then scrolls beyond it.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Metrics.downloadCardGap) {
-                    ForEach(MockData.downloadedThemes) { theme in
-                        downloadCard(theme)
+            if downloadedThemeItems.isEmpty {
+                Text("Tap the download icon on a theme to keep it here.")
+                    .font(MochiFont.body(Type.downloadName))
+                    .foregroundStyle(MochiColor.textGreyWarm)
+                    .frame(maxWidth: .infinity, minHeight: Metrics.downloadCard / Metrics.downloadArtAspect,
+                           alignment: .leading)
+                    .padding(.horizontal, Metrics.headingInset)
+                    .accessibilityIdentifier("themes.downloaded.empty")
+            } else if showAllDownloaded {
+                // The expanded state is the collapsed row wrapped: four tiles fill the content
+                // width exactly, so `chunked(into: 4)` needs no new metrics. No gutter bleed here —
+                // that is a horizontal-scroller trick and would hang the grid past both margins.
+                LazyVStack(spacing: Metrics.downloadCardGap) {
+                    ForEach(Array(downloadedThemeItems.chunked(into: 4).enumerated()), id: \.offset) { _, row in
+                        HStack(spacing: Metrics.downloadCardGap) {
+                            ForEach(row) { theme in
+                                downloadCard(theme)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .padding(.horizontal, Metrics.margin)
+            } else {
+                // Bleeds back out of the page gutter so the fourth tile reaches the right margin
+                // exactly as it does in Figma, then scrolls beyond it.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Metrics.downloadCardGap) {
+                        ForEach(downloadedThemeItems) { theme in
+                            downloadCard(theme)
+                        }
+                    }
+                    .padding(.horizontal, Metrics.margin)
+                }
+                .padding(.horizontal, -Metrics.margin)
             }
-            .padding(.horizontal, -Metrics.margin)
         }
     }
 
     private func downloadCard(_ theme: KeyboardTheme) -> some View {
         VStack(spacing: 0) {
-            Image(theme.imageAssetName)
-                .resizable()
-                .scaledToFill()
+            ThemePlateThumbnail(assetName: theme.imageAssetName,
+                                verticalAnchor: plateAnchor(for: theme))
                 .frame(width: Metrics.downloadCard,
                        height: Metrics.downloadCard / Metrics.downloadArtAspect)
                 .clipped()
                 .overlay(alignment: .topTrailing) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: Metrics.ellipsisDisc * 0.44, weight: .semibold))
-                        .foregroundStyle(MochiColor.textPrimary)
-                        .frame(width: Metrics.ellipsisDisc, height: Metrics.ellipsisDisc)
-                        .background(Circle().fill(.white))
-                        .padding(.trailing, Metrics.ellipsisTrailing)
-                        .padding(.top, Metrics.ellipsisTop)
+                    Menu {
+                        Button(role: .destructive) {
+                            DownloadedThemeStore.remove(theme.id)
+                            downloadedIDs = DownloadedThemeStore.loadDownloadedThemeIDs()
+                        } label: {
+                            Label("Remove from downloads", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: Metrics.ellipsisDisc * 0.44, weight: .semibold))
+                            .foregroundStyle(MochiColor.textPrimary)
+                            .frame(width: Metrics.ellipsisDisc, height: Metrics.ellipsisDisc)
+                            .background(Circle().fill(.white))
+                            .padding(.trailing, Metrics.ellipsisTrailing)
+                            .padding(.top, Metrics.ellipsisTop)
+                    }
+                    .accessibilityIdentifier("themes.downloadCard.\(theme.id).menu")
                 }
 
             Text(theme.name)
@@ -609,6 +799,9 @@ struct ThemesView: View {
         }
         .frame(width: Metrics.downloadCard)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.downloadRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: Metrics.downloadRadius, style: .continuous))
+        .onTapGesture { onThemeClick(theme) }
+        .accessibilityIdentifier("themes.downloadCard.\(theme.id)")
     }
 }
 

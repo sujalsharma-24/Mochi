@@ -63,6 +63,7 @@ struct KeyboardTestBench: UIViewRepresentable {
         func attach(to surface: KeyboardSurfaceView) {
             self.surface = surface
             engine.document = document
+            engine.appliedStyleID = FontStyleStore.loadAppliedStyleID()
             document.onChange = { [weak self] text in
                 // Bindings must be written on the main actor; every call path into here is already
                 // a touch event, so this is a hop only in the pathological case.

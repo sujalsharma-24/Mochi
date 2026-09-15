@@ -1,18 +1,30 @@
 import SwiftUI
+import UIKit
 
-/// Real art from Assets.xcassets — either cropped from the client's Figma export or, since the
-/// asset catalog landed, delivered directly by the client per-theme. Anything not in this set
-/// falls back to the generated KeyboardPreviewPlaceholder until the client provides isolated
-/// assets for the rest of the 250-theme catalog. Mirrors android/.../components/ThemeArt.kt's
-/// knownThemeArt map.
-private let knownThemeArt: Set<String> = [
-    "theme_fantasy_castle_night", "theme_space_vibe", "theme_dreamy_castle",
-    "theme_cozy_sakura_cafe", "theme_sakura_train", "theme_pastel_rainbow",
-    // Cropped from docs/figma/2.png for Community's Top Themes row.
-    "theme_kawaii_boba", "theme_pastel_pink_sky",
-    // Added with the client's asset catalog delivery; used by Search's "Forest Theme" result.
-    "theme_forest"
-]
+/// Whether the asset catalogue actually carries art under this name.
+///
+/// This replaces a hand-maintained `knownThemeArt` allowlist that named nine assets. Every theme
+/// outside it fell through to the *generated* `KeyboardPreviewPlaceholder`, so 112 of the 121
+/// built-in themes browsed as a seeded gradient that had nothing to do with the theme — which is
+/// why thumbnails all over the app showed the wrong artwork. Each built-in carries its own
+/// `themebg_*` plate (see `KeyboardTheme.init(builtIn:meta:)`), so asking the catalogue directly is
+/// both correct and self-maintaining: art added later shows up without anyone editing a list.
+///
+/// Cached because `SwiftUI` re-evaluates `body` often and `UIImage(named:)` hits the catalogue
+/// index each time; the answer for a given name never changes within a launch.
+enum ThemeArtAvailability {
+    private static var cache: [String: Bool] = [:]
+    private static let lock = NSLock()
+
+    static func hasArt(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+        lock.lock(); defer { lock.unlock() }
+        if let known = cache[name] { return known }
+        let exists = UIImage(named: name) != nil
+        cache[name] = exists
+        return exists
+    }
+}
 
 private let knownFontArt: Set<String> = [
     "font_bubble_cute", "font_handwritten_elegant", "font_typewriter_classic", "font_bold_strong"
@@ -38,7 +50,7 @@ struct KeyboardThemeArt: View {
             .aspectRatio(ratio, contentMode: .fit)
             .overlay(
                 Group {
-                    if knownThemeArt.contains(assetName) {
+                    if ThemeArtAvailability.hasArt(assetName) {
                         Image(assetName)
                             .resizable()
                             .aspectRatio(contentMode: .fill)

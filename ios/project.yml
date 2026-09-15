@@ -1,6 +1,20 @@
 name: Mochi
+# Bundle identifiers and the App Group are `com.tanmaysingh.mochi*`, not `com.mochi.app*`.
+#
+# Not a preference — Apple refused to provision the originals: app IDs and App Group IDs share one
+# global namespace across every developer account, and both `com.mochi.app` and
+# `group.com.mochi.app` are already registered to a team that isn't this one ("cannot be registered
+# to your development team because it is not available"). The README already flagged
+# `com.mochi.app` as a placeholder to be swapped for the client's real reverse-DNS ID; this is that
+# swap, done with an ID this account can actually claim.
+#
+# Whatever ID the client eventually settles on has to be decided with them and must match the
+# bundle ID registered in the Firebase console, because `GoogleService-Info.plist` is issued
+# against it (see docs/IOS_FUNCTIONAL_STATUS.md's blockers table). Change this and
+# `MochiShared/AppGroup.swift` together — the entitlement and the code that reads the shared
+# container have to agree or theme/font sync silently stops reaching the keyboard.
 options:
-  bundleIdPrefix: com.mochi.app
+  bundleIdPrefix: com.tanmaysingh.mochi
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
@@ -8,7 +22,13 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    DEVELOPMENT_TEAM: ""
+    # Tanmay's Apple ID team (cert: "Apple Development: tanmay.singhts07@gmail.com").
+    # Set here rather than only in Xcode's UI because `xcodegen generate` rewrites the
+    # .xcodeproj from this file — a team picked in the UI alone is wiped on the next regen.
+    DEVELOPMENT_TEAM: "6338ADN35J"
+    # Automatic so a free/personal Apple ID (the 7-day sideload cert) can provision this itself
+    # in Xcode's Signing & Capabilities tab — no manual profile juggling needed.
+    CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
 
@@ -40,6 +60,10 @@ targets:
       path: MochiApp/App/Info.plist
       properties:
         UILaunchScreen: {}
+        # Home-screen / task-switcher name. Without these XcodeGen leaves CFBundleName as
+        # $(PRODUCT_NAME) — i.e. the target name "MochiApp" — which is what showed under the icon.
+        CFBundleDisplayName: Mochi
+        CFBundleName: Mochi
         UIAppFonts:
           - Fredoka.ttf
           - Baloo2.ttf
@@ -47,9 +71,16 @@ targets:
           - Inter-Medium.ttf
           - Inter-SemiBold.ttf
           - Inter-Bold.ttf
-          # The face the Fonts page's letter grid previews (Figma: Kaushan Script Regular 22).
-          # OFL, like the other three — see ios/licenses/KaushanScript-OFL.txt.
+          # Kept for the decorative "Kaushan Script Regular 22" look Figma's Fonts frame uses in its
+          # static art. The Fonts page's live letter grid no longer renders in it — a Mochi "font"
+          # is a Unicode lookalike transform (MochiShared/Fonts/FontStyleCatalog), so the specimen
+          # shows the actual transformed glyphs in a neutral face. OFL — see ios/licenses/.
           - KaushanScript-Regular.ttf
+        # Wallpapers' Download / Apply write the chosen art into the user's photo library.
+        # Add-only, because the app never reads the library — see Data/WallpaperExporter.swift,
+        # which also explains why "Apply" ends in the system share sheet rather than setting the
+        # device wallpaper directly (iOS exposes no public API for that).
+        NSPhotoLibraryAddUsageDescription: Mochi saves wallpapers you download or apply straight to your Photos, so you can set them from there.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
@@ -73,22 +104,33 @@ targets:
         # documented way to avoid it; push notifications' own future slice will need to forward the
         # APNs device token to Messaging.messaging().apnsToken manually instead of relying on this.
         FirebaseAppDelegateProxyEnabled: false
-    # Sign-in-with-Apple entitlement deliberately NOT wired in yet (MochiApp.entitlements exists on
-    # disk, unused) — with DEVELOPMENT_TEAM blank, Xcode's capability provisioning for this
-    # entitlement needs a real Apple Developer Team even to build for the Simulator, which this CI
-    # runner doesn't have. Re-add the `entitlements:` block once Sujal's Apple Developer Program
-    # enrollment exists (see docs/IOS_FUNCTIONAL_STATUS.md's blockers table) — the Swift-side
-    # Sign in with Apple code (AppleSignInCoordinator) doesn't need this to compile, only to
-    # actually authenticate on a real device.
+    # App Group entitlement, wired for real this time. `properties:` here, not just `path:` —
+    # XcodeGen *generates* (overwrites) the file at `path` from these properties, the same way it
+    # generates Info.plist above; a hand-authored .entitlements file with only a `path:` reference
+    # gets silently clobbered back to an empty dict on the next `xcodegen generate`, which is
+    # exactly what happened the first time this was wired up this way.
+    #
+    # Sign-in-with-Apple's com.apple.developer.applesignin key is deliberately NOT listed here — it
+    # requires a paid Apple Developer Program team, and a free/personal team's automatic signing
+    # cannot provision it. Having it here while signing with a personal team would block the whole
+    # app from installing. Add it back once a paid team + real provisioning exists (see
+    # docs/IOS_FUNCTIONAL_STATUS.md's blockers table).
+    #
+    # Without this App Group, the app and the keyboard extension each read
+    # `UserDefaults(suiteName: AppGroup.identifier) ?? .standard` as two isolated, unrelated
+    # stores — theme/font-style selection would silently never reach the real keyboard on device.
+    entitlements:
+      path: MochiApp/App/MochiApp.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.tanmaysingh.mochi
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.tanmaysingh.mochi
         TARGETED_DEVICE_FAMILY: "1,2"
-        # No AppIcon.appiconset exists yet (client hasn't delivered a square app icon asset,
-        # only docs/figma/mochi_wordmark_reference.png which is a wordmark, not an icon) — turn
-        # off the requirement rather than fabricate a placeholder icon. Set this back to "AppIcon"
-        # once a real appiconset is added to Assets.xcassets.
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        # AppIcon.appiconset built from docs/figma/icon.png (the Mochi mascot-on-keyboard art),
+        # cropped square to the rounded-rect bounds and flattened opaque for a single 1024 slot.
+        ASSETCATALOG_COMPILER_APPICON_NAME: "AppIcon"
     dependencies:
       - target: MochiKeyboard
         embed: true
@@ -120,10 +162,24 @@ targets:
       # under a ~30–48 MB dirty-memory ceiling. The extension is a separate bundle and does not
       # inherit the app's catalogue, so any art a theme references has to live here.
       - path: SharedAssets
+      # The one custom family a theme can actually name in `ThemeTypography.fontFamily` — see the
+      # `UIAppFonts` entry and the settings comment below for why this single 208 KB file, and not
+      # the rest of MochiApp/Fonts, is duplicated into this target.
+      - path: MochiApp/Fonts/KaushanScript-Regular.ttf
     info:
       path: MochiKeyboard/Info.plist
       properties:
         CFBundleDisplayName: Mochi Keyboard
+        # Registers the one font the Create screen's "Handwritten" typography preset names. A custom
+        # family must be listed in the *extension's own* UIAppFonts — it does not inherit the app
+        # target's registration (see the settings comment below) — or `KeyView.font(for:)` silently
+        # falls back to the system face and the theme the user built looks different on the real
+        # keyboard than it did in the editor. Fredoka/Baloo2 are deliberately NOT added here: every
+        # built-in theme already avoids a display face on key caps for legibility (see
+        # BuiltInThemes' typography comments), and Create's other typography presets only vary
+        # weight/size for the same reason.
+        UIAppFonts:
+          - KaushanScript-Regular.ttf
         NSExtension:
           NSExtensionPointIdentifier: com.apple.keyboard-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
@@ -143,16 +199,28 @@ targets:
             # The two things it would buy are key click sounds (`playInputClick`) and haptics.
             # Neither is worth that permission.
             RequestsOpenAccess: false
+    # Same App Group as MochiApp (see the comment on MochiApp's own `entitlements:` block above for
+    # why `properties:` is required here, not just `path:`) — this is what lets the extension read
+    # the theme/font-style the app just wrote, without needing Full Access. Reading your own App
+    # Group container has never required Full Access; that permission is only for
+    # network/pasteboard access across apps.
+    entitlements:
+      path: MochiKeyboard/MochiKeyboard.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.tanmaysingh.mochi
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.tanmaysingh.mochi.keyboard
         # The extension is iPhone + iPad like its host. A keyboard that refuses to install on iPad
         # is a support ticket, not a scope decision.
         TARGETED_DEVICE_FAMILY: "1,2"
-        # No custom fonts are registered here on purpose. The reference theme uses the system face
-        # (see BuiltInThemes), and an extension does NOT inherit the app's UIAppFonts — any theme
-        # that names a custom family needs that family added to this target's Info.plist and the
-        # font file added to this target's resources, or it silently falls back to the system face.
+        # Every built-in theme deliberately uses the system face (see BuiltInThemes' typography
+        # comments) and an extension does NOT inherit the app's UIAppFonts, so a custom family needs
+        # both this target's Info.plist AND its resources to carry the font file — see the
+        # `UIAppFonts`/KaushanScript entries above, added for Create's "Handwritten" preset. Any
+        # *other* custom family a theme names still silently falls back to the system face unless
+        # it gets the same treatment.
         GENERATE_INFOPLIST_FILE: NO
         # Same reason as the app target: no appiconset exists, and an extension does not need one.
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
@@ -166,7 +234,7 @@ targets:
       - target: MochiApp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mochi.app.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: com.tanmaysingh.mochi.uitests
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: MochiApp
 

@@ -1,68 +1,30 @@
 import Foundation
 
 /// Placeholder data standing in for Firestore reads until the data layer (TRD §3) is wired up.
+///
+/// **Themes are no longer mocked here.** Every theme-shaped row on Home, Community and Profile now
+/// comes from `ThemeCatalog` — the real built-in catalogue — so a card always carries the id of the
+/// theme it shows. The old literals were picture-only: ids like `"space-vibe"` matched no real
+/// theme, so tapping one fell through `RenderableTheme.resolve`'s mood fallback and opened Cozy
+/// Sakura Café's keyboard instead. Space Vibe, Forest Theme, Pastel Rainbow, Dreamy Fantasy and
+/// Pastel Dream were also not in the theme source folder any more, so they are gone rather than
+/// re-pointed. What is still mocked here is everything with no catalogue behind it: the signed-in
+/// profile, creators, and the font collection.
 enum MockData {
-    static let popularThemes: [KeyboardTheme] = [
-        KeyboardTheme(id: "fantasy-castle-night", name: "Fantasy Castle Night", creatorName: "Mochi Studio", imageAssetName: "theme_fantasy_castle_night", likeCount: 12_500, isPremium: true, hashtags: ["fantasy", "night", "purple"]),
-        KeyboardTheme(id: "space-vibe", name: "Space vibe", creatorName: "sakura", imageAssetName: "theme_space_vibe", likeCount: 9_800, isPremium: false, hashtags: ["space", "aesthetic"]),
-        KeyboardTheme(id: "dreamy-castle", name: "Dreamy Castle", creatorName: "Staeey", imageAssetName: "theme_dreamy_castle", likeCount: 9_800, isPremium: true, hashtags: ["dreamy", "sunset"])
-    ]
+    /// Home's "Recently Applied" row — the editorial trio Home leads with.
+    static var popularThemes: [KeyboardTheme] { ThemeCatalog.featured }
 
     /// Distinct from `popularThemes` (used by Recently Applied) so Home's Popular Themes row
-    /// shows Figma's actual trio instead of accidentally repeating the row above it — this was
+    /// shows a different trio instead of accidentally repeating the row above it — this was
     /// a real bug on Android (session 6) fixed the same way, ported here.
-    static let homePopularThemes: [KeyboardTheme] = [
-        KeyboardTheme(id: "cozy-sakura-cafe-home", name: "Cozy Sakura Café", creatorName: "Lemonade", imageAssetName: "theme_cozy_sakura_cafe", likeCount: 956, isPremium: true, hashtags: ["cute", "nature", "green"]),
-        KeyboardTheme(id: "sakura-train-home", name: "Sakura Train", creatorName: "Dreamer", imageAssetName: "theme_sakura_train", likeCount: 1_200, isPremium: false, hashtags: ["sakura", "train"]),
-        KeyboardTheme(id: "pastel-rainbow-home", name: "Pastel Rainbow", creatorName: "Elite Themes", imageAssetName: "theme_pastel_rainbow", likeCount: 12_500, isPremium: false, hashtags: ["rainbow", "pastel"])
-    ]
+    static var homePopularThemes: [KeyboardTheme] {
+        let featured = Set(ThemeCatalog.featured.map(\.id))
+        return Array(ThemeCatalog.topThemes(12).filter { !featured.contains($0.id) }.prefix(3))
+    }
 
-    static let latestCreations: [KeyboardTheme] = [
-        KeyboardTheme(id: "cozy-sakura-cafe", name: "Cozy Sakura Café", creatorName: "Lemonade", imageAssetName: "theme_cozy_sakura_cafe", likeCount: 956, isPremium: true, hashtags: ["cute", "nature", "green"]),
-        KeyboardTheme(id: "space-vibe-2", name: "Space Vibe", creatorName: "Dreamer", imageAssetName: "theme_space_vibe", likeCount: 956, isPremium: false, hashtags: ["blue", "soft", "aesthetic"]),
-        KeyboardTheme(id: "dreamy-fantasy", name: "Dreamy Fantasy", creatorName: "Kittyk", imageAssetName: "theme_dreamy_castle", likeCount: 956, isPremium: true, hashtags: ["blue", "soft", "aesthetic"])
-    ]
+    static var latestCreations: [KeyboardTheme] { ThemeCatalog.latest(3) }
 
-    static let allThemes: [KeyboardTheme] = popularThemes + latestCreations + [
-        KeyboardTheme(id: "pastel-pink-sky", name: "Pastel Pink Sky", creatorName: "Meow Themes", imageAssetName: "theme_pastel_pink_sky", likeCount: 11_500, isPremium: true, hashtags: ["pastel", "sunset"]),
-        KeyboardTheme(id: "forest-theme", name: "Forest Theme", creatorName: "Galaxy Corp", imageAssetName: "theme_forest", likeCount: 5_800, isPremium: false, hashtags: ["nature", "green"]),
-        KeyboardTheme(id: "pastel-rainbow", name: "Pastel Rainbow", creatorName: "Elite Themes", imageAssetName: "theme_pastel_rainbow", likeCount: 12_500, isPremium: false, hashtags: ["rainbow", "pastel"]),
-        KeyboardTheme(id: "kawaii-boba-tea", name: "kawaii boba tea", creatorName: "Mochi Studio", imageAssetName: "theme_kawaii_boba", likeCount: 1_800, isPremium: true, hashtags: ["cute", "boba"])
-    ]
-
-    // MARK: - Themes tab (docs/figma/8.png)
-
-    /// The 3x3 grid, in Figma's order, with Figma's creators and counts — none of which match
-    /// `allThemes`, which is why this is its own array.
-    ///
-    /// `creatorName` carries the byline **exactly as the frame sets it**, prefix included. Figma
-    /// writes "by Mochi Studio" / "by sakura" / "by Staeey" on the first row and then drops the
-    /// "by" for the remaining six ("Meow Themes", "Galaxy Corp", ...). That is inconsistent, but it
-    /// is what the design shows, so it is reproduced rather than normalised — the same call made
-    /// for Community's "Choose" CTA and the Fonts frame's "Soft by".
-    ///
-    /// `imageAssetName` points at the `themeart_*` crops lifted straight out of 8.png at 640x440,
-    /// not at the older `theme_*` tiles, which are differently framed and differently proportioned.
-    static let themesGrid: [KeyboardTheme] = [
-        KeyboardTheme(id: "themes-fantasy-castle-night", name: "Fantasy Castle Night", creatorName: "by Mochi Studio", imageAssetName: "themeart_fantasy_castle_night", likeCount: 12_500, isPremium: true, hashtags: ["fantasy", "night"]),
-        KeyboardTheme(id: "themes-space-vibe", name: "Space vibe", creatorName: "by sakura", imageAssetName: "themeart_space_vibe", likeCount: 9_800, isPremium: false, hashtags: ["space", "aesthetic"]),
-        KeyboardTheme(id: "themes-dreamy-castle", name: "Dreamy Castle", creatorName: "by Staeey", imageAssetName: "themeart_dreamy_castle", likeCount: 9_800, isPremium: true, hashtags: ["dreamy", "sunset"]),
-        KeyboardTheme(id: "themes-pastel-pink-sky", name: "Pastel Pink Sky", creatorName: "Meow Themes", imageAssetName: "themeart_pastel_pink_sky", likeCount: 11_500, isPremium: true, hashtags: ["pastel", "sunset"]),
-        KeyboardTheme(id: "themes-forest", name: "Forest Theme", creatorName: "Galaxy Corp", imageAssetName: "themeart_forest", likeCount: 5_800, isPremium: false, hashtags: ["nature", "green"]),
-        KeyboardTheme(id: "themes-cozy-sakura-cafe", name: "Cozy Sakura Café", creatorName: "Vibe Studio", imageAssetName: "themeart_cozy_sakura_cafe", likeCount: 3_800, isPremium: true, hashtags: ["cute", "nature"]),
-        KeyboardTheme(id: "themes-pastel-rainbow", name: "Pastel Rainbow", creatorName: "Elite Themes", imageAssetName: "themeart_pastel_rainbow", likeCount: 8_000, isPremium: false, hashtags: ["rainbow", "pastel"]),
-        KeyboardTheme(id: "themes-sakura-train", name: "Sakura Train", creatorName: "Snowy Day", imageAssetName: "themeart_sakura_train", likeCount: 2_800, isPremium: false, hashtags: ["sakura", "train"]),
-        KeyboardTheme(id: "themes-kawaii-boba", name: "kawaii boba tea", creatorName: "Pet World", imageAssetName: "themeart_kawaii_boba", likeCount: 1_800, isPremium: true, hashtags: ["cute", "boba"])
-    ]
-
-    /// The "MY DOWNLOADED THEMES" strip. Its four tiles are a *wider* crop of the same artwork
-    /// (461x308 rather than 640x440), so they carry their own `themedl_*` assets.
-    static let downloadedThemes: [KeyboardTheme] = [
-        KeyboardTheme(id: "themes-dl-pastel-rainbow", name: "Pastel Rainbow", creatorName: "Elite Themes", imageAssetName: "themedl_pastel_rainbow", likeCount: 8_000, isPremium: false, hashtags: []),
-        KeyboardTheme(id: "themes-dl-kawaii-boba", name: "kawaii boba tea", creatorName: "Pet World", imageAssetName: "themedl_kawaii_boba", likeCount: 1_800, isPremium: true, hashtags: []),
-        KeyboardTheme(id: "themes-dl-forest", name: "Forest Theme", creatorName: "Galaxy Corp", imageAssetName: "themedl_forest", likeCount: 5_800, isPremium: false, hashtags: []),
-        KeyboardTheme(id: "themes-dl-pastel-pink-sky", name: "Pastel Pink Sky", creatorName: "Meow Themes", imageAssetName: "themedl_pastel_pink_sky", likeCount: 11_500, isPremium: true, hashtags: [])
-    ]
+    static var allThemes: [KeyboardTheme] { ThemeCatalog.all }
 
     /// Home's font row, which only has room for four.
     static let fonts: [FontItem] = Array(fontCollection.prefix(4))
@@ -71,12 +33,12 @@ enum MockData {
     /// they have no composed `font_*` tile, so their `previewAssetName` points at the art crop and
     /// they are kept out of `fonts` rather than shipped to Home with the wrong artwork.
     static let fontCollection: [FontItem] = [
-        FontItem(id: "bubble-cute", name: "Bubble Cute", styleDescription: "Rounded & Playful", isPremium: false, previewAssetName: "font_bubble_cute", artAssetName: "fontart_bubble_cute"),
-        FontItem(id: "handwritten-elegant", name: "Handwritten Elegant", styleDescription: "Smooth & Natural", isPremium: true, previewAssetName: "font_handwritten_elegant", artAssetName: "fontart_handwritten_elegant"),
-        FontItem(id: "typewriter-classic", name: "Typewriter Classic", styleDescription: "Clean & Readable", isPremium: false, previewAssetName: "font_typewriter_classic", artAssetName: "fontart_typewriter_classic"),
-        FontItem(id: "bold-strong", name: "Bold Strong", styleDescription: "Bold & Impactful", isPremium: true, previewAssetName: "font_bold_strong", artAssetName: "fontart_bold_strong"),
-        FontItem(id: "nature-flow", name: "Nature Flow", styleDescription: "Fresh & Calm", isPremium: false, previewAssetName: "fontart_nature_flow", artAssetName: "fontart_nature_flow"),
-        FontItem(id: "gothic-dark", name: "Gothic Dark", styleDescription: "Unique & Stylish", isPremium: true, previewAssetName: "fontart_gothic_dark", artAssetName: "fontart_gothic_dark")
+        FontItem(id: "bubble-cute", name: "Bubble Cute", styleDescription: "Rounded & Playful", isPremium: false, previewAssetName: "font_bubble_cute", artAssetName: "fontart_bubble_cute", category: .cute, popularityRank: 2),
+        FontItem(id: "handwritten-elegant", name: "Handwritten Elegant", styleDescription: "Smooth & Natural", isPremium: true, previewAssetName: "font_handwritten_elegant", artAssetName: "fontart_handwritten_elegant", category: .handwritten, popularityRank: 1),
+        FontItem(id: "typewriter-classic", name: "Typewriter Classic", styleDescription: "Clean & Readable", isPremium: false, previewAssetName: "font_typewriter_classic", artAssetName: "fontart_typewriter_classic", category: .minimal, popularityRank: 4),
+        FontItem(id: "bold-strong", name: "Bold Strong", styleDescription: "Bold & Impactful", isPremium: true, previewAssetName: "font_bold_strong", artAssetName: "fontart_bold_strong", category: .bold, popularityRank: 3),
+        FontItem(id: "nature-flow", name: "Nature Flow", styleDescription: "Fresh & Calm", isPremium: false, previewAssetName: "fontart_nature_flow", artAssetName: "fontart_nature_flow", category: .elegant, popularityRank: 5),
+        FontItem(id: "gothic-dark", name: "Gothic Dark", styleDescription: "Unique & Stylish", isPremium: true, previewAssetName: "fontart_gothic_dark", artAssetName: "fontart_gothic_dark", category: .other, popularityRank: 6)
     ]
 
     /// Figma's "MY DOWNLOADED FONTS" strip — the same six minus Typewriter Classic, in Figma's
@@ -87,14 +49,9 @@ enum MockData {
 
     // MARK: - Community tab (docs/figma/2.png)
 
-    /// The three ranked cards under Community's "TOP THEMES". Distinct from `popularThemes` —
-    /// Figma's Community page leads with a different trio (and different creators/like counts)
-    /// than Home does.
-    static let communityTopThemes: [KeyboardTheme] = [
-        KeyboardTheme(id: "community-kawaii-boba", name: "kawaii boba tea", creatorName: "Mochi Studio", imageAssetName: "theme_kawaii_boba", likeCount: 12_500, isPremium: false, hashtags: ["cute", "boba"]),
-        KeyboardTheme(id: "community-sakura-train", name: "Sakura Train", creatorName: "sakura", imageAssetName: "theme_sakura_train", likeCount: 9_800, isPremium: false, hashtags: ["sakura", "train"]),
-        KeyboardTheme(id: "community-pastel-pink-sky", name: "Pastel Pink Sky", creatorName: "Staeey", imageAssetName: "theme_pastel_pink_sky", likeCount: 9_800, isPremium: false, hashtags: ["pastel", "sunset"])
-    ]
+    /// The ranked cards under Community's "TOP THEMES" — the catalogue's most-liked, so the medals
+    /// mean something and each card opens its own theme.
+    static var communityTopThemes: [KeyboardTheme] { ThemeCatalog.topThemes(8) }
 
     /// `ctaTitle` is "Choose" on the fourth tile because that is literally what Figma's Community
     /// frame shows — it reads like a copy-paste slip from Home's "Choose from Library" button, but
@@ -106,48 +63,36 @@ enum MockData {
         CommunityCreator(id: "pastel-craft", name: "Pastel Craft", avatarAssetName: "avatar_pastel_craft", themeCount: 12, isVerified: true, ctaTitle: "Choose")
     ]
 
-    /// Summaries are title-cased exactly as Figma sets them, and the first card's copy really does
-    /// describe "cute frogs and nature vibes" over a purple sakura-café keyboard — another mismatch
-    /// carried over verbatim rather than rewritten.
-    ///
-    /// The line breaks are explicit because Figma's are: every card wraps well before its text
-    /// column runs out ("...Cute Frogs / And Nature Vibes", not "...Cute Frogs And / Nature Vibes"),
-    /// so the break is authored, not a consequence of the measure. Letting the text wrap naturally
-    /// reproduced the right line *count* but the wrong break on two of the three cards.
-    static let communityLatest: [CommunityPost] = [
-        CommunityPost(id: "latest-cozy-sakura-cafe", name: "Cozy Sakura Café", creatorName: "Lemonade", thumbAssetName: "latest_cozy_sakura_cafe", summary: "A Soft Green Theme With Cute Frogs\nAnd Nature Vibes", likeCount: 956, hashtags: ["cute", "nature", "green"], tagPalette: .green),
-        CommunityPost(id: "latest-space-vibe", name: "Space Vibe", creatorName: "Dreamer", thumbAssetName: "latest_space_vibe", summary: "Fluffy Clouds And Calm Sky\nFor A Peaceful Typing", likeCount: 956, hashtags: ["blue", "soft", "aesthetic"], tagPalette: .blue),
-        CommunityPost(id: "latest-dreamy-fantasy", name: "Dreamy Fantasy", creatorName: "Kittyk", thumbAssetName: "latest_dreamy_fantasy", summary: "Cozy Cafe Cats To Keep You\nCompany While Typing", likeCount: 956, hashtags: ["blue", "soft", "aesthetic"], tagPalette: .peach)
-    ]
+    /// Community's "Latest Creations" — the newest catalogue themes, as posts. Each one carries its
+    /// real theme so the card opens, downloads and likes the theme it is showing; the summary is the
+    /// theme's own description line from `ThemeSemantics`.
+    static var communityLatest: [KeyboardTheme] { ThemeCatalog.latest(4) }
 
     // MARK: - Leaderboard / Ranked Creators (docs/figma/9.png)
 
     /// The "Ranked Creators" list, in rank order. Same shape as `topCreators` (reuses `Creator`);
     /// values mirror android's `MockData.rankedCreators`.
+    /// Creator preview strips show real theme thumbnails, three each, walked across the catalogue
+    /// so no two creators show the same trio.
+    private static func previews(_ offset: Int) -> [String] {
+        let themes = ThemeCatalog.topThemes(24)
+        guard !themes.isEmpty else { return [] }
+        return (0..<3).map { themes[(offset * 3 + $0) % themes.count].imageAssetName }
+    }
+
     static let rankedCreators: [Creator] = [
-        Creator(id: "mochi-creator", displayName: "Mochi Creator", handle: "@mochicreator", avatarAssetName: "avatar_mochi_creator", themeCount: 128, likeCount: 12_500, isFollowing: true, isVerified: false),
-        Creator(id: "pixel-art-studio", displayName: "Pixel Art Studio", handle: "@pixelart.studio", avatarAssetName: "avatar_pixel_art", themeCount: 96, likeCount: 36_500, isFollowing: true, isVerified: false),
-        Creator(id: "vibe-studio", displayName: "Vibe Studio", handle: "@vibestudio", avatarAssetName: "avatar_vibe_studio", themeCount: 84, likeCount: 10_800, isFollowing: true, isVerified: false),
-        Creator(id: "dreamy-designs", displayName: "Dreamy Designs", handle: "@dreamydesigns", avatarAssetName: "avatar_dreamy_designs", themeCount: 72, likeCount: 8_800, isFollowing: true, isVerified: true),
-        Creator(id: "techy-keys", displayName: "Techy Keys", handle: "@techy.keys", avatarAssetName: "avatar_techy_keys", themeCount: 63, likeCount: 68_800, isFollowing: true, isVerified: false)
+        // avatar_mochi_creator is a mismatched asset (neon ring + camera-edit badge baked in, no
+        // bear hoodie); avatar_sakura is the closest existing match to Figma's pink-haired girl
+        // in art style/palette. Neither has the bear-hood art docs/figma/9.png shows — that
+        // illustration doesn't exist in the catalog and would need a real asset export from Figma.
+        Creator(id: "mochi-creator", displayName: "Mochi Creator", handle: "@mochicreator", avatarAssetName: "avatar_sakura", themeCount: 128, likeCount: 12_500, isFollowing: false, isVerified: true, previewAssetNames: previews(0)),
+        Creator(id: "pixel-art-studio", displayName: "Pixel Art Studio", handle: "@pixelart.studio", avatarAssetName: "avatar_pixel_art", themeCount: 96, likeCount: 36_500, isFollowing: false, isVerified: true, previewAssetNames: previews(1)),
+        Creator(id: "vibe-studio", displayName: "Vibe Studio", handle: "@vibestudio", avatarAssetName: "avatar_vibe_studio", themeCount: 84, likeCount: 10_800, isFollowing: false, isVerified: true, previewAssetNames: previews(2)),
+        Creator(id: "dreamy-designs", displayName: "Dreamy Designs", handle: "@dreamydesigns", avatarAssetName: "avatar_dreamy_designs", themeCount: 72, likeCount: 8_800, isFollowing: true, isVerified: true, previewAssetNames: previews(3)),
+        Creator(id: "techy-keys", displayName: "Techy Keys", handle: "@techy.keys", avatarAssetName: "avatar_techy_keys", themeCount: 63, likeCount: 68_800, isFollowing: false, isVerified: true, previewAssetNames: previews(4))
     ]
 
-    // MARK: - Wallpapers (docs/figma/10.png)
-
-    /// The live-wallpapers grid. Mirrors android's `mockWallpapers`, extended to the full set of
-    /// bundled `wallpaper_*` art so the grid isn't three rows of the same five.
-    static let wallpapers: [WallpaperItem] = [
-        WallpaperItem(id: "wallpaper_cloudy_day", name: "Cloudy Day", isPremium: true),
-        WallpaperItem(id: "wallpaper_sakura_dream_wp", name: "Sakura Dream", isPremium: false),
-        WallpaperItem(id: "wallpaper_galaxy_explorer", name: "Galaxy Explorer", isPremium: true),
-        WallpaperItem(id: "wallpaper_pastel_dreams", name: "Pastel Dreams", isPremium: true),
-        WallpaperItem(id: "wallpaper_rainbow_bliss", name: "Rainbow Bliss", isPremium: false),
-        WallpaperItem(id: "wallpaper_moonlight_night", name: "Moonlight Night", isPremium: false),
-        WallpaperItem(id: "wallpaper_night_vibes", name: "Night Vibes", isPremium: true),
-        WallpaperItem(id: "wallpaper_nature_escape", name: "Nature Escape", isPremium: false),
-        WallpaperItem(id: "wallpaper_evening_glow", name: "Evening Glow", isPremium: true),
-        WallpaperItem(id: "wallpaper_cozy_town", name: "Cozy Town", isPremium: false)
-    ]
+    // Wallpapers are real content now — see `WallpaperCatalog`, not MockData.
 
     static let topCreators: [Creator] = [
         Creator(id: "mochi-creator", displayName: "Mochi Creator", handle: "@mochicreator", avatarAssetName: "avatar_mochi_creator", themeCount: 128, likeCount: 12_500, isFollowing: false, isVerified: true),
@@ -171,40 +116,41 @@ enum MockData {
         ]
     )
 
-    /// The MY CREATIONS strip, in Figma's order. The fourth tile is a **Font**, not a theme — its
-    /// artwork is the "Aa Typewriter Classic" card and its purple sub-line reads "Font" where the
-    /// other three read "Theme" — so the row is deliberately mixed rather than themes-only.
-    ///
-    /// `imageAssetName` points at the existing full-keyboard tiles rather than at fresh crops from
-    /// 3.png: they are the same artwork at better than twice the resolution. Two of them had to be
-    /// re-cut, though — `theme_pastel_rainbow` and `themeart_forest` carry Figma's own round
-    /// download badge baked into the top-right corner, and it sits further right than the disc
-    /// ProfileView draws over it, so a sliver of the arrow showed past the edge. The badge is
-    /// painted out in `profile_art_pastel_rainbow` and `theme_forest`; the originals are left as
-    /// they are because the Themes grid draws that badge deliberately.
-    static let profileCreations: [ProfileCreation] = [
-        ProfileCreation(id: "creation-pastel-rainbow", name: "Pastel Rainbow", kind: "Theme", imageAssetName: "profile_art_pastel_rainbow", likes: "12.5K", downloads: "3.4K"),
-        ProfileCreation(id: "creation-forest", name: "Forest Theme", kind: "Theme", imageAssetName: "theme_forest", likes: "908", downloads: "2.6K"),
-        ProfileCreation(id: "creation-pastel-pink-sky", name: "Pastel Pink Sky", kind: "Theme", imageAssetName: "theme_pastel_pink_sky", likes: "12.5K", downloads: "3.1K"),
-        ProfileCreation(id: "creation-sweet-handwriting", name: "Sweet Handwriting", kind: "Font", imageAssetName: "font_typewriter_classic", likes: "755", downloads: "1.8K")
-    ]
+    /// MY CREATIONS. Tiles carry a real theme each, so tapping one opens that theme; the fourth is
+    /// a Font, as the frame has it. Counts stay as the frame's strings — there is no real telemetry.
+    static var profileCreations: [ProfileCreation] {
+        let themes = ThemeCatalog.featured
+        let counts = [("12.5K", "3.4K"), ("9.8K", "2.6K"), ("8.4K", "3.1K")]
+        var rows = themes.prefix(3).enumerated().map { index, theme in
+            ProfileCreation(id: "creation-\(theme.id)", themeID: theme.id, name: theme.name, kind: "Theme",
+                            imageAssetName: theme.imageAssetName,
+                            likes: counts[index].0, downloads: counts[index].1)
+        }
+        rows.append(ProfileCreation(id: "creation-sweet-handwriting", themeID: nil, name: "Sweet Handwriting",
+                                    kind: "Font", imageAssetName: "font_typewriter_classic",
+                                    likes: "755", downloads: "1.8K"))
+        return rows
+    }
 
-    /// The MY DOWNLOADS strip. Only the like count shows on these tiles, so `downloads` is unused.
-    static let profileDownloads: [ProfileCreation] = [
-        ProfileCreation(id: "download-fantasy-castle-night", name: "Fantasy Castle Night", kind: "Theme", imageAssetName: "theme_fantasy_castle_night", likes: "825", downloads: ""),
-        ProfileCreation(id: "download-forest", name: "Forest Theme", kind: "Theme", imageAssetName: "theme_forest", likes: "500", downloads: ""),
-        ProfileCreation(id: "download-kawaii-boba", name: "kawaii boba tea", kind: "Theme", imageAssetName: "theme_kawaii_boba", likes: "10K", downloads: ""),
-        ProfileCreation(id: "download-cozy-sakura-cafe", name: "Cozy Sakura Caf\u{00E9}", kind: "Theme", imageAssetName: "theme_cozy_sakura_cafe", likes: "12.5K", downloads: "")
-    ]
+    /// MY DOWNLOADS — the user's real downloaded themes (`DownloadedThemeStore`), newest first.
+    /// Empty until they download something, which the screen renders as a prompt.
+    static var profileDownloads: [ProfileCreation] {
+        DownloadedThemeStore.loadDownloadedThemeIDs().reversed().compactMap { id in
+            guard let theme = ThemeCatalog.theme(id: id) else { return nil }
+            return ProfileCreation(id: "download-\(theme.id)", themeID: theme.id, name: theme.name,
+                                   kind: "Theme", imageAssetName: theme.imageAssetName,
+                                   likes: theme.likeCountFormatted, downloads: "")
+        }
+    }
 
-    /// The three rows in the Liked Themes card. Their thumbnails are 153x128px crops lifted out of
-    /// 3.png — "Pastel Dream" has no tile anywhere else in the catalogue, and cropping all three
-    /// together keeps the row visually consistent.
-    static let profileLikedThemes: [ProfileLikedTheme] = [
-        ProfileLikedTheme(id: "liked-pastel-pink-sky", name: "Pastel Pink Sky", creatorName: "Vibe Studio", imageAssetName: "liked_pastel_pink_sky", likes: "2.1K"),
-        ProfileLikedTheme(id: "liked-pastel-dream", name: "Pastel Dream", creatorName: "Dreamy Designs", imageAssetName: "liked_pastel_dream", likes: "1.6K"),
-        ProfileLikedTheme(id: "liked-pastel-rainbow", name: "Pastel Rainbow", creatorName: "Clean Keys", imageAssetName: "liked_pastel_rainbow", likes: "2.3K")
-    ]
+    /// The Liked Themes card — the user's real likes (`LikedThemeStore`), newest first.
+    static var profileLikedThemes: [ProfileLikedTheme] {
+        LikedThemeStore.likedThemes().prefix(3).map { theme in
+            ProfileLikedTheme(id: "liked-\(theme.id)", themeID: theme.id, name: theme.name,
+                              creatorName: theme.creatorName, imageAssetName: theme.imageAssetName,
+                              likes: theme.likeCountFormatted)
+        }
+    }
 
     static let profileFollowRows: [ProfileFollowRow] = [
         ProfileFollowRow(id: "followers", label: "Followers", value: "2.1K"),

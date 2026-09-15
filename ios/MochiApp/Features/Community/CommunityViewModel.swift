@@ -144,33 +144,39 @@ final class CommunityViewModel: ObservableObject {
         uiState = .data(feedThemes: feedThemes, latestThemes: latestThemes, creators: updated)
     }
 
+    /// Mirrors a like to Firestore. The local record (`LikedThemeStore`) is written by the view
+    /// first and is what the heart reads, so this is a no-op whenever there's no backend or no
+    /// signed-in user rather than a path the UI has to wait on.
+    func setLiked(themeId: String, liked: Bool) {
+        guard let uid = authRepository?.currentUser?.uid, let likeRepository else { return }
+        Task {
+            if liked {
+                try? await likeRepository.like(uid: uid, themeId: themeId)
+            } else {
+                try? await likeRepository.unlike(uid: uid, themeId: themeId)
+            }
+        }
+    }
+
     func reportTheme(themeId: String, reason: String) {
         guard let uid = authRepository?.currentUser?.uid, let reportRepository else { return }
         Task { try? await reportRepository.reportTheme(reporterUid: uid, themeId: themeId, reason: reason) }
     }
 }
 
-/// Community's card models carry a bit more than a bare theme (a fixed hashtag-chip color, a
-/// summary line) that `KeyboardTheme` has no direct field for — description doubles as the summary,
-/// and the tag palette is deterministically derived from the theme id so a given theme always shows
-/// the same chip color rather than flickering between reloads.
+/// Community's card model carries a summary line that `KeyboardTheme` has no direct field for —
+/// the theme's description doubles as it. Hashtag chip colors are positional and applied at render
+/// time (see `CommunityPost`), so nothing colour-related is derived here.
 extension KeyboardTheme {
     func toCommunityPost() -> CommunityPost {
-        let palettes: [CommunityPost.TagPalette] = [.green, .blue, .peach]
-        // `String.hashValue` is randomized per process launch in Swift, unlike Kotlin's stable
-        // `hashCode()` — a manual stable sum keeps the same theme showing the same chip color
-        // across relaunches instead of flickering.
-        let stableHash = id.utf8.reduce(0) { $0 &+ Int($1) }
-        let index = stableHash % palettes.count
-        return CommunityPost(
+        CommunityPost(
             id: id,
             name: name,
             creatorName: creatorName,
             thumbAssetName: imageAssetName,
             summary: description,
             likeCount: likeCount,
-            hashtags: hashtags,
-            tagPalette: palettes[index]
+            hashtags: hashtags
         )
     }
 }

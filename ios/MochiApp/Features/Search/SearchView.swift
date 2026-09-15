@@ -1,109 +1,33 @@
 import SwiftUI
 
-struct SearchResult: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let label: String
-    let likeCount: Int
-    let downloadCount: Int
-    let assetName: String
-    let isFont: Bool
-    let showMoreBadge: Bool
-    /// The catalogue theme this result stands for, when it's a theme — tapping it opens Theme Detail.
-    var theme: KeyboardTheme? = nil
-
-    init(theme: KeyboardTheme) {
-        self.id = "theme:\(theme.id)"
-        self.name = theme.name
-        self.label = "Theme"
-        self.likeCount = theme.likeCount
-        self.downloadCount = theme.downloadCount
-        self.assetName = theme.imageAssetName
-        self.isFont = false
-        self.showMoreBadge = true
-        self.theme = theme
-    }
-
-    init(font: FontItem) {
-        self.id = "font:\(font.id)"
-        self.name = font.name
-        self.label = "Font"
-        self.likeCount = 0
-        self.downloadCount = 0
-        self.assetName = font.artAssetName
-        self.isFont = true
-        self.showMoreBadge = true
-        self.theme = nil
-    }
-}
-
-private let typeFilters: [(name: String, icon: String)] = [
-    ("All", "square.grid.2x2.fill"),
-    ("Theme", "paintpalette.fill"),
-    ("Font", ""),
-    ("Creators", "person.fill")
-]
-
-private let recentSearches = ["cotton candy", "handwritten font", "neon night", "mochi studio"]
-private let trendingSearches = ["pastel theme", "cute font", "aesthetic keyboard", "galaxy theme", "minimal", "anime theme", "typewriter font", "handwriting"]
-private let suggestions = ["Cute Themes", "Dark Themes", "Handwritten Fonts", "Pixel Art Themes"]
-private let filterDropdowns: [(label: String, icon: String, isSelected: Bool)] = [
-    ("All Types", "square.grid.2x2.fill", true),
-    ("Free Only", "calendar", false),
-    ("Premium", "crown.fill", false),
-    ("Newest", "clock", false)
-]
-
-/// Ported from docs/figma/6.png. Android's SearchScreen.kt (chunked(2)) uses a 2-column results
-/// grid, but the Figma export clearly shows 4 columns — verified by cropping and inspecting the
-/// export directly, so this diverges from the Android port on that one point.
+/// Ported from docs/figma/6.png.
 ///
-/// Results are a live substring filter over the same catalogue the rest of the app browses
-/// (`MockData`) — no Firestore text index exists and there's no budget for a search service, so
-/// this is the same bounded-pool + client-side-filter shape Android's Search uses.
+/// The screen is a real search over the app's **own** catalogues — the built-in theme system
+/// (`ThemeCatalog.all` + published custom themes), the font collection (`MockData.fontCollection`),
+/// and the set of theme authors. There is no Firestore text index and no budget for a search
+/// service, so relevance is done client-side by `SearchEngine`: a small hand-authored concept
+/// lexicon (`SearchConcepts`) lets "night" surface the dark themes, "shiny" the glow/aurora ones,
+/// and so on, without every item needing the literal word in its title.
+///
+/// The results grid is 4 columns — Android's `SearchScreen.kt` uses `chunked(2)`, but the Figma
+/// export clearly shows four, verified by cropping the export directly.
 struct SearchView: View {
     var onBack: () -> Void = {}
     var onThemeClick: (KeyboardTheme) -> Void = { _ in }
+    /// A font result was tapped — pop to the Fonts tab with this style selected.
+    var onFontClick: (String) -> Void = { _ in }
+    /// A creator result was tapped — push their profile.
+    var onCreatorClick: (String) -> Void = { _ in }
 
-    @State private var query = ""
-    @State private var selectedType = "All"
+    @StateObject private var vm = SearchViewModel()
+    @FocusState private var queryFocused: Bool
 
-    /// Catalogue → result rows, filtered by the query text and the selected type chip.
-    private var results: [SearchResult] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        let themeRows: [SearchResult] = MockData.allThemes
-            .filter { theme in
-                guard !q.isEmpty else { return true }
-                return theme.name.lowercased().contains(q)
-                    || theme.creatorName.lowercased().contains(q)
-                    || theme.hashtags.contains { $0.lowercased().contains(q) }
-            }
-            .map(SearchResult.init(theme:))
-
-        let fontRows: [SearchResult] = MockData.fontCollection
-            .filter { font in
-                guard !q.isEmpty else { return true }
-                return font.name.lowercased().contains(q)
-                    || font.styleDescription.lowercased().contains(q)
-            }
-            .map(SearchResult.init(font:))
-
-        switch selectedType {
-        case "Theme": return themeRows
-        case "Font": return fontRows
-        case "Creators":
-            guard !q.isEmpty else { return themeRows }
-            return MockData.allThemes
-                .filter { $0.creatorName.lowercased().contains(q) }
-                .map(SearchResult.init(theme:))
-        default: return themeRows + fontRows
-        }
-    }
-
-    private var hasQuery: Bool {
-        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    private let typeFilters: [(type: SearchContentType?, name: String, icon: String)] = [
+        (nil, "All", "square.grid.2x2.fill"),
+        (.theme, "Theme", "paintpalette.fill"),
+        (.font, "Font", ""),
+        (.creator, "Creator", "person.fill")
+    ]
 
     var body: some View {
         ZStack {
@@ -112,13 +36,15 @@ struct SearchView: View {
                 VStack(spacing: MochiSpacing.lg) {
                     header
                     typeFilterChips
-                    recentSearchesSection
+                    if !vm.recentSearches.isEmpty {
+                        recentSearchesSection
+                    }
                     trendingSearchesSection
-                    if !hasQuery {
+                    if !vm.hasQuery {
                         suggestionsSection
                     }
                     filtersSection
-                    if results.isEmpty {
+                    if vm.results.isEmpty {
                         noResultsCard
                     } else {
                         searchResultsSection
@@ -128,12 +54,15 @@ struct SearchView: View {
                 .padding(.top, MochiSpacing.md)
                 // RootView keeps MochiTabBar (bar ~84pt + the Create FAB overhanging ~40pt above
                 // it) drawn over this screen, so the last section needs clearance to scroll fully
-                // clear of it — 100 left the FILTERS row and results grid pinned behind the bar.
+                // clear of it.
                 .padding(.bottom, 140)
             }
             .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
         }
     }
+
+    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: MochiSpacing.sm) {
@@ -148,11 +77,28 @@ struct SearchView: View {
             .accessibilityIdentifier("search.back")
 
             HStack(spacing: MochiSpacing.sm) {
-                TextField("", text: $query, prompt: Text("Search themes, creators..").foregroundColor(MochiColor.textSecondary))
+                TextField("", text: $vm.query, prompt: Text("Search themes, creators..").foregroundColor(MochiColor.textSecondary))
                     .font(MochiFont.body(14))
                     .foregroundStyle(MochiColor.textPrimary)
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(MochiColor.textPrimary)
+                    .focused($queryFocused)
+                    .submitLabel(.search)
+                    .autocorrectionDisabled()
+                    .onSubmit { vm.commitQuery() }
+                    .accessibilityIdentifier("search.field")
+
+                if vm.hasQuery {
+                    Button {
+                        vm.clearQuery()
+                        queryFocused = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(MochiColor.textSecondary)
+                    }
+                    .accessibilityIdentifier("search.field.clear")
+                } else {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(MochiColor.textPrimary)
+                }
             }
             .padding(.horizontal, MochiSpacing.md)
             .padding(.vertical, 14)
@@ -161,47 +107,54 @@ struct SearchView: View {
         }
     }
 
+    // MARK: - Type pills
+
+    /// Four equal-width pills spanning the content width — no horizontal scroll. Figma's pills are
+    /// content-sized and run off the right edge; the brief asks for all four to fit cleanly on one
+    /// screen, so they're distributed evenly here while keeping the pill / gradient-selected look.
     private var typeFilterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: MochiSpacing.sm) {
-                ForEach(typeFilters, id: \.name) { filter in
-                    let isSelected = filter.name == selectedType
-                    Button {
-                        selectedType = filter.name
-                    } label: {
-                        HStack(spacing: 6) {
-                            if filter.name == "Font" {
-                                Text("Aa")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                            } else {
-                                Image(systemName: filter.icon)
-                                    .font(.system(size: 13))
-                            }
-                            Text(filter.name)
-                                .font(MochiFont.heading(13))
+        HStack(spacing: MochiSpacing.sm) {
+            ForEach(typeFilters, id: \.name) { filter in
+                let isSelected = filter.type == vm.selectedType
+                Button {
+                    vm.selectedType = filter.type
+                } label: {
+                    HStack(spacing: 5) {
+                        if filter.name == "Font" {
+                            Text("Aa")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                        } else {
+                            Image(systemName: filter.icon)
+                                .font(.system(size: 12))
                         }
-                        .foregroundStyle(isSelected ? .white : MochiColor.textPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            Group {
-                                if isSelected {
-                                    MochiGradient.primaryButton
-                                } else {
-                                    Color.white
-                                }
-                            }
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
-                                .strokeBorder(isSelected ? Color.clear : MochiColor.purple.opacity(0.25))
-                        )
+                        Text(filter.name)
+                            .font(MochiFont.heading(13))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
+                    .foregroundStyle(isSelected ? .white : MochiColor.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 10)
+                    .background {
+                        if isSelected {
+                            MochiGradient.primaryButton
+                        } else {
+                            Color.white
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
+                            .strokeBorder(isSelected ? Color.clear : MochiColor.purple.opacity(0.25))
+                    )
                 }
+                .accessibilityIdentifier("search.type.\(filter.name)")
             }
         }
     }
+
+    // MARK: - Recent searches
 
     private var recentSearchesSection: some View {
         SearchSectionCard {
@@ -210,19 +163,25 @@ struct SearchView: View {
                     .font(MochiFont.title(13))
                     .foregroundStyle(MochiColor.textPrimary)
                 Spacer()
-                Text("Clear All")
-                    .font(MochiFont.caption(12))
-                    .foregroundStyle(MochiColor.textSecondary)
+                Button {
+                    vm.clearRecentSearches()
+                } label: {
+                    Text("Clear All")
+                        .font(MochiFont.caption(12))
+                        .foregroundStyle(MochiColor.textSecondary)
+                }
+                .accessibilityIdentifier("search.recent.clearAll")
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(recentSearches, id: \.self) { term in
-                        PillChip(label: term, icon: "clock")
-                    }
+            FlowLayout(spacing: 8) {
+                ForEach(vm.recentSearches, id: \.self) { term in
+                    PillChip(label: term, icon: "clock") { vm.runSearch(term) }
+                        .accessibilityIdentifier("search.recent.\(term)")
                 }
             }
         }
     }
+
+    // MARK: - Trending searches
 
     private var trendingSearchesSection: some View {
         SearchSectionCard {
@@ -236,77 +195,116 @@ struct SearchView: View {
                         .foregroundStyle(MochiColor.textPrimary)
                 }
                 Spacer()
-                HStack(spacing: 4) {
-                    Text("Refresh")
-                        .font(MochiFont.caption(12))
-                        .foregroundStyle(MochiColor.textSecondary)
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11))
-                        .foregroundStyle(MochiColor.textSecondary)
+                Button {
+                    vm.refreshTrending()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Refresh")
+                            .font(MochiFont.caption(12))
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundStyle(MochiColor.textSecondary)
                 }
+                .accessibilityIdentifier("search.trending.refresh")
             }
             FlowLayout(spacing: 8) {
-                ForEach(trendingSearches, id: \.self) { term in
-                    PillChip(label: term, icon: "chart.line.uptrend.xyaxis")
+                ForEach(vm.trendingSearches, id: \.self) { term in
+                    PillChip(label: term, icon: "chart.line.uptrend.xyaxis") { vm.runSearch(term) }
+                        .accessibilityIdentifier("search.trending.\(term)")
                 }
             }
         }
     }
+
+    // MARK: - Suggestions
 
     private var suggestionsSection: some View {
         SearchSectionCard {
             Text("SUGGESTIONS")
                 .font(MochiFont.title(13))
                 .foregroundStyle(MochiColor.textPrimary)
-            ForEach(suggestions, id: \.self) { suggestion in
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14))
-                        .foregroundStyle(MochiColor.textSecondary)
-                    Text(suggestion)
-                        .font(MochiFont.body(13))
-                        .foregroundStyle(MochiColor.textSecondary)
-                        .padding(.horizontal, 8)
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 12))
-                        .foregroundStyle(MochiColor.textSecondary)
+            ForEach(vm.suggestions, id: \.self) { suggestion in
+                Button {
+                    vm.runSearch(suggestion)
+                } label: {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MochiColor.textSecondary)
+                        Text(suggestion)
+                            .font(MochiFont.body(13))
+                            .foregroundStyle(MochiColor.textSecondary)
+                            .padding(.horizontal, 8)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12))
+                            .foregroundStyle(MochiColor.textSecondary)
+                    }
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
                 }
-                .padding(.vertical, 6)
+                .accessibilityIdentifier("search.suggestion.\(suggestion)")
             }
         }
     }
+
+    // MARK: - Filters
 
     private var filtersSection: some View {
         VStack(alignment: .leading, spacing: MochiSpacing.sm) {
             Text("FILTERS")
                 .font(MochiFont.title(13))
                 .foregroundStyle(MochiColor.textPrimary)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(filterDropdowns, id: \.label) { filter in
-                        HStack(spacing: 4) {
-                            Image(systemName: filter.icon)
-                                .font(.system(size: 12))
-                            Text(filter.label)
-                                .font(MochiFont.caption(12))
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 10))
-                        }
-                        .foregroundStyle(filter.isSelected ? .white : MochiColor.textPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(filter.isSelected ? AnyView(MochiGradient.primaryButton) : AnyView(Color.white))
-                        .clipShape(RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
-                                .strokeBorder(filter.isSelected ? Color.clear : MochiColor.purple.opacity(0.25))
-                        )
+            HStack(spacing: 8) {
+                Menu {
+                    Picker("Type", selection: $vm.tierFilter) {
+                        ForEach(SearchTierFilter.allCases) { Text($0.rawValue).tag($0) }
                     }
+                } label: {
+                    filterChipLabel(text: vm.tierFilter.rawValue,
+                                    icon: "line.3.horizontal.decrease",
+                                    isActive: vm.tierFilter != .all)
                 }
+                .accessibilityIdentifier("search.filter.tier")
+
+                Menu {
+                    Picker("Sort", selection: $vm.sortOption) {
+                        ForEach(SearchSortOption.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                } label: {
+                    filterChipLabel(text: vm.sortOption.rawValue,
+                                    icon: "arrow.up.arrow.down",
+                                    isActive: vm.sortOption != .relevance)
+                }
+                .accessibilityIdentifier("search.filter.sort")
+
+                Spacer(minLength: 0)
             }
         }
     }
+
+    private func filterChipLabel(text: String, icon: String, isActive: Bool) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+            Text(text)
+                .font(MochiFont.caption(12))
+            Image(systemName: "chevron.down")
+                .font(.system(size: 10))
+        }
+        .foregroundStyle(isActive ? .white : MochiColor.textPrimary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isActive ? AnyView(MochiGradient.primaryButton) : AnyView(Color.white))
+        .clipShape(RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
+                .strokeBorder(isActive ? Color.clear : MochiColor.purple.opacity(0.25))
+        )
+    }
+
+    // MARK: - Results
 
     private var searchResultsSection: some View {
         VStack(alignment: .leading, spacing: MochiSpacing.sm) {
@@ -315,19 +313,33 @@ struct SearchView: View {
                     .font(MochiFont.title(13))
                     .foregroundStyle(MochiColor.textPrimary)
                 Spacer()
-                Text("\(results.count) Result\(results.count == 1 ? "" : "s")")
+                Text(vm.resultCountLabel)
                     .font(MochiFont.caption(12))
                     .foregroundStyle(MochiColor.textSecondary)
+                    .accessibilityIdentifier("search.results.count")
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: MochiSpacing.sm), count: 4), spacing: MochiSpacing.md) {
-                ForEach(results) { item in
-                    ResultCard(item: item)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if let theme = item.theme { onThemeClick(theme) }
-                        }
+                ForEach(vm.results) { item in
+                    Button {
+                        handleTap(item)
+                    } label: {
+                        ResultCard(item: item)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("search.result.\(item.id)")
                 }
             }
+        }
+    }
+
+    private func handleTap(_ item: SearchResult) {
+        switch item.kind {
+        case .theme:
+            if let theme = item.theme { onThemeClick(theme) }
+        case .font:
+            if let fontID = item.fontID { onFontClick(fontID) }
+        case .creator:
+            if let name = item.creatorName { onCreatorClick(name) }
         }
     }
 
@@ -344,7 +356,7 @@ struct SearchView: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 72, height: 72)
                 .clipShape(Circle())
-            Text(hasQuery ? "No results found for “\(query)”" : "Nothing to show yet")
+            Text(vm.hasQuery ? "No results found for “\(vm.query)”" : "Nothing matches this filter")
                 .font(MochiFont.heading(15))
                 .foregroundStyle(MochiColor.purple)
                 .multilineTextAlignment(.center)
@@ -353,11 +365,26 @@ struct SearchView: View {
                 .lineSpacing(2)
                 .foregroundStyle(MochiColor.textSecondary)
                 .multilineTextAlignment(.center)
-            if hasQuery {
+            if vm.hasQuery {
                 Button {
-                    query = ""
+                    vm.clearQuery()
                 } label: {
                     Text("Clear Search")
+                        .font(MochiFont.button(13))
+                        .foregroundStyle(MochiColor.purple)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
+                                .strokeBorder(MochiColor.purple.opacity(0.3))
+                        )
+                }
+                .accessibilityIdentifier("search.noResults.clear")
+            } else if vm.tierFilter != .all {
+                Button {
+                    vm.tierFilter = .all
+                } label: {
+                    Text("Reset Filters")
                         .font(MochiFont.button(13))
                         .foregroundStyle(MochiColor.purple)
                         .padding(.horizontal, 16)
@@ -376,6 +403,8 @@ struct SearchView: View {
     }
 }
 
+// MARK: - Section card
+
 private struct SearchSectionCard<Content: View>: View {
     @ViewBuilder let content: Content
 
@@ -388,29 +417,38 @@ private struct SearchSectionCard<Content: View>: View {
     }
 }
 
+// MARK: - Pill chip
+
 private struct PillChip: View {
     let label: String
     let icon: String
+    var action: () -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundStyle(MochiColor.textSecondary)
-            Text(label)
-                .font(MochiFont.caption(12))
-                .foregroundStyle(MochiColor.textPrimary)
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(MochiColor.textSecondary)
+                Text(label)
+                    .font(MochiFont.caption(12))
+                    .foregroundStyle(MochiColor.textPrimary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
+                    .strokeBorder(MochiColor.purple.opacity(0.25))
+            )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: MochiRadius.pill, style: .continuous)
-                .strokeBorder(MochiColor.purple.opacity(0.25))
-        )
+        .buttonStyle(.plain)
     }
 }
+
+// MARK: - Result card
 
 private struct ResultCard: View {
     let item: SearchResult
@@ -418,18 +456,11 @@ private struct ResultCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             ZStack(alignment: .topTrailing) {
-                Group {
-                    if item.isFont {
-                        FontArtCard(assetName: item.assetName) {
-                            Color(red: 0.91, green: 0.949, blue: 0.988)
-                        }
-                    } else {
-                        KeyboardThemeArt(assetName: item.assetName, seed: item.name)
-                    }
-                }
-                .aspectRatio(1.35, contentMode: .fit)
+                artwork
+                    .aspectRatio(1.35, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: MochiRadius.card, style: .continuous))
 
-                Image(systemName: item.showMoreBadge ? "ellipsis" : "arrow.down")
+                Image(systemName: "ellipsis")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 22, height: 22)
@@ -447,32 +478,88 @@ private struct ResultCard: View {
                 Text(item.label)
                     .font(MochiFont.caption(11))
                     .foregroundStyle(MochiColor.purple)
-                HStack(spacing: 2) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(MochiColor.pink)
-                    Text(item.likeCount.formattedCompact)
-                        .font(MochiFont.caption(10))
-                        .foregroundStyle(MochiColor.textSecondary)
-                    Spacer(minLength: 2)
-                    Image(systemName: "arrow.down.to.line")
-                        .font(.system(size: 9))
-                        .foregroundStyle(MochiColor.textSecondary)
-                    Text(item.downloadCount.formattedCompact)
-                        .font(MochiFont.caption(10))
-                        .foregroundStyle(MochiColor.textSecondary)
-                }
+                statsRow
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 4)
             .padding(.bottom, 4)
         }
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: MochiRadius.card, style: .continuous))
     }
+
+    @ViewBuilder
+    private var artwork: some View {
+        switch item.kind {
+        case .theme:
+            ThemePlateThumbnail(assetName: item.assetName,
+                                verticalAnchor: item.plateAnchor,
+                                maxPixelDimension: 260)
+        case .font:
+            FontArtCard(assetName: item.assetName) {
+                Color(red: 0.91, green: 0.949, blue: 0.988)
+            }
+        case .creator:
+            ZStack {
+                MochiGradient.primaryButton
+                Text(initials(for: item.name))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var statsRow: some View {
+        switch item.kind {
+        case .creator:
+            HStack(spacing: 3) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(MochiColor.textSecondary)
+                Text(item.subtitle)
+                    .font(MochiFont.caption(10))
+                    .foregroundStyle(MochiColor.textSecondary)
+            }
+        case .theme, .font:
+            if item.likeCount > 0 || item.downloadCount > 0 {
+                HStack(spacing: 2) {
+                    if item.likeCount > 0 {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(MochiColor.pink)
+                        Text(item.likeCount.formattedCompact)
+                            .font(MochiFont.caption(10))
+                            .foregroundStyle(MochiColor.textSecondary)
+                    }
+                    Spacer(minLength: 2)
+                    if item.downloadCount > 0 {
+                        Image(systemName: "arrow.down.to.line")
+                            .font(.system(size: 9))
+                            .foregroundStyle(MochiColor.textSecondary)
+                        Text(item.downloadCount.formattedCompact)
+                            .font(MochiFont.caption(10))
+                            .foregroundStyle(MochiColor.textSecondary)
+                    }
+                }
+            } else if !item.subtitle.isEmpty {
+                Text(item.subtitle)
+                    .font(MochiFont.caption(10))
+                    .foregroundStyle(MochiColor.textSecondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func initials(for name: String) -> String {
+        let parts = name.split(separator: " ").prefix(2)
+        let letters = parts.compactMap { $0.first }.map(String.init)
+        return letters.joined().uppercased()
+    }
 }
 
-/// Simple wrapping layout for the trending-searches pill row (Figma wraps to multiple lines;
-/// a plain HStack would overflow instead).
+/// Simple wrapping layout for the pill rows (Figma wraps to multiple lines; a plain HStack would
+/// overflow instead).
 private struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 

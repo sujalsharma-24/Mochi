@@ -22,11 +22,6 @@ import os
 /// time it is activated, which in practice means the next time the user taps a text field. Design
 /// for "app writes, extension reads on next activation" — not for instant propagation.
 enum ThemeStore {
-    /// Must match the App Group capability on **both** targets. Changing this string without
-    /// changing the entitlements silently disables theme sync — the extension keeps rendering the
-    /// built-in default and nothing errors.
-    static let appGroupIdentifier = "group.com.mochi.app"
-
     private static let activeThemeFilename = "active-theme.json"
     private static let logger = Logger(subsystem: "com.mochi.app", category: "ThemeStore")
 
@@ -37,7 +32,7 @@ enum ThemeStore {
     /// have a working answer without it, which is why `loadActiveTheme()` falls back to a built-in
     /// theme rather than failing. The keyboard must render *something* correct on first launch.
     static var containerURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroup.identifier)
     }
 
     private static var activeThemeURL: URL? {

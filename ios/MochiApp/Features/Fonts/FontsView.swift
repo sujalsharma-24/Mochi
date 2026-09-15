@@ -22,19 +22,21 @@ import SwiftUI
 /// 1.22 left the downloads row finishing ~67pt above the tab bar where Figma leaves 35pt, i.e. the
 /// page still under-filled the screen by about that much. 1.27 spends the difference on the
 /// elements and lands the last card where the design puts it.
-private let S: CGFloat = 1.27
+/// The design's own type/size lift, now multiplied by `ScreenScale` so the page keeps this weight
+/// on a bigger phone instead of drawing at 402-point sizes inside a 440-point screen.
+private var S: CGFloat { 1.27 * ScreenScale.value }
 
 /// The filter pills get a smaller lift than everything else. All seven have to span the content
 /// width exactly — Figma ends "Other" flush with the right margin — and seven labels at the full
 /// `S` overrun that by about a pill's worth, pushing "Other" off-screen. 1.13 is the largest factor
 /// that still fits the row at credible padding, so the pills read only slightly smaller than the
 /// rest of the page rather than losing a category off the end of it.
-private let SPill: CGFloat = 1.13
+private var SPill: CGFloat { 1.13 * ScreenScale.value }
 
 /// Same story in the downloaded strip, for the same reason: the five cards are width-bound at
 /// 67.5pt each, and a name set at the full `S` no longer clears its "Free"/"Pro" chip, so every
 /// card wrapped ("Bubble / Cute") where Figma wraps only "Handwritten Elegant".
-private let SDownload: CGFloat = 1.10
+private var SDownload: CGFloat { 1.10 * ScreenScale.value }
 
 private enum Metrics {
     /// px->pt for this export. Quoted so the raw Figma measurements below stay checkable.
@@ -47,7 +49,7 @@ private enum Metrics {
     /// Figma's frame has no status bar: its y=0 is the literal top of the screen, so the back
     /// button's 14.9pt inset is measured from there. Pulling back into the 59pt safe area keeps the
     /// header riding as high as the design does without putting it behind the clock.
-    static let contentTop: CGFloat = -8
+    static let contentTop: CGFloat = -8.0 + 4.0 * ScreenScale.spacing
 
     /// Every outline on this page — pills, both panels, the card buttons, the type field, the two
     /// sort-row controls — is a single 1px line in a 2161px-wide export, i.e. 0.19pt. Reproducing
@@ -64,7 +66,7 @@ private enum Metrics {
     static let badgeRadius: CGFloat = 2.6 * S
     static let badgeToTitle: CGFloat = 4.1     // 22px, chip-right to "F"-left
     static let titleToSubtitle: CGFloat = 1.0  // 20px of ink gap, less Inter's own leading
-    static let headerToPills: CGFloat = 10.0   // 69px, less leading
+    static let headerToPills: CGFloat = 10.0 + 6.0 * ScreenScale.spacing   // 69px, less leading
 
     // MARK: Filter pills — a single white capsule bar, 2001x100px, holding seven 56px-tall pills
     // 60px apart. The bar scrolls: "Other" ends flush with the right margin in Figma.
@@ -75,20 +77,28 @@ private enum Metrics {
     /// rather than from Figma's own 37/60px: reproducing those left ~43pt of bare white after
     /// "Other", which is exactly the gap they close.
     static let pillBarInset: CGFloat = 6.0
+    /// Top/bottom room for the pills inside the bar. The bar keeps its Figma height; this only
+    /// stops a selected pill's fill and an unselected pill's hairline stroke being clipped by the
+    /// bar edge, which is what made the row look cut off along the bottom.
+    static let pillBarVPad: CGFloat = 3.0
     static let pillGap: CGFloat = 9.0
     static let pillPad: CGFloat = 6.2
     static let pillIconGap: CGFloat = 2.4
-    static let pillsToSort: CGFloat = 6.6      // 35px
+    static let pillsToSort: CGFloat = 6.6 + 4.0 * ScreenScale.spacing      // 35px
 
     // MARK: Sort row — two capsules and one 120x100px rounded container, all 100px tall. The
     // trailing control is a capsule wider than it is tall, not the circle it reads as at 1x.
     static let sortHeight: CGFloat = 18.6 * S
     static let settings: CGSize = CGSize(width: 22.3 * S, height: 18.6 * S)
-    static let sortToGrid: CGFloat = 8.7       // 47px
+    static let sortToGrid: CGFloat = 8.7 + 5.0 * ScreenScale.spacing       // 47px
 
     // MARK: Card grid — 640x640px cards (square, at width scale) 43px apart in both axes, 46px
     // corner. 442px of art over a 198px white body; only the body takes `S`.
-    static let cardWidth: CGFloat = 119.06
+    /// Was a baked 119.06 — the value that made three cards plus two gaps span a 402pt screen
+    /// exactly. See `DesignGrid` for why that has to be computed instead.
+    static var cardWidth: CGFloat {
+        DesignGrid.columnWidth(columns: 3, margin: margin, gap: cardGap)
+    }
     static let cardGap: CGFloat = 8.0          // 43px
     static let cardRadius: CGFloat = 8.6       // 46px
     static let cardArtAspect: CGFloat = 640.0 / 442.0
@@ -105,7 +115,7 @@ private enum Metrics {
     static let heartInset: CGFloat = 8.2
     static let heartTopInset: CGFloat = 6.5
     static let chipRadius: CGFloat = 2.5 * S
-    static let gridToPanel: CGFloat = 8.8      // 47px
+    static let gridToPanel: CGFloat = 8.8 + 4.0 * ScreenScale.spacing      // 47px
 
     // MARK: Font-preview panel — 2004x730px, 1pt #9C28B1 stroke, 8.4pt inner padding.
     static let panelRadius: CGFloat = 9.3
@@ -127,18 +137,21 @@ private enum Metrics {
     static let gridToSlider: CGFloat = 6.0
     static let sliderKnob: CGFloat = 4.6 * S
     static let sliderTrack: CGFloat = 1.3 * S
-    static let panelToApply: CGFloat = 10.0    // 54px
+    static let panelToApply: CGFloat = 10.0 + 3.0 * ScreenScale.spacing    // 54px
 
     // MARK: Apply panel — 2004x190px.
     static let applyPanelHeight: CGFloat = 35.3 * S
     static let applyButton: CGSize = CGSize(width: 64.7, height: 17.3 * S)
-    static let applyToDownloads: CGFloat = 10.6
+    static let applyToDownloads: CGFloat = 10.6 + 8.0 * ScreenScale.spacing
 
     // MARK: My downloaded fonts — five 363x332px cards 49px apart; 232px art over a 100px body.
     /// Back to Figma's measured 363px. These had been widened to stop the names wrapping, which
     /// left the row visibly larger than the design; `SDownload` handles the wrapping instead, so
     /// the cards can sit at their true width and the five again end flush with the right margin.
-    static let downloadCard: CGFloat = 67.5
+    /// Was a baked 67.5, the width that made five cards plus four gaps span a 402pt screen.
+    static var downloadCard: CGFloat {
+        DesignGrid.columnWidth(columns: 5, margin: margin, gap: downloadCardGap)
+    }
     static let downloadCardGap: CGFloat = 9.1  // 49px
     static let downloadArtAspect: CGFloat = 363.0 / 232.0
     static let downloadBodyHeight: CGFloat = 18.4 * S
@@ -184,19 +197,99 @@ private enum Type {
     static let downloadChip: CGFloat = 4.00 * SDownload // Regular; "Pro" 33px
 }
 
-struct FontsView: View {
-    /// Figma spells the sort control "Soft by" — kept verbatim, like Community's "serch themes".
-    private enum Category: String, CaseIterable, Identifiable {
-        case all = "All", cute = "Cute", handwritten = "Handwritten", minimal = "Minimal"
-        case bold = "Bold", elegant = "Elegant", other = "Other"
-        var id: String { rawValue }
-    }
+/// How the font grid is ordered. The architecture is real; the ranking data behind "Popular" is a
+/// hand-assigned placeholder on `FontItem.popularityRank` until apply/install telemetry exists.
+private enum FontSortOption: String, CaseIterable, Identifiable {
+    case popular = "Popular", newest = "Newest", nameAsc = "A–Z"
+    var id: String { rawValue }
 
-    @State private var category: Category = .all
-    @State private var liked: Set<String> = Set(MockData.fontCollection.map(\.id))
-    @State private var selectedFontID: String = "handwritten-elegant"
+    func orders(_ a: FontItem, _ b: FontItem) -> Bool {
+        switch self {
+        case .popular:
+            return a.popularityRank < b.popularityRank
+        case .newest:
+            // No real dates exist, so "Newest" = reverse declaration order in `fontCollection`.
+            let index = { (f: FontItem) in MockData.fontCollection.firstIndex(of: f) ?? 0 }
+            return index(a) > index(b)
+        case .nameAsc:
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
+}
+
+/// The Filter control. Category is handled by the pills; this is the free/premium axis.
+private enum FontTierFilter: String, CaseIterable, Identifiable {
+    case all = "All Fonts", free = "Free Only", pro = "Pro Only"
+    var id: String { rawValue }
+
+    func includes(_ font: FontItem) -> Bool {
+        switch self {
+        case .all: return true
+        case .free: return !font.isPremium
+        case .pro: return font.isPremium
+        }
+    }
+}
+
+struct FontsView: View {
+    @State private var category: FontCategory = .all
+    @State private var sortOption: FontSortOption = .popular
+    @State private var tierFilter: FontTierFilter = .all
+    @State private var liked: Set<String> = []
+    /// Owned by RootView so a tap on Home's Font Collection can open this screen on a specific font,
+    /// and so the choice persists across leaving/re-entering the tab. This is the *browsing* cursor
+    /// — it drives the grid highlight and the preview panel. It is deliberately not persisted; the
+    /// separate "applied" font (what the keyboard actually types with) lives in `FontStyleStore`.
+    @Binding var selectedFontID: String
+    /// Mirrors `FontStyleStore.loadAppliedStyleID()`; kept in `@State` so applying refreshes the UI.
+    @State private var appliedFontID: String? = FontStyleStore.loadAppliedStyleID()
+    /// Mirrors `FontStyleStore.loadOwnedStyleIDs()` — the MY DOWNLOADED FONTS strip.
+    @State private var ownedFontIDs: [String] = FontStyleStore.loadOwnedStyleIDs()
     @State private var sampleText: String = ""
     @State private var previewScale: Double = 0.45
+
+    @ObservedObject private var billing = BillingRepository.shared
+
+    /// Push the paywall (a Pro font was applied without premium).
+    var onOpenPaywall: () -> Void = {}
+    /// Push the expanded MY DOWNLOADED FONTS collection.
+    var onSeeAllDownloaded: () -> Void = {}
+
+    /// The grid contents after the pills, the Filter and the Sort control have been applied.
+    private var displayedFonts: [FontItem] {
+        MockData.fontCollection
+            .filter { category == .all || $0.category == category }
+            .filter { tierFilter.includes($0) }
+            .sorted { sortOption.orders($0, $1) }
+    }
+
+    /// The font the preview panel and the Apply panel act on.
+    private var selectedFont: FontItem {
+        MockData.fontCollection.first { $0.id == selectedFontID } ?? MockData.fontCollection[0]
+    }
+
+    /// The MY DOWNLOADED FONTS strip, resolved from the owned-id list.
+    private var downloadedFontItems: [FontItem] {
+        ownedFontIDs.compactMap { id in MockData.fontCollection.first { $0.id == id } }
+    }
+
+    private var previewScaleFactor: CGFloat { 0.5 + CGFloat(previewScale) * 1.5 } // 0.5x … 2.0x
+
+    /// Selects a font for preview, and — unless a Pro font needs the paywall — applies it: writes
+    /// it through `FontStyleStore` (which the keyboard reads) and adds it to the owned set. The
+    /// same path is used by the grid card's "Apply", the Apply panel and the downloaded strip, so
+    /// there is one applied-font code path, not several.
+    private func applyFont(_ font: FontItem) {
+        selectedFontID = font.id
+        guard !(font.isPremium && !billing.isUserPremium) else {
+            onOpenPaywall()
+            return
+        }
+        FontStyleStore.apply(font.id)
+        FontStyleStore.addOwnedStyleID(font.id)
+        appliedFontID = font.id
+        ownedFontIDs = FontStyleStore.loadOwnedStyleIDs()
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -311,21 +404,25 @@ struct FontsView: View {
     private var categoryBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Metrics.pillGap) {
-                ForEach(Category.allCases) { item in
+                ForEach(FontCategory.allCases) { item in
                     categoryPill(item)
                 }
             }
             .padding(.horizontal, Metrics.pillBarInset)
+            // Vertical breathing room inside the capsule so a selected pill's fill and an
+            // unselected pill's 0.5pt stroke both clear the bar's edge instead of being shaved by
+            // it — the clipping the row showed before. The bar itself keeps its Figma height.
+            .padding(.vertical, Metrics.pillBarVPad)
         }
-        // Sizes the row to its content instead of to the bar, so the seven pills end where "Other"
-        // ends. Left to fill, the ScrollView claimed the full width and parked a slab of empty
-        // white after the last pill.
-        .fixedSize(horizontal: false, vertical: true)
         .frame(height: Metrics.pillBarHeight)
         .background(Color.white, in: Capsule())
+        // Clip the scrolling pills to the capsule, not to the ScrollView's default rectangle, so
+        // they slide under the rounded ends rather than past a square corner.
+        .clipShape(Capsule())
+        .accessibilityIdentifier("fonts.categoryBar")
     }
 
-    private func categoryPill(_ item: Category) -> some View {
+    private func categoryPill(_ item: FontCategory) -> some View {
         let isSelected = category == item
 
         return Button {
@@ -349,6 +446,7 @@ struct FontsView: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("fonts.category.\(item.rawValue)")
     }
 
     /// Figma gives each category a different kind of mark: three are set in type ("Aa", "B", "E")
@@ -356,7 +454,7 @@ struct FontsView: View {
     /// purple bow that is artwork rather than a glyph — so it is the one that has to come out of
     /// the asset catalog.
     @ViewBuilder
-    private func categoryIcon(_ item: Category, isSelected: Bool) -> some View {
+    private func categoryIcon(_ item: FontCategory, isSelected: Bool) -> some View {
         switch item {
         case .all:
             // Black on the gradient, not knocked out of it — the four squares stay dark when the
@@ -394,55 +492,100 @@ struct FontsView: View {
         HStack(spacing: 0) {
             // Figma sets this "Soft by". Corrected to "Sort by" — it is a straightforward typo in
             // the source file rather than intentional copy, unlike Community's "Choose" CTA.
-            HStack(spacing: 6.5) {
-                Text("Sort by")
-                    .font(MochiFont.body(Type.sort))
-                    .foregroundStyle(MochiColor.logoSolid)
-                Text("Popular")
-                    .font(MochiFont.body(Type.sort))
-                    .foregroundStyle(MochiColor.textPrimary)
+            Menu {
+                Picker("Sort by", selection: $sortOption) {
+                    ForEach(FontSortOption.allCases) { Text($0.rawValue).tag($0) }
+                }
+            } label: {
+                HStack(spacing: 6.5) {
+                    Text("Sort by")
+                        .font(MochiFont.body(Type.sort))
+                        .foregroundStyle(MochiColor.logoSolid)
+                    Text(sortOption.rawValue)
+                        .font(MochiFont.body(Type.sort))
+                        .foregroundStyle(MochiColor.textPrimary)
+                }
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 7.0)
+                .frame(height: Metrics.sortHeight)
+                .background(Color.white, in: Capsule())
+                .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
             }
-            .padding(.horizontal, 7.0)
-            .frame(height: Metrics.sortHeight)
-            .background(Color.white, in: Capsule())
-            .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+            .accessibilityIdentifier("fonts.sort")
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 3.5) {
-                // A funnel. SF's "line.3.horizontal.decrease" is three stacked rules, which is a
-                // different mark entirely, and SF has no plain funnel — so it is drawn.
-                FunnelGlyph()
-                    .stroke(MochiColor.logoSolid, style: StrokeStyle(lineWidth: Metrics.hairline * 1.6, lineJoin: .round))
-                    .frame(width: Type.sort * 0.95, height: Type.sort * 0.95)
-                Text("Filter").font(MochiFont.body(Type.sort))
+            Menu {
+                Picker("Filter", selection: $tierFilter) {
+                    ForEach(FontTierFilter.allCases) { Text($0.rawValue).tag($0) }
+                }
+            } label: {
+                HStack(spacing: 3.5) {
+                    // A funnel. SF's "line.3.horizontal.decrease" is three stacked rules, which is
+                    // a different mark entirely, and SF has no plain funnel — so it is drawn.
+                    FunnelGlyph()
+                        .stroke(MochiColor.logoSolid, style: StrokeStyle(lineWidth: Metrics.hairline * 1.6, lineJoin: .round))
+                        .frame(width: Type.sort * 0.95, height: Type.sort * 0.95)
+                    Text(tierFilter == .all ? "Filter" : tierFilter.rawValue)
+                        .font(MochiFont.body(Type.sort))
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                .foregroundStyle(MochiColor.logoSolid)
+                .padding(.horizontal, 8.0)
+                .frame(height: Metrics.sortHeight)
+                .background(Color.white, in: Capsule())
+                .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
             }
-            .foregroundStyle(MochiColor.logoSolid)
-            .padding(.horizontal, 8.0)
-            .frame(height: Metrics.sortHeight)
-            .background(Color.white, in: Capsule())
-            .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+            .accessibilityIdentifier("fonts.filter")
 
             Color.clear.frame(width: 3.0)
 
-            SlidersGlyph()
-                .stroke(MochiColor.logoSolid, style: StrokeStyle(lineWidth: Metrics.hairline * 1.6, lineCap: .round))
-                .frame(width: Metrics.settings.width * 0.42, height: Metrics.settings.height * 0.30)
-                .frame(width: Metrics.settings.width, height: Metrics.settings.height)
-                .background(Color.white, in: Capsule())
-                .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+            // The trailing glyph is the "all filters" affordance: category + tier + sort in one
+            // menu, so every control in this row does something real.
+            Menu {
+                Picker("Category", selection: $category) {
+                    ForEach(FontCategory.allCases) { Text($0.rawValue).tag($0) }
+                }
+                Picker("Filter", selection: $tierFilter) {
+                    ForEach(FontTierFilter.allCases) { Text($0.rawValue).tag($0) }
+                }
+                Picker("Sort by", selection: $sortOption) {
+                    ForEach(FontSortOption.allCases) { Text($0.rawValue).tag($0) }
+                }
+            } label: {
+                SlidersGlyph()
+                    .stroke(MochiColor.logoSolid, style: StrokeStyle(lineWidth: Metrics.hairline * 1.6, lineCap: .round))
+                    .frame(width: Metrics.settings.width * 0.42, height: Metrics.settings.height * 0.30)
+                    .frame(width: Metrics.settings.width, height: Metrics.settings.height)
+                    .background(Color.white, in: Capsule())
+                    .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+            }
+            .accessibilityIdentifier("fonts.filterMenu")
         }
     }
 
     // MARK: - Card grid
 
+    @ViewBuilder
     private var cardGrid: some View {
-        VStack(spacing: Metrics.cardGap) {
-            ForEach(Array(MockData.fontCollection.chunked(into: 3).enumerated()), id: \.offset) { _, row in
-                HStack(spacing: Metrics.cardGap) {
-                    ForEach(row) { font in
-                        fontCard(font)
+        if displayedFonts.isEmpty {
+            Text("No fonts match this filter")
+                .font(MochiFont.body(Type.cardTitle))
+                .foregroundStyle(MochiColor.textGreyWarm)
+                .frame(maxWidth: .infinity)
+                .frame(height: Metrics.cardWidth / Metrics.cardArtAspect)
+                .accessibilityIdentifier("fonts.grid.empty")
+        } else {
+            VStack(spacing: Metrics.cardGap) {
+                ForEach(Array(displayedFonts.chunked(into: 3).enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: Metrics.cardGap) {
+                        ForEach(row) { font in
+                            fontCard(font)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -473,6 +616,10 @@ struct FontsView: View {
                     .padding(.trailing, Metrics.heartInset)
                     .padding(.top, Metrics.heartTopInset)
                 }
+                // Tapping the thumbnail selects the font for preview. The heart Button sits in the
+                // overlay above and keeps its own tap in its corner.
+                .contentShape(Rectangle())
+                .onTapGesture { selectedFontID = font.id }
 
             VStack(alignment: .leading, spacing: 0) {
                 Color.clear.frame(height: 2.6)
@@ -500,6 +647,8 @@ struct FontsView: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: Metrics.cardButtonGap) {
+                    // Plain tappable Text, not a Button — the same call HomeView's SlimPillButton
+                    // makes, to sidestep the minimum-touch-target inflation that bit Android.
                     Text("Preview")
                         .font(MochiFont.body(Type.cardButton))
                         .foregroundStyle(MochiColor.textPrimary)
@@ -507,13 +656,19 @@ struct FontsView: View {
                         .frame(height: Metrics.cardButtonHeight)
                         .background(Color.white, in: Capsule())
                         .overlay(Capsule().stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline))
+                        .contentShape(Capsule())
+                        .onTapGesture { selectedFontID = font.id }
+                        .accessibilityIdentifier("fonts.card.\(font.id).preview")
 
-                    Text("Apply")
+                    Text(font.id == appliedFontID ? "Applied" : "Apply")
                         .font(MochiFont.body(Type.cardButton))
                         .foregroundStyle(MochiColor.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: Metrics.cardButtonHeight)
                         .background(MochiGradient.fontsAccent, in: Capsule())
+                        .contentShape(Capsule())
+                        .onTapGesture { applyFont(font) }
+                        .accessibilityIdentifier("fonts.card.\(font.id).apply")
                 }
 
                 Color.clear.frame(height: 3.4)
@@ -521,9 +676,22 @@ struct FontsView: View {
             .padding(.horizontal, Metrics.cardPad)
             .frame(width: Metrics.cardWidth, height: Metrics.cardBodyHeight)
             .background(Color.white)
+            // The name/description area also selects; the two pill buttons keep their own taps.
+            .contentShape(Rectangle())
+            .onTapGesture { selectedFontID = font.id }
         }
         .frame(width: Metrics.cardWidth)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        // Selected-font ring. An overlay on the already-clipped card so it adds no size — the grid
+        // is three width-bound cards with no slack, and any inset/padding here drops a column.
+        .overlay {
+            if font.id == selectedFontID {
+                RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
+                    .stroke(MochiColor.logoSolid, lineWidth: Metrics.hairline * 4)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(font.id == selectedFontID ? "fonts.card.\(font.id).selected" : "fonts.card.\(font.id)")
     }
 
     /// Figma's chip is 115x36px around a 61px label — so 27px of air each side, a shade under half
@@ -556,7 +724,9 @@ struct FontsView: View {
                 // A full capsule with the placeholder set left, not a centred rounded rect: the
                 // field's 62px height against its 38px corner reads as a rounded box at 1x, but
                 // at 6x the ends are plainly semicircular.
-                TextField("Type something...", text: $sampleText)
+                TextField("", text: $sampleText,
+                          prompt: Text("Type something...")
+                            .foregroundColor(MochiColor.textSecondary))
                     .font(MochiFont.body(Type.placeholder))
                     .foregroundStyle(MochiColor.textPrimary)
                     .tint(MochiColor.purple)
@@ -570,7 +740,9 @@ struct FontsView: View {
 
             Color.clear.frame(height: Metrics.headingToGrid)
 
-            LetterGrid()
+            LetterGrid(styleID: selectedFontID,
+                       scaleFactor: previewScaleFactor,
+                       sampleText: sampleText)
 
             Color.clear.frame(height: Metrics.gridToSlider)
 
@@ -604,10 +776,11 @@ struct FontsView: View {
 
                 Spacer(minLength: 4)
 
-                Text("100%")
+                Text("\(Int(previewScaleFactor * 100))%")
                     .font(MochiFont.body(Type.percent))
                     .foregroundStyle(MochiColor.textPrimary)
                     .fixedSize()
+                    .accessibilityIdentifier("fonts.preview.percent")
             }
         }
         .padding(Metrics.panelPad)
@@ -660,7 +833,7 @@ struct FontsView: View {
                     .frame(width: Metrics.applyButton.height * 0.61,
                            height: Metrics.applyButton.height * 0.61)
                     .background(Circle().fill(.white))
-                Text("Apply Font")
+                Text(selectedFont.id == appliedFontID ? "Applied" : "Apply Font")
                     .font(MochiFont.itemName(Type.applyButton))
                     .foregroundStyle(MochiColor.textPrimary)
                     .fixedSize()
@@ -672,6 +845,9 @@ struct FontsView: View {
                 MochiGradient.fontsAccent,
                 in: RoundedRectangle(cornerRadius: Metrics.applyButton.height * 0.24, style: .continuous)
             )
+            .contentShape(RoundedRectangle(cornerRadius: Metrics.applyButton.height * 0.24, style: .continuous))
+            .onTapGesture { applyFont(selectedFont) }
+            .accessibilityIdentifier("fonts.applyButton")
         }
         .padding(.horizontal, Metrics.panelPad)
         .frame(height: Metrics.applyPanelHeight)
@@ -698,21 +874,32 @@ struct FontsView: View {
                         .font(.system(size: Type.seeAll * 0.8, weight: .regular))
                 }
                 .foregroundStyle(MochiColor.logoSolid)
+                .contentShape(Rectangle())
+                .onTapGesture { onSeeAllDownloaded() }
+                .accessibilityIdentifier("fonts.downloaded.seeAll")
             }
 
             Color.clear.frame(height: Metrics.headingToDownloads)
 
-            // Bleeds back out of the page gutter so the fifth card reaches the right margin
-            // exactly as it does in Figma, then scrolls beyond it.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Metrics.downloadCardGap) {
-                    ForEach(MockData.downloadedFonts) { font in
-                        downloadCard(font)
+            if downloadedFontItems.isEmpty {
+                Text("You haven't downloaded any fonts yet")
+                    .font(MochiFont.body(Type.downloadName))
+                    .foregroundStyle(MochiColor.textGreyWarm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("fonts.downloaded.empty")
+            } else {
+                // Bleeds back out of the page gutter so the fifth card reaches the right margin
+                // exactly as it does in Figma, then scrolls beyond it.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Metrics.downloadCardGap) {
+                        ForEach(downloadedFontItems) { font in
+                            downloadCard(font)
+                        }
                     }
+                    .padding(.horizontal, Metrics.margin)
                 }
-                .padding(.horizontal, Metrics.margin)
+                .padding(.horizontal, -Metrics.margin)
             }
-            .padding(.horizontal, -Metrics.margin)
         }
     }
 
@@ -758,46 +945,75 @@ struct FontsView: View {
         }
         .frame(width: Metrics.downloadCard)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.downloadRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: Metrics.downloadRadius, style: .continuous))
+        .onTapGesture { selectedFontID = font.id }
+        .accessibilityIdentifier("fonts.downloadCard.\(font.id)")
     }
 }
 
-// MARK: - Letter grid
+// MARK: - Letter grid / live preview
 
-/// A-Z then a-z over four rows of thirteen, each in an outlined cell. The face is the *previewed*
-/// font, not the UI font: Figma's Design panel gives it as **Kaushan Script Regular**, now bundled
-/// alongside Inter (OFL, see ios/licenses/KaushanScript-OFL.txt). An earlier pass stood iOS's own
-/// Snell Roundhand in for it, which was far more of a formal copperplate than Kaushan's brush hand
-/// and gave several letters — Q, W, X — visibly the wrong shape.
+/// The panel's live specimen. It shows what the *selected* style actually does to text — which,
+/// because a Mochi font is a Unicode lookalike transform (`FontStyleCatalog`, see also
+/// docs/PRODUCTION_PLAN.md §1e) and not a typeface, means the glyphs themselves change, rendered in
+/// a neutral face. An earlier pass drew this in Kaushan Script for every style; that made the
+/// preview lie, since the keyboard would then type `𝓪𝓫𝓬` regardless.
+///
+///  * Empty field → A–Z then a–z, each transformed, in the outlined thirteen-column grid.
+///  * Field has text → that text, transformed, wrapping in the same space.
+///  * The size slider scales the glyphs in both modes.
 private struct LetterGrid: View {
+    let styleID: String
+    let scaleFactor: CGFloat
+    let sampleText: String
+
     private static let letters: [String] = {
         let upper = (65...90).map { String(UnicodeScalar($0)!) }
         let lower = (97...122).map { String(UnicodeScalar($0)!) }
         return upper + lower
     }()
 
-    private var scriptFont: Font { .custom("KaushanScript-Regular", size: Type.letter) }
+    private var style: FontStyle? { FontStyleCatalog.style(for: styleID) }
+    private var glyphSize: CGFloat { Type.letter * scaleFactor }
+    private var gridHeight: CGFloat {
+        Metrics.letterCellHeight * 4 + Metrics.letterRowGap * 3
+    }
+
+    private func render(_ text: String) -> String { style?.styled(text) ?? text }
 
     var body: some View {
-        // A fixed-count grid rather than an adaptive one: the thirteen columns are a measured
-        // property of the design, and `.flexible()` lets the cells absorb the panel's rounding
-        // error instead of the gaps doing it.
-        LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: nil, alignment: .center),
-                           count: Metrics.letterColumns),
-            spacing: Metrics.letterRowGap
-        ) {
-            ForEach(Self.letters, id: \.self) { letter in
-                Text(letter)
-                    .font(scriptFont)
+        Group {
+            if sampleText.isEmpty {
+                // A fixed-count grid rather than an adaptive one: the thirteen columns are a
+                // measured property of the design, and `.flexible()` lets the cells absorb the
+                // panel's rounding error instead of the gaps doing it.
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: nil, alignment: .center),
+                                   count: Metrics.letterColumns),
+                    spacing: Metrics.letterRowGap
+                ) {
+                    ForEach(Self.letters, id: \.self) { letter in
+                        Text(render(letter))
+                            .font(.system(size: glyphSize))
+                            .foregroundStyle(MochiColor.textPrimary)
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: Metrics.letterCellHeight)
+                            .background(
+                                RoundedRectangle(cornerRadius: Metrics.letterCellRadius, style: .continuous)
+                                    .stroke(MochiColor.logoSolid, lineWidth: 0.6)
+                            )
+                    }
+                }
+            } else {
+                Text(render(sampleText))
+                    .font(.system(size: glyphSize))
                     .foregroundStyle(MochiColor.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: Metrics.letterCellHeight)
-                    .background(
-                        RoundedRectangle(cornerRadius: Metrics.letterCellRadius, style: .continuous)
-                            .stroke(MochiColor.logoSolid, lineWidth: 0.6)
-                    )
+                    .frame(maxWidth: .infinity, minHeight: gridHeight, alignment: .topLeading)
             }
         }
+        .accessibilityIdentifier("fonts.preview.specimen")
     }
 }
 
@@ -851,5 +1067,5 @@ private extension CGFloat {
 // extension in Data/ThemeRepository.swift and is shared across the app target.
 
 #Preview {
-    FontsView()
+    FontsView(selectedFontID: .constant("handwritten-elegant"))
 }

@@ -7,8 +7,14 @@ struct HomeView: View {
     var onGoToCreate: () -> Void = {}
     var onGoToThemes: () -> Void = {}
     var onGoToFonts: () -> Void = {}
+    /// A tap on a Font Collection card. Carries the whole `FontItem` so the Fonts flow can open on
+    /// that exact font — see RootView, which sets `selectedFontID` from it before switching tabs.
+    var onFontClick: (FontItem) -> Void = { _ in }
 
-    @State private var libraryTab: LibraryTab = .fonts // Figma: FONTS is the default-active pill
+    // Figma: FONTS is the default-active pill. Purely decorative now that the pill navigates — the
+    // view is rebuilt on every return to this tab, so this always resets to `.fonts` and the
+    // "Themes" pill is never seen highlighted (tapping it leaves the screen).
+    @State private var libraryTab: LibraryTab = .fonts
 
     @StateObject private var viewModel = HomeViewModel(container: AppContainer.shared)
 
@@ -17,11 +23,22 @@ struct HomeView: View {
     /// Loading/Error fall back to the same MockData this screen always rendered — no spinner/error
     /// view exists anywhere in the Figma export for Home, same convention every other screen in this
     /// app follows. Only a genuinely empty catalog (`.empty`) shows a real empty row.
+    /// Capped at three, always. The row below is a plain `HStack` sized to fill the content width
+    /// edge-to-edge — it does not scroll and it does not clip, so a fourth card makes it wider than
+    /// the screen, which widens the whole page `VStack`, which the centring `.frame(maxWidth:)` in
+    /// `body` then offsets to the left: the header slides off-screen and every row below is cut at
+    /// both edges.
+    ///
+    /// The backend path already asks for three (`getPublishedThemes(limit: 3)`), but the
+    /// loading/error fallback was handing over `MockData.popularThemes`, which is
+    /// `ThemeCatalog.featured` — six themes. Any device without Firestore data (i.e. every device
+    /// running this build) therefore rendered the broken page. `recentlyAppliedRow` is pinned to
+    /// `contentWidth` as well, so no future data source can reintroduce this.
     private var recentlyAppliedThemes: [KeyboardTheme] {
         switch viewModel.uiState {
-        case .data(let recentlyApplied, _): return recentlyApplied
+        case .data(let recentlyApplied, _): return Array(recentlyApplied.prefix(3))
         case .empty: return []
-        case .loading, .error: return MockData.popularThemes
+        case .loading, .error: return Array(MockData.popularThemes.prefix(3))
         }
     }
 
@@ -98,7 +115,7 @@ struct HomeView: View {
             themesRow(popularThemes)
 
             Spacer(minLength: HomeMetrics.gapThemesFonts)
-            sectionHeader("Font Collection", action: onGoToFonts)
+            sectionHeader("Font Collection", action: onGoToFonts, actionIdentifier: "home.fontCollection.seeAll")
             Color.clear.frame(height: HomeMetrics.sectionHeaderGap)
             fontsRow(MockData.fonts)
 
@@ -137,17 +154,24 @@ struct HomeView: View {
         }
     }
 
-    private func sectionHeader(_ title: String, action: @escaping () -> Void = {}) -> some View {
-        SectionHeader(title: title, titleSize: HomeMetrics.sectionHeaderSize, actionSize: HomeMetrics.seeAllSize, action: action)
+    private func sectionHeader(_ title: String, action: @escaping () -> Void = {}, actionIdentifier: String? = nil) -> some View {
+        SectionHeader(title: title, titleSize: HomeMetrics.sectionHeaderSize, actionSize: HomeMetrics.seeAllSize, action: action, actionIdentifier: actionIdentifier)
     }
 
     /// Figma shows exactly 3 recently-applied cards filling the row edge-to-edge, no scrolling.
+    ///
+    /// Pinned to `contentWidth` and clipped: this row is the page's widest child, so left to size
+    /// itself it decides how wide the whole page is. Holding it to the content width means an
+    /// over-long list can only overflow inside this row — it can never drag the header and every
+    /// other row off-centre. See `recentlyAppliedThemes`.
     private var recentlyAppliedRow: some View {
         HStack(alignment: .top, spacing: HomeMetrics.carouselGap) {
             ForEach(recentlyAppliedThemes) { theme in
                 themeCard(theme, width: carouselCardWidth, artRadius: HomeMetrics.carouselArtRadius)
             }
         }
+        .frame(width: contentWidth, alignment: .leading)
+        .clipped()
     }
 
     /// Transparent background behind the text, no white card box, and deliberately NO crown/like
@@ -280,6 +304,9 @@ struct HomeView: View {
 
     private func toggleButton(title: String, tab: LibraryTab) -> some View {
         let isSelected = libraryTab == tab
+        // The pill is a shortcut into the dedicated Fonts / Themes tabs, not an in-page section
+        // switch (that behaviour was intentionally reverted — both sections always show now).
+        let go: () -> Void = tab == .fonts ? onGoToFonts : onGoToThemes
         return Text(title.uppercased())
             .font(MochiFont.title(HomeMetrics.pillLabelSize))
             .foregroundStyle(MochiColor.textPrimary)
@@ -295,7 +322,8 @@ struct HomeView: View {
                     }
                 }
             )
-            .onTapGesture { libraryTab = tab }
+            .onTapGesture { libraryTab = tab; go() }
+            .accessibilityIdentifier(tab == .fonts ? "home.pill.fonts" : "home.pill.themes")
     }
 
     /// Figma sizes Popular Themes cards bigger than Recently Applied's, horizontally scrollable
@@ -343,6 +371,9 @@ struct HomeView: View {
                     }
                     .frame(width: cardWidth, height: cardHeight)
                     .clipShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
+                    .contentShape(Rectangle())
+                    .onTapGesture { onFontClick(font) }
+                    .accessibilityIdentifier("home.fontCard.\(font.id)")
                 }
             }
         }

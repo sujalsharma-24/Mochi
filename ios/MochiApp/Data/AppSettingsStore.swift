@@ -16,7 +16,7 @@ final class AppSettingsStore: ObservableObject {
     static let shared = AppSettingsStore()
 
     private let defaults: UserDefaults =
-        UserDefaults(suiteName: "group.com.mochi.app") ?? .standard
+        UserDefaults(suiteName: AppGroup.identifier) ?? .standard
 
     private enum Key {
         static let autocorrect = "mochi.settings.autocorrect"

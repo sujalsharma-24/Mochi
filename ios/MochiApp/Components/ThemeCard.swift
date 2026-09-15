@@ -8,8 +8,21 @@ struct ThemeCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: MochiSpacing.sm) {
                 ZStack(alignment: .topTrailing) {
-                    KeyboardPreviewPlaceholder(seed: theme.id)
-                        .aspectRatio(1, contentMode: .fit)
+                    // The card used to draw a seeded placeholder for *every* theme, ignoring
+                    // `imageAssetName` — so a grid of 121 themes showed 121 generated gradients
+                    // rather than the themes themselves. The plate is what the theme actually
+                    // looks like, so draw it and keep the placeholder for the art-free case.
+                    Group {
+                        if ThemeArtAvailability.hasArt(theme.imageAssetName) {
+                            Image(theme.imageAssetName)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } else {
+                            KeyboardPreviewPlaceholder(seed: theme.id)
+                        }
+                    }
+                    .aspectRatio(1, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: MochiRadius.card, style: .continuous))
 
                     if theme.isPremium {
                         Image(systemName: "crown.fill")
@@ -51,6 +64,9 @@ struct SectionHeader: View {
     var titleSize: CGFloat = 9
     var actionSize: CGFloat = 9
     var action: () -> Void = {}
+    /// Home has more than one "see all" on screen at once (Popular Themes, Font Collection), so
+    /// each caller that needs to be found unambiguously (e.g. by UI tests) can tag its own.
+    var actionIdentifier: String?
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
@@ -65,6 +81,7 @@ struct SectionHeader: View {
                         .foregroundStyle(MochiColor.textPrimary) // black in Figma, not purple
                 }
                 .padding(.trailing, 2)
+                .accessibilityIdentifier(actionIdentifier ?? "")
             }
         }
     }

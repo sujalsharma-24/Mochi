@@ -5,14 +5,24 @@ import SwiftUI
 /// (no Figma source exists for Auth — see [[project-mochi-decisions]]), same Email/Phone-OTP flow
 /// against the same Cloud Functions callables. Unlike Android, the Apple button here is real Sign
 /// in with Apple rather than a stub notice — Apple requires it wherever Google Sign-In is offered.
+///
+/// When `AppContainer.shared` is nil (no GoogleService-Info.plist yet), the screen runs in **mock
+/// mode**: every sign-in action immediately calls `onAuthenticated` so the user can still explore
+/// the app. Once the plist is added this switches to the real Firebase flow automatically.
 struct AuthView: View {
     var onBack: () -> Void = {}
     var onAuthenticated: () -> Void = {}
 
-    /// Force-unwrapped deliberately: AppRootView only ever presents AuthView when
-    /// `AppContainer.shared` is non-nil (backend configured) — same invariant Android relies on by
-    /// never null-checking its own always-configured container.
-    @StateObject private var viewModel = AuthViewModel(authRepository: AppContainer.shared!.authRepository)
+    /// nil when Firebase isn't configured — every action just calls `onAuthenticated` directly.
+    @StateObject private var viewModel: AuthViewModel = {
+        if let container = AppContainer.shared {
+            return AuthViewModel(authRepository: container.authRepository)
+        } else {
+            return AuthViewModel(authRepository: nil)
+        }
+    }()
+
+    private var isMockMode: Bool { AppContainer.shared == nil }
 
     private enum Mode { case signIn, signUp }
     private enum Method { case email, phone }
@@ -62,6 +72,30 @@ struct AuthView: View {
                 .fill(Self.headerGradient)
                 .frame(height: 260)
 
+            // Decorative ambient circles — matching Android's Canvas overlay
+            Canvas { context, size in
+                context.fill(
+                    Path(ellipseIn: CGRect(
+                        x: size.width * 0.1 - size.width * 0.4,
+                        y: size.height * 0.2 - size.width * 0.4,
+                        width: size.width * 0.8,
+                        height: size.width * 0.8
+                    )),
+                    with: .color(.white.opacity(0.10))
+                )
+                context.fill(
+                    Path(ellipseIn: CGRect(
+                        x: size.width * 0.9 - size.width * 0.35,
+                        y: size.height * 0.7 - size.width * 0.35,
+                        width: size.width * 0.7,
+                        height: size.width * 0.7
+                    )),
+                    with: .color(.white.opacity(0.08))
+                )
+            }
+            .frame(height: 260)
+            .allowsHitTesting(false)
+
             VStack(alignment: .center, spacing: 10) {
                 HStack {
                     Button(action: onBack) {
@@ -74,13 +108,17 @@ struct AuthView: View {
 
                 Spacer().frame(height: 4)
 
-                ZStack {
-                    Circle().fill(Color.white).frame(width: 54, height: 54)
-                        .shadow(radius: 8)
-                    Image(systemName: "leaf.fill")
-                        .foregroundStyle(Color(red: 0.565, green: 0.071, blue: 0.655))
-                        .font(.system(size: 22))
-                }
+                // App Icon from Figma assets
+                Image("app_icon")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(.white.opacity(0.3), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
 
                 Text(mode == .signIn ? "Welcome" : "Create Account")
                     .font(MochiFont.title(28))
@@ -166,7 +204,9 @@ struct AuthView: View {
                 HStack {
                     Spacer()
                     Button("Forgot Password?") {
-                        if emailOrPhone.isEmpty {
+                        if isMockMode {
+                            viewModel.showNotice("Add GoogleService-Info.plist to enable password reset.")
+                        } else if emailOrPhone.isEmpty {
                             viewModel.showNotice("Enter your email address first.")
                         } else {
                             viewModel.sendPasswordReset(emailOrPhone)
@@ -182,6 +222,10 @@ struct AuthView: View {
 
     private var primaryButton: some View {
         Button {
+            if isMockMode {
+                onAuthenticated()
+                return
+            }
             guard !viewModel.uiState.isLoading else { return }
             switch (method, codeSent) {
             case (.phone, true):
@@ -241,19 +285,40 @@ struct AuthView: View {
 
     private var socialButtons: some View {
         HStack(spacing: 18) {
-            SocialIconButton(systemImage: "g.circle.fill") {
-                guard let viewController = UIApplication.topViewController() else {
-                    viewModel.showNotice("Couldn't start Google Sign-In from this screen.")
-                    return
+            // Real Google Logo Button — matching Android's ic_google_logo
+            SocialIconButton(action: {
+                if isMockMode {
+                    onAuthenticated()
+                } else {
+                    guard let viewController = UIApplication.topViewController() else {
+                        viewModel.showNotice("Couldn't start Google Sign-In from this screen.")
+                        return
+                    }
+                    viewModel.signInWithGoogle(presenting: viewController, onSuccess: onAuthenticated)
                 }
-                viewModel.signInWithGoogle(presenting: viewController, onSuccess: onAuthenticated)
+            }) {
+                Image("ic_google_logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28, height: 28)
             }
-            SocialIconButton(systemImage: "apple.logo") {
-                guard let anchor = UIApplication.keyWindow() else {
-                    viewModel.showNotice("Couldn't start Apple Sign-In from this screen.")
-                    return
+
+            // Real Apple Logo Button — matching Android's ic_apple_logo
+            SocialIconButton(action: {
+                if isMockMode {
+                    onAuthenticated()
+                } else {
+                    guard let anchor = UIApplication.keyWindow() else {
+                        viewModel.showNotice("Couldn't start Apple Sign-In from this screen.")
+                        return
+                    }
+                    viewModel.signInWithApple(presentationAnchor: anchor, onSuccess: onAuthenticated)
                 }
-                viewModel.signInWithApple(presentationAnchor: anchor, onSuccess: onAuthenticated)
+            }) {
+                Image("ic_apple_logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28, height: 28)
             }
         }
     }
@@ -282,6 +347,57 @@ struct AuthView: View {
         }
         .font(MochiFont.caption(13))
         .foregroundStyle(Color(red: 0.612, green: 0.639, blue: 0.686))
+    }
+}
+
+// MARK: - Custom MochiTreeLogo — pixel-matched to Android's Canvas drawing
+
+/// The little leaf/tree logo drawn by Android's MochiTreeLogo composable — a filled leaf shape with
+/// a white trunk and branch. Drawn in Canvas rather than SF Symbols to match Android's exact shape.
+private struct MochiTreeLogo: View {
+    var tint: Color
+
+    var body: some View {
+        Canvas { context, size in
+            let w = size.width
+            let h = size.height
+
+            // Leaf shape
+            var path = Path()
+            path.move(to: CGPoint(x: w * 0.5, y: h * 0.1))
+            path.addCurve(
+                to: CGPoint(x: w * 0.5, y: h * 0.72),
+                control1: CGPoint(x: w * 0.15, y: h * 0.15),
+                control2: CGPoint(x: w * 0.1, y: h * 0.55)
+            )
+            path.addCurve(
+                to: CGPoint(x: w * 0.5, y: h * 0.1),
+                control1: CGPoint(x: w * 0.9, y: h * 0.55),
+                control2: CGPoint(x: w * 0.85, y: h * 0.15)
+            )
+            path.closeSubpath()
+            context.fill(path, with: .color(tint))
+
+            // Trunk line
+            context.stroke(
+                Path { p in
+                    p.move(to: CGPoint(x: w * 0.5, y: h * 0.35))
+                    p.addLine(to: CGPoint(x: w * 0.5, y: h * 0.65))
+                },
+                with: .color(.white),
+                lineWidth: w * 0.08
+            )
+
+            // Branch line
+            context.stroke(
+                Path { p in
+                    p.move(to: CGPoint(x: w * 0.5, y: h * 0.45))
+                    p.addLine(to: CGPoint(x: w * 0.68, y: h * 0.35))
+                },
+                with: .color(.white),
+                lineWidth: w * 0.07
+            )
+        }
     }
 }
 
@@ -328,10 +444,13 @@ private struct AuthTextField<Trailing: View>: View {
                     .frame(width: 20)
             }
             Group {
+                // Explicit grey prompt rather than the bare title string — the title inherits the
+                // field's own foreground colour on some iOS versions and reads near-white here.
+                let prompt = Text(placeholder).foregroundColor(MochiColor.textSecondary)
                 if isSecure {
-                    SecureField(placeholder, text: $text)
+                    SecureField("", text: $text, prompt: prompt)
                 } else {
-                    TextField(placeholder, text: $text)
+                    TextField("", text: $text, prompt: prompt)
                 }
             }
             .font(MochiFont.body(14))
@@ -349,15 +468,14 @@ private struct AuthTextField<Trailing: View>: View {
     }
 }
 
-private struct SocialIconButton: View {
-    let systemImage: String
+/// Social icon card — matches Android's SocialIconCard: bordered white rounded-rect with soft shadow.
+private struct SocialIconButton<Content: View>: View {
     let action: () -> Void
+    @ViewBuilder let content: () -> Content
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 24))
-                .foregroundStyle(MochiColor.textPrimary)
+            content()
                 .frame(width: 76, height: 58)
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 18))

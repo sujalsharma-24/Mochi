@@ -30,6 +30,8 @@ struct ProfileView: View {
     var onSettings: () -> Void = {}
     var onPaywall: () -> Void = {}
     var onThemeClick: (KeyboardTheme) -> Void = { _ in }
+    /// The page's three "see all" controls — My Creations, Liked Themes and My Downloads.
+    var onSeeAll: (ThemeCollectionKind) -> Void = { _ in }
 
     private var isOwnProfile: Bool { uid == nil }
 
@@ -57,22 +59,6 @@ struct ProfileView: View {
         // Fonts and Themes do it: a sibling that ignores the safe area drags the whole stack up
         // under the status bar and takes the header with it.
         .background(alignment: .top) { backdrop }
-        // The Settings gear is not in docs/figma/3.png — it's the entry point to the Settings
-        // screen (Android's Profile has `onSettingsClick`). Only on your own profile.
-        .overlay(alignment: .topTrailing) {
-            if isOwnProfile {
-                Button(action: onSettings) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(MochiColor.textPrimary)
-                        .frame(width: 40, height: 40)
-                        .background(Color.white.opacity(0.9), in: Circle())
-                }
-                .accessibilityIdentifier("profile.openSettings")
-                .padding(.trailing, ProfileMetrics.margin)
-                .padding(.top, 6)
-            }
-        }
     }
 
     /// The illustration is anchored to the **canvas** origin, not the screen's. It is a width-fit
@@ -113,6 +99,27 @@ struct ProfileView: View {
         }
         .accessibilityIdentifier("profile.back")
         .place(x: ProfileMetrics.margin, y: ProfileMetrics.backTop)
+
+        // The Settings gear is not in docs/figma/3.png — it's the entry point to the Settings screen
+        // (Android's Profile has `onSettingsClick`). It is placed on the canvas beside the back disc
+        // rather than as a screen-corner overlay: as an overlay it was pinned to the safe area while
+        // the back disc rides the canvas, so the two sat at visibly different heights. Same disc
+        // size, same y — they now read as one row.
+        if isOwnProfile {
+            Button(action: onSettings) {
+                Circle()
+                    .fill(MochiGradient.themeCircleButton)
+                    .frame(width: ProfileMetrics.backDisc, height: ProfileMetrics.backDisc)
+                    .overlay {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: ProfileMetrics.backArrowHeight * 1.30, weight: .semibold))
+                            .foregroundColor(MochiColor.textPrimary)
+                    }
+            }
+            .accessibilityIdentifier("profile.openSettings")
+            .placeTrailing(right: ProfileMetrics.margin + ProfileMetrics.contentWidth,
+                           y: ProfileMetrics.backTop)
+        }
 
         avatar
             .place(x: ProfileMetrics.avatarLeading, y: ProfileMetrics.avatarTop)
@@ -216,6 +223,11 @@ struct ProfileView: View {
 
     // MARK: - Mochi Pro / Go Premium banners
 
+    /// Whether this user is already on a paid plan. Both banners read it: a subscriber should not be
+    /// asked to upgrade to something they already have, so the copy and the pill change to reflect
+    /// the plan they're on rather than selling it to them again.
+    private var isPremium: Bool { BillingRepository.shared.isUserPremium }
+
     @ViewBuilder
     private var banners: some View {
         banner(
@@ -223,8 +235,11 @@ struct ProfileView: View {
             mascotX: ProfileMetrics.proMascotX,
             titleAt: ProfileMetrics.proTitle,
             subtitleAt: ProfileMetrics.proSubtitle,
-            subtitle: ["You're on Premium Plan  Enjoy all premium",
-                       "features and unlimited creations."],
+            subtitle: isPremium
+                ? ["You're on the Premium Plan  All themes, fonts",
+                   "and effects are unlocked."]
+                : ["Go Premium to unlock every theme, font",
+                   "and effect, with unlimited creations."],
             pillRight: ProfileMetrics.proPillRight
         ) {
             Text("Mochi Pro")
@@ -237,19 +252,24 @@ struct ProfileView: View {
             mascotX: ProfileMetrics.premiumMascotX,
             titleAt: ProfileMetrics.premiumTitle,
             subtitleAt: ProfileMetrics.premiumSubtitle,
-            subtitle: ["Unlock all premium themes, fonts, and features."],
+            subtitle: isPremium
+                ? ["Your premium perks are active. Thanks for supporting Mochi."]
+                : ["Unlock all premium themes, fonts, and features."],
             pillRight: ProfileMetrics.premiumPillRight
         ) {
             // The wordmark is the app's shared pink->periwinkle ramp: sampled across its 461px run
             // it opens #C877DC, warms to #E17CD0 about a third of the way in and closes on #8D7DE7
             // — `softButton` to within a couple of levels. Painted through a mask because
             // Text.foregroundStyle(_ ShapeStyle:) is iOS 17+ and this target ships to 16.
-            Text("Go Premium")
+            // "Premium Active" for a subscriber — the same treatment, saying what they have
+            // rather than asking them to buy it again.
+            let heading = isPremium ? "Premium Active" : "Go Premium"
+            Text(heading)
                 .font(MochiFont.heading(ProfileType.bannerTitle))
                 .opacity(0)
                 .overlay {
                     MochiGradient.softButton.mask {
-                        Text("Go Premium")
+                        Text(heading)
                             .font(MochiFont.heading(ProfileType.bannerTitle))
                     }
                 }
@@ -307,7 +327,7 @@ struct ProfileView: View {
                     .frame(width: ProfileMetrics.upgradeCrown.width,
                            height: ProfileMetrics.upgradeCrown.height)
                 Color.clear.frame(width: ProfileMetrics.upgradeCrownGap, height: 0)
-                Text("Upgrade Plan")
+                Text(isPremium ? "Manage Plan" : "Upgrade Plan")
                     .font(MochiFont.itemName(ProfileType.upgrade))
                     .foregroundColor(MochiColor.textPrimary)
                     .fixedSize()
@@ -333,13 +353,19 @@ struct ProfileView: View {
             .place(x: ProfileMetrics.margin, capTop: ProfileMetrics.creationsHeadingTop,
                    size: ProfileType.sectionHeading)
 
-        figmaText("see all", MochiFont.body(ProfileType.seeAll),
-                  "Inter-Regular", MochiColor.textPrimary)
-            .placeTrailing(right: ProfileMetrics.margin + ProfileMetrics.seeAllRight,
-                           capTop: ProfileMetrics.seeAllTop, size: ProfileType.seeAll)
+        Button { onSeeAll(.myCreations) } label: {
+            figmaText("see all", MochiFont.body(ProfileType.seeAll),
+                      "Inter-Regular", MochiColor.textPrimary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("profile.seeAll.creations")
+        .placeTrailing(right: ProfileMetrics.margin + ProfileMetrics.seeAllRight,
+                       capTop: ProfileMetrics.seeAllTop, size: ProfileType.seeAll)
 
         ForEach(Array(MockData.profileCreations.enumerated()), id: \.element.id) { index, item in
             creationCard(item)
+                .contentShape(Rectangle())
+                .onTapGesture { open(item) }
                 .place(x: ProfileMetrics.margin
                        + CGFloat(index) * (ProfileMetrics.cardWidth + ProfileMetrics.cardGap),
                        y: ProfileMetrics.creationsTop)
@@ -422,8 +448,20 @@ struct ProfileView: View {
         .fixedSize()
         .place(x: ProfileMetrics.margin, y: ProfileMetrics.filterPillTop)
 
-        ForEach(Array(MockData.profileDownloads.enumerated()), id: \.element.id) { index, item in
+        if downloadTiles.isEmpty {
+            figmaText(filter == .theme
+                      ? "Tap the download icon on a theme to keep it here."
+                      : "Fonts you download will show up here.",
+                      MochiFont.body(ProfileType.downloadTitle),
+                      "Inter-Regular", MochiColor.textGreyWarm)
+                .place(x: ProfileMetrics.margin, y: ProfileMetrics.downloadsTop + 14)
+                .accessibilityIdentifier("profile.downloads.empty")
+        }
+
+        ForEach(Array(downloadTiles.prefix(4).enumerated()), id: \.element.id) { index, item in
             downloadCard(item)
+                .contentShape(Rectangle())
+                .onTapGesture { open(item) }
                 .place(x: ProfileMetrics.margin
                        + CGFloat(index) * (ProfileMetrics.cardWidth + ProfileMetrics.cardGap),
                        y: ProfileMetrics.downloadsTop)
@@ -527,6 +565,14 @@ struct ProfileView: View {
         pairHeader(originX: ProfileMetrics.margin, chevron: false)
         pairHeader(originX: ProfileMetrics.margin + ProfileMetrics.pairRightX, chevron: true)
 
+        if MockData.profileLikedThemes.isEmpty {
+            figmaText("Tap the heart on a theme", MochiFont.body(ProfileType.likedByline),
+                      "Inter-Regular", MochiColor.textGreyWarm)
+                .place(x: ProfileMetrics.margin + ProfileMetrics.likedThumbX,
+                       y: ProfileMetrics.pairTop + ProfileMetrics.likedRowTop + 6)
+                .accessibilityIdentifier("profile.liked.empty")
+        }
+
         ForEach(Array(MockData.profileLikedThemes.enumerated()), id: \.element.id) { index, item in
             likedRow(item, rowTop: ProfileMetrics.pairTop + ProfileMetrics.likedRowTop
                      + CGFloat(index) * ProfileMetrics.likedRowPitch)
@@ -568,15 +614,19 @@ struct ProfileView: View {
                    capTop: ProfileMetrics.pairTop + ProfileMetrics.pairHeadingTop,
                    size: ProfileType.pairHeading)
 
-        HStack(spacing: ProfileMetrics.followChevronGap) {
-            figmaText("See all", MochiFont.heading(ProfileType.pairSeeAll),
-                      "Inter-SemiBold", MochiColor.logoSolid)
-            if chevron {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: ProfileMetrics.pairChevron, weight: .semibold))
-                    .foregroundColor(MochiColor.logoSolid)
+        Button { if !chevron { onSeeAll(.liked) } } label: {
+            HStack(spacing: ProfileMetrics.followChevronGap) {
+                figmaText("See all", MochiFont.heading(ProfileType.pairSeeAll),
+                          "Inter-SemiBold", MochiColor.logoSolid)
+                if chevron {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: ProfileMetrics.pairChevron, weight: .semibold))
+                        .foregroundColor(MochiColor.logoSolid)
+                }
             }
         }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(chevron ? "profile.seeAll.network" : "profile.seeAll.liked")
         .placeTrailing(right: originX + ProfileMetrics.pairSeeAllRight,
                        capTop: ProfileMetrics.pairTop + ProfileMetrics.pairHeadingTop,
                        size: ProfileType.pairSeeAll)
@@ -590,6 +640,8 @@ struct ProfileView: View {
             .frame(width: ProfileMetrics.likedThumb.width, height: ProfileMetrics.likedThumb.height)
             .clipShape(RoundedRectangle(cornerRadius: ProfileMetrics.likedThumbRadius,
                                         style: .continuous))
+            .contentShape(Rectangle())
+            .onTapGesture { openTheme(id: item.themeID) }
             .place(x: ProfileMetrics.margin + ProfileMetrics.likedThumbX, y: rowTop)
 
         figmaText(item.name, MochiFont.heading(ProfileType.likedName),
@@ -645,6 +697,31 @@ struct ProfileView: View {
         .placeTrailing(right: originX + ProfileMetrics.followValueRight,
                        capTop: rowTop + ProfileMetrics.followLabelTop,
                        size: ProfileType.followValue)
+    }
+
+    // MARK: - Opening a tile
+
+    /// MY DOWNLOADS lists the user's real downloads; the Font filter shows the styles they own.
+    /// Empty is a real state here (a fresh install has downloaded nothing), so the row renders a
+    /// prompt rather than four tiles of artwork the user never chose.
+    private var downloadTiles: [ProfileCreation] {
+        filter == .theme ? MockData.profileDownloads : ownedFontTiles
+    }
+
+    private var ownedFontTiles: [ProfileCreation] {
+        FontStyleStore.loadOwnedStyleIDs().compactMap { id in
+            guard let font = MockData.fontCollection.first(where: { $0.id == id }) else { return nil }
+            return ProfileCreation(id: "download-font-\(font.id)", themeID: nil, name: font.name,
+                                   kind: "Font", imageAssetName: font.previewAssetName,
+                                   likes: "", downloads: "")
+        }
+    }
+
+    private func open(_ item: ProfileCreation) { openTheme(id: item.themeID) }
+
+    private func openTheme(id: String?) {
+        guard let id, let theme = ThemeCatalog.theme(id: id) else { return }
+        onThemeClick(theme)
     }
 
     // MARK: - Helpers

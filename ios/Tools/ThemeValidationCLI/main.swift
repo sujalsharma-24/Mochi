@@ -129,6 +129,14 @@ for artTheme in BuiltInThemes.all {
         }
 
         let labelFailures = results.filter { $0.worstLabelContrast < ThemeValidator.minimumLabelContrast }
+        // A session-5/6 investigation confirmed this exemption is live for every shipping material
+        // (all 7 set a border) and considered requiring coverage unconditionally. Reverted: for
+        // materials like Inkwell (dark cap on a dark scene, by design "carried by the rim") flat
+        // cap-vs-art fill contrast is not always achievable or even the right measure -- the
+        // boundary is meant to read from the border/shadow/highlight, which this pixel test
+        // deliberately doesn't model (see the doc comment above). The real gate for those materials
+        // is `worstLabelContrast`, which every batch5/6 theme now clears. Coverage stays printed
+        // as a diagnostic either way.
         let capFailures = results.filter {
             $0.capCoverage < ArtBackdropCheck.requiredCapCoverage
                 && artTheme.style(for: $0.role).border == nil

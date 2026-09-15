@@ -32,6 +32,15 @@ final class KeyboardViewController: UIInputViewController {
         view.backgroundColor = .clear
         inputView?.backgroundColor = .clear
 
+        // An input view only adopts the height its own constraints ask for when it is allowed to
+        // size itself. Without this the system substitutes the standard system-keyboard height and
+        // `updateHeightConstraint()` below is silently ignored, however it is prioritised — which
+        // is exactly what made the real keyboard ~44pt (one suggestion bar) shorter than the
+        // in-app preview of the same theme. The visible symptom was not the missing bar but the
+        // background art: `scaleAspectFill` into the shorter box crops equally top and bottom, so
+        // the top of the scene the theme was designed around simply wasn't on screen.
+        inputView?.allowsSelfSizing = true
+
         let surface = KeyboardSurfaceView(
             theme: ThemeStore.loadActiveTheme(),
             includesNextKeyboardKey: needsInputModeSwitchKey,
@@ -74,6 +83,9 @@ final class KeyboardViewController: UIInputViewController {
         // field, see it" work — the extension process is often reused across activations.
         surfaceView?.applyTheme(ThemeStore.loadActiveTheme())
         surfaceView?.setIncludesNextKeyboardKey(needsInputModeSwitchKey)
+        // Same story as the theme: the app writes the applied font style into the App Group and
+        // this activation is when the extension finds out.
+        engine.appliedStyleID = FontStyleStore.loadAppliedStyleID()
         engine.refreshContextualState()
     }
 
@@ -81,6 +93,7 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillLayoutSubviews()
         updateHeightConstraint()
     }
+
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()

@@ -14,4 +14,9 @@ enum AppRoute: Hashable {
     case paywall
     case leaderboard
     case wallpapers
+    /// The Fonts screen's "see all" for MY DOWNLOADED FONTS — the styles the user owns.
+    case downloadedFonts
+    /// Any "see all" over a list of themes — Community's Top Themes / Latest Creations, Profile's
+    /// My Creations / Liked Themes / My Downloads.
+    case themeCollection(ThemeCollectionKind)
 }

@@ -14,8 +14,8 @@ final class ScreenshotUITests: XCTestCase {
         app.launchArguments += ["UITEST_SKIP_ONBOARDING"]
         app.launch()
 
-        // The app launches on the Fonts tab (RootView's default selection), not Home — so the
-        // first real Home/Keyboard capture needs an explicit tap on that tab.
+        // The app launches on the Keyboard tab (RootView's default selection). The explicit tap
+        // below is a no-op in that state but keeps this robust if the default ever changes again.
         capture(app, name: "00-launch-default")
 
         if app.buttons["tab.keyboard"].waitForExistence(timeout: 5) {

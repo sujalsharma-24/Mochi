@@ -14,33 +14,42 @@ struct AuthUiState {
 
 /// Swift mirror of android/.../features/auth/AuthViewModel.kt — same state shape and error-mapping
 /// approach, adapted to Firebase's Swift error types.
+///
+/// When `authRepository` is nil (no GoogleService-Info.plist yet), every action is a no-op — the
+/// view itself handles mock-mode by calling `onAuthenticated` directly, so the ViewModel never
+/// needs to touch Firebase in that scenario.
 @MainActor
 final class AuthViewModel: ObservableObject {
     @Published private(set) var uiState = AuthUiState()
 
-    private let authRepository: AuthRepository
+    private let authRepository: AuthRepository?
 
-    init(authRepository: AuthRepository) {
+    init(authRepository: AuthRepository?) {
         self.authRepository = authRepository
     }
 
     func signUp(email: String, password: String, onSuccess: @escaping () -> Void) {
-        runAuthAction(onSuccess: onSuccess) { try await self.authRepository.signUpWithEmail(email: email, password: password) }
+        guard let authRepository else { onSuccess(); return }
+        runAuthAction(onSuccess: onSuccess) { try await authRepository.signUpWithEmail(email: email, password: password) }
     }
 
     func signIn(email: String, password: String, onSuccess: @escaping () -> Void) {
-        runAuthAction(onSuccess: onSuccess) { try await self.authRepository.signInWithEmail(email: email, password: password) }
+        guard let authRepository else { onSuccess(); return }
+        runAuthAction(onSuccess: onSuccess) { try await authRepository.signInWithEmail(email: email, password: password) }
     }
 
     func signInWithGoogle(presenting viewController: UIViewController, onSuccess: @escaping () -> Void) {
-        runAuthAction(onSuccess: onSuccess) { try await self.authRepository.signInWithGoogle(presenting: viewController) }
+        guard let authRepository else { onSuccess(); return }
+        runAuthAction(onSuccess: onSuccess) { try await authRepository.signInWithGoogle(presenting: viewController) }
     }
 
     func signInWithApple(presentationAnchor: ASPresentationAnchor, onSuccess: @escaping () -> Void) {
-        runAuthAction(onSuccess: onSuccess) { try await self.authRepository.signInWithApple(presentationAnchor: presentationAnchor) }
+        guard let authRepository else { onSuccess(); return }
+        runAuthAction(onSuccess: onSuccess) { try await authRepository.signInWithApple(presentationAnchor: presentationAnchor) }
     }
 
     func sendPhoneCode(_ phoneNumber: String) {
+        guard let authRepository else { return }
         Task {
             uiState.isLoading = true
             uiState.errorMessage = nil
@@ -56,8 +65,9 @@ final class AuthViewModel: ObservableObject {
     }
 
     func verifyPhoneCode(_ code: String, onSuccess: @escaping () -> Void) {
+        guard let authRepository else { onSuccess(); return }
         guard let phoneNumber = uiState.otpPhoneNumber else { return }
-        runAuthAction(onSuccess: onSuccess) { try await self.authRepository.verifyPhoneOtp(phoneNumber: phoneNumber, code: code) }
+        runAuthAction(onSuccess: onSuccess) { try await authRepository.verifyPhoneOtp(phoneNumber: phoneNumber, code: code) }
     }
 
     func resetPhoneFlow() {
@@ -66,6 +76,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func sendPasswordReset(_ email: String) {
+        guard let authRepository else { return }
         Task {
             uiState.isLoading = true
             uiState.errorMessage = nil
@@ -97,7 +108,7 @@ final class AuthViewModel: ObservableObject {
                 try await block()
                 uiState.isLoading = false
                 // Best-effort: a token-fetch failure shouldn't block sign-in from completing.
-                try? await authRepository.syncFcmToken()
+                try? await authRepository?.syncFcmToken()
                 onSuccess()
             } catch {
                 uiState.isLoading = false

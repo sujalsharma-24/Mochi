@@ -17,6 +17,13 @@ swiftc -O \
   MochiShared/Layout/KeyboardLayout.swift \
   MochiShared/Input/AccentMap.swift \
   MochiShared/Themes/BuiltInThemes.swift \
+  MochiShared/Themes/BuiltInThemes+Batch2.swift \
+  MochiShared/Themes/BuiltInThemes+Batch3.swift \
+  MochiShared/Themes/BuiltInThemes+Batch4.swift \
+  MochiShared/Themes/BuiltInThemes+Batch5.swift \
+  MochiShared/Themes/BuiltInThemes+Batch6.swift \
+  MochiShared/Themes/BuiltInThemes+Batch7.swift \
+  MochiShared/Themes/BuiltInThemes+Batch8.swift \
   Tools/ThemeValidationCLI/ArtBackdropCheck.swift \
   Tools/ThemeValidationCLI/main.swift \
   -o "$OUT"

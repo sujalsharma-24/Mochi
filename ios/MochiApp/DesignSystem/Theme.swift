@@ -89,6 +89,13 @@ enum MochiColor {
     /// but a touch deeper, and definitely not the capsule's own stroke colour.
     static let editProfileInk = Color(red: 144 / 255, green: 18 / 255, blue: 167 / 255)
 
+    // MARK: - Settings (docs/figma/7.png)
+
+    /// #2A292A — the icon-tile glyphs (broom, bell, globe, shield-check…). A near-black outline,
+    /// not the white filled SF Symbols the screen used to render; sampled at the darkest stroke
+    /// pixel on three different tiles and they all land within 1 level of each other.
+    static let settingsIconGlyph = Color(red: 42 / 255, green: 41 / 255, blue: 42 / 255)
+
     /// The RECENT grid, read left-to-right then top-to-bottom off the six swatches.
     static let recentSwatches: [Color] = [
         Color(red: 241 / 255, green: 191 / 255, blue: 243 / 255),
@@ -113,6 +120,22 @@ enum MochiGradient {
 
     static let primaryButton = LinearGradient(
         colors: [MochiColor.pink, MochiColor.pink.opacity(0.85), MochiColor.purple],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    // MARK: - Leaderboard ramps (docs/figma/9.png)
+
+    /// The header's back/search discs, the title icon tile, the selected period pill and the
+    /// "Following" button all share this ramp — sampled by scanning clean horizontal rows through
+    /// each element: green stays ~126 throughout while red falls (231→155) and blue rises
+    /// (209→232). Lighter and lower-contrast than `primaryButton`, which reads too saturated here;
+    /// every element on this ramp carries a near-black glyph/label, never white.
+    static let leaderboardAccent = LinearGradient(
+        colors: [
+            Color(red: 231 / 255, green: 126 / 255, blue: 209 / 255),
+            Color(red: 155 / 255, green: 126 / 255, blue: 232 / 255)
+        ],
         startPoint: .leading,
         endPoint: .trailing
     )
@@ -233,6 +256,23 @@ enum MochiGradient {
     /// 11/12 of the wheel, not a full turn.
     static let hueSpectrum = LinearGradient(
         colors: (0...11).map { Color(hue: Double($0) / 12.0, saturation: 1, brightness: 1) },
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    // MARK: - Settings ramps (docs/figma/7.png)
+
+    /// Every row/banner icon tile on the Settings screen. Re-sampled along a fixed-y scanline
+    /// across the "Theme Mode" tile (corner-to-corner sampling previously read this as a diagonal,
+    /// but top and bottom pixels at the same x came back near-identical — it's a horizontal ramp).
+    /// Pink (229,129,197) holds flat through ~35% of the width before easing into periwinkle
+    /// (146,124,231) at the trailing edge, hence the 3-stop shape rather than a plain 2-stop lerp.
+    static let settingsIconTile = LinearGradient(
+        stops: [
+            .init(color: Color(red: 229 / 255, green: 129 / 255, blue: 197 / 255), location: 0.0),
+            .init(color: Color(red: 227 / 255, green: 127 / 255, blue: 202 / 255), location: 0.35),
+            .init(color: Color(red: 146 / 255, green: 124 / 255, blue: 231 / 255), location: 1.0)
+        ],
         startPoint: .leading,
         endPoint: .trailing
     )

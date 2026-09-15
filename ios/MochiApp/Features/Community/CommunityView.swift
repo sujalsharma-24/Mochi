@@ -79,9 +79,16 @@ private enum Metrics {
     // Top Themes: 637px cards 49px apart; 491px of art over a 222px white body; 63px corner.
     // Card width and art height are both un-scaled: the row is width-bound, and stretching only the
     // art's height would crop the keyboard preview top and bottom.
-    static let themeCard: CGFloat = 118
     static let themeCardGap: CGFloat = 9
-    static let themeArtHeight: CGFloat = 91
+    /// Was a baked 118 — the width that made three cards plus two gaps span a 402pt screen inside
+    /// the bled-out row gutter. See `DesignGrid`: held fixed, the row stops short of the trailing
+    /// margin on anything wider and reads as the whole page having shifted left.
+    static var themeCard: CGFloat {
+        DesignGrid.columnWidth(columns: 3, margin: margin - rowBleed, gap: themeCardGap)
+    }
+    /// 91pt of art on a 118pt card. Kept as that ratio so the thumbnail keeps its crop as the card
+    /// widens rather than getting letterboxed.
+    static var themeArtHeight: CGFloat { themeCard * (91.0 / 118.0) }
     static let themeBodyHeight: CGFloat = 41 * S
     static let cardRadius: CGFloat = 12
     /// 85px medal, centred on the art's top-left corner (its own centre sits 4px below art top).
@@ -183,6 +190,10 @@ struct CommunityView: View {
     var onThemeClick: (KeyboardTheme) -> Void = { _ in }
     var onCreatorClick: (String) -> Void = { _ in }
     var onLeaderboard: () -> Void = {}
+    /// "see all" on Top Themes — opens the Themes page, ranked by popularity.
+    var onSeeAllTopThemes: () -> Void = {}
+    /// "see all" on Latest Creations — opens the newest-first collection.
+    var onSeeAllLatest: () -> Void = {}
 
     /// Figma spells the placeholder "serch themes, creators.." — kept verbatim, like the fourth
     /// creator tile's "Choose" CTA.
@@ -193,15 +204,46 @@ struct CommunityView: View {
     @State private var selectedTab: FeedTab = .forYou
     @State private var query: String = ""
     @State private var reportingTheme: KeyboardTheme?
+    /// Mirror the two on-device stores so a tap redraws the card that was tapped.
+    @State private var likedIDs: Set<String> = Set(LikedThemeStore.likedThemeIDs())
+    @State private var downloadedIDs: Set<String> = Set(DownloadedThemeStore.loadDownloadedThemeIDs())
 
     @StateObject private var viewModel = CommunityViewModel(container: AppContainer.shared)
+
+    /// The three themes Figma's Community frame puts on the medals, in its order. Top Themes is an
+    /// editorial row in the design, not a live like-count ranking — sorting by likes alone puts
+    /// Cosmic Astronaut and Galaxy Mart in the second and third slots, which is not what the frame
+    /// shows. Anything missing from the feed is backfilled from the feed's own order below.
+    private static let featuredTopThemeIDs = [
+        "mochi.fantasy-castle-night",
+        "mochi.candy-bakery",
+        "mochi.azure-summer-escape"
+    ]
 
     /// Loading/Error fall back to MockData so the pixel-tuned layout never breaks (same convention
     /// as Home/Themes); a genuinely-empty tab under `.data` (e.g. no follows yet on "Following") is
     /// real data, not an error, so it's shown as-is rather than masked with MockData.
     private var topThemes: [KeyboardTheme] {
-        if case .data(let feedThemes, _, _) = viewModel.uiState { return Array(feedThemes.prefix(3)) }
-        return MockData.communityTopThemes
+        let pool: [KeyboardTheme]
+        if case .data(let feedThemes, _, _) = viewModel.uiState {
+            pool = feedThemes
+        } else {
+            pool = MockData.communityTopThemes
+        }
+        return Self.featured(from: pool)
+    }
+
+    /// Resolves the featured ids against `pool`, then fills any slot the pool can't supply with the
+    /// pool's own leading themes — so a feed that has never heard of these ids still shows three
+    /// cards rather than a short row.
+    private static func featured(from pool: [KeyboardTheme]) -> [KeyboardTheme] {
+        var picked = featuredTopThemeIDs.compactMap { id in
+            pool.first { $0.id == id } ?? ThemeCatalog.theme(id: id)
+        }
+        for theme in pool where picked.count < 3 {
+            if !picked.contains(where: { $0.id == theme.id }) { picked.append(theme) }
+        }
+        return Array(picked.prefix(3))
     }
 
     /// `nil` means Loading/Error (or no container) — render MockData's static, non-interactive
@@ -318,7 +360,12 @@ struct CommunityView: View {
     /// a control that looks tappable but isn't.
     private var searchField: some View {
         HStack(spacing: 0) {
-            TextField("serch themes, creators..", text: $query)
+            // `prompt:` rather than the title string, so the placeholder's colour is stated
+            // explicitly — a bare title inherits the field's own `foregroundStyle` on some iOS
+            // versions and comes out near-white on this light search pill.
+            TextField("", text: $query,
+                      prompt: Text("Search themes, creators..")
+                        .foregroundColor(MochiColor.textSecondary))
                 .font(MochiFont.caption(Type.searchPlaceholder))
                 .foregroundStyle(MochiColor.textPrimary)
                 .tint(MochiColor.purple)
@@ -376,10 +423,18 @@ struct CommunityView: View {
 
     // MARK: - Section heading
 
+    /// Every "see all" on this page goes somewhere: Top Themes → the Themes page ranked by
+    /// popularity, Popular Creators → the Leaderboard (Android's `onLeaderboardClick` entry point),
+    /// Latest Creations → the newest-first collection. Previously only the middle one was wired and
+    /// the other two were disabled buttons that looked live.
     private func sectionHeading(_ title: String) -> some View {
-        // "Popular Creators" › see all opens the Leaderboard (Ranked Creators), matching Android's
-        // `onLeaderboardClick` entry point from Community.
-        let seeAllAction: (() -> Void)? = title == "Popular Creators" ? onLeaderboard : nil
+        let seeAllAction: (() -> Void)?
+        switch title {
+        case "Popular Creators": seeAllAction = onLeaderboard
+        case "Top Themes":       seeAllAction = onSeeAllTopThemes
+        case "Latest Creations": seeAllAction = onSeeAllLatest
+        default:                 seeAllAction = nil
+        }
         return HStack(alignment: .firstTextBaseline) {
             Text(title.uppercased())
                 .font(MochiFont.title(Type.sectionTitle))
@@ -394,7 +449,9 @@ struct CommunityView: View {
             }
             .buttonStyle(.plain)
             .disabled(seeAllAction == nil)
-            .accessibilityIdentifier(seeAllAction != nil ? "community.openLeaderboard" : "community.seeAll.\(title)")
+            .accessibilityIdentifier(title == "Popular Creators"
+                                     ? "community.openLeaderboard"
+                                     : "community.seeAll.\(title)")
         }
     }
 
@@ -417,9 +474,12 @@ struct CommunityView: View {
 
     private func topThemeCard(_ theme: KeyboardTheme, rank: Int) -> some View {
         VStack(spacing: 0) {
-            Image(theme.imageAssetName)
-                .resizable()
-                .scaledToFill()
+            // `ThemePlateThumbnail` rather than a bare `Image`: it decodes at tile size and falls
+            // back to a gradient, so a theme whose art is missing can't render as a blank card.
+            // Same anchor the Themes grid uses, so a theme is framed identically on both screens
+            // instead of centre-cropping to a different band of its plate here.
+            ThemePlateThumbnail(assetName: theme.imageAssetName,
+                                verticalAnchor: theme.plateVerticalAnchor)
                 .frame(width: Metrics.themeCard, height: Metrics.themeArtHeight)
                 .clipped()
 
@@ -438,14 +498,22 @@ struct CommunityView: View {
 
                 Spacer(minLength: 0)
 
-                HStack(spacing: 3) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: Type.themeLikes * 1.25))
-                        .foregroundStyle(MochiColor.heart)
-                    Text(theme.likeCountFormatted)
-                        .font(MochiFont.body(Type.themeLikes))
-                        .foregroundStyle(MochiColor.textPrimary)
+                // A live like: taps toggle the heart and move the count, and the state is kept
+                // (`LikedThemeStore`) so it survives leaving the page.
+                Button {
+                    toggleLike(theme)
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: likedIDs.contains(theme.id) ? "heart.fill" : "heart")
+                            .font(.system(size: Type.themeLikes * 1.25))
+                            .foregroundStyle(MochiColor.heart)
+                        Text((theme.likeCount + (likedIDs.contains(theme.id) ? 1 : 0)).formattedCompact)
+                            .font(MochiFont.body(Type.themeLikes))
+                            .foregroundStyle(MochiColor.textPrimary)
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("community.topTheme.\(theme.id).like")
             }
             .padding(.leading, 8)
             .padding(.vertical, 5 * S)
@@ -458,9 +526,18 @@ struct CommunityView: View {
         .onTapGesture { onThemeClick(theme) }
         .shadow(color: MochiColor.purpleDark.opacity(0.13), radius: 5, y: 3)
         .overlay(alignment: .bottomTrailing) {
-            DownloadButton(diameter: Metrics.downloadButton)
-                .padding(.trailing, 8.5)
-                .padding(.bottom, 5 * S)
+            // A real download: adds the theme to the user's downloaded set, the same one the Themes
+            // page's strip and Profile's MY DOWNLOADS read. Filled once it's in there.
+            Button {
+                toggleDownload(theme)
+            } label: {
+                DownloadButton(diameter: Metrics.downloadButton,
+                               isDownloaded: downloadedIDs.contains(theme.id))
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 8.5)
+            .padding(.bottom, 5 * S)
+            .accessibilityIdentifier("community.topTheme.\(theme.id).download")
         }
         // The medal straddles the art's top edge (its centre sits 4px below it in the export) and
         // is left-aligned with the card, so it overhangs the card's top — hence the overlay rather
@@ -585,23 +662,21 @@ struct CommunityView: View {
     /// report dialog.
     private var latestCreations: some View {
         VStack(spacing: Metrics.latestCardGap) {
-            if let realLatestThemes {
-                ForEach(realLatestThemes) { theme in
-                    latestCard(theme.toCommunityPost(), onClick: { onThemeClick(theme) }, onReport: { reportingTheme = theme })
-                }
-            } else {
-                ForEach(MockData.communityLatest) { post in
-                    latestCard(post)
-                }
+            // Both paths now carry a real theme, so every card opens, downloads and likes the theme
+            // it shows — the MockData path used to be inert artwork.
+            ForEach(realLatestThemes ?? MockData.communityLatest) { theme in
+                latestCard(theme.toCommunityPost(),
+                           theme: theme,
+                           onClick: { onThemeClick(theme) },
+                           onReport: { reportingTheme = theme })
             }
         }
     }
 
-    private func latestCard(_ post: CommunityPost, onClick: @escaping () -> Void = {}, onReport: @escaping () -> Void = {}) -> some View {
+    private func latestCard(_ post: CommunityPost, theme: KeyboardTheme,
+                            onClick: @escaping () -> Void = {}, onReport: @escaping () -> Void = {}) -> some View {
         HStack(spacing: 0) {
-            Image(post.thumbAssetName)
-                .resizable()
-                .scaledToFill()
+            ThemePlateThumbnail(assetName: post.thumbAssetName)
                 .frame(width: Metrics.latestThumb.width, height: Metrics.latestThumb.height)
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.latestThumbRadius, style: .continuous))
                 .padding(.trailing, Metrics.latestThumbGap)
@@ -637,28 +712,44 @@ struct CommunityView: View {
                 Spacer(minLength: 4 * S)
 
                 HStack(spacing: Metrics.tagGap) {
-                    ForEach(post.hashtags, id: \.self) { tag in
+                    ForEach(Array(post.hashtags.enumerated()), id: \.element) { index, tag in
+                        let palette = Self.tagPalette(at: index)
                         Text("#\(tag)")
                             .font(MochiFont.caption(Type.tag))
-                            .foregroundStyle(tagForeground(post.tagPalette))
+                            .foregroundStyle(tagForeground(palette))
                             .padding(.horizontal, 3.5)
                             .frame(height: Metrics.tagHeight)
-                            .background(tagBackground(post.tagPalette), in: Capsule())
+                            .background(tagBackground(palette), in: Capsule())
                     }
                 }
             }
 
             HStack(spacing: 0) {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: Type.latestLikes * 1.25))
-                    .foregroundStyle(MochiColor.heart)
-                Text("\(post.likeCount)")
-                    .font(MochiFont.caption(Type.latestLikes))
-                    .foregroundStyle(MochiColor.textPrimary)
-                    .padding(.leading, 4.8)
+                Button {
+                    toggleLike(theme)
+                } label: {
+                    HStack(spacing: 0) {
+                        Image(systemName: likedIDs.contains(theme.id) ? "heart.fill" : "heart")
+                            .font(.system(size: Type.latestLikes * 1.25))
+                            .foregroundStyle(MochiColor.heart)
+                        Text("\(post.likeCount + (likedIDs.contains(theme.id) ? 1 : 0))")
+                            .font(MochiFont.caption(Type.latestLikes))
+                            .foregroundStyle(MochiColor.textPrimary)
+                            .padding(.leading, 4.8)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("community.latest.\(theme.id).like")
 
-                DownloadButton(diameter: Metrics.latestDownload)
-                    .padding(.leading, 10.7)
+                Button {
+                    toggleDownload(theme)
+                } label: {
+                    DownloadButton(diameter: Metrics.latestDownload,
+                                   isDownloaded: downloadedIDs.contains(theme.id))
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 10.7)
+                .accessibilityIdentifier("community.latest.\(theme.id).download")
 
                 Image(systemName: "ellipsis")
                     .font(.system(size: 9 * S, weight: .black))
@@ -678,6 +769,29 @@ struct CommunityView: View {
         .contentShape(Rectangle())
         .onTapGesture { onClick() }
         .shadow(color: MochiColor.purpleDark.opacity(0.13), radius: 5, y: 3)
+    }
+
+    /// Likes are written locally and, when a backend and a signed-in user exist, to Firestore too —
+    /// the view model already owns that call, so this stays the one place the UI toggles a like.
+    private func toggleLike(_ theme: KeyboardTheme) {
+        let nowLiked = LikedThemeStore.toggle(theme.id)
+        if nowLiked { likedIDs.insert(theme.id) } else { likedIDs.remove(theme.id) }
+        viewModel.setLiked(themeId: theme.id, liked: nowLiked)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func toggleDownload(_ theme: KeyboardTheme) {
+        let nowDownloaded = DownloadedThemeStore.toggle(theme.id)
+        if nowDownloaded { downloadedIDs.insert(theme.id) } else { downloadedIDs.remove(theme.id) }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// Figma runs the same three tints across every card's chips in the same order — first green,
+    /// second blue, third peach — rather than tinting a whole card one colour. A card with more
+    /// than three hashtags repeats the run.
+    private static func tagPalette(at index: Int) -> CommunityPost.TagPalette {
+        let run: [CommunityPost.TagPalette] = [.green, .blue, .peach]
+        return run[index % run.count]
     }
 
     private func tagForeground(_ palette: CommunityPost.TagPalette) -> Color {
@@ -702,10 +816,13 @@ struct CommunityView: View {
 /// the design's open-topped U tray, which is the part that reads at 15-17pt.
 private struct DownloadButton: View {
     let diameter: CGFloat
+    /// Fills the disc once the theme is in the user's downloads, so the control reports state
+    /// rather than just being a target.
+    var isDownloaded: Bool = false
 
     var body: some View {
         Circle()
-            .fill(Color.white)
+            .fill(isDownloaded ? MochiColor.lavender : Color.white)
             .overlay(Circle().stroke(MochiColor.outline, lineWidth: Metrics.hairline))
             .overlay {
                 Canvas { context, size in

@@ -58,6 +58,14 @@ enum MochiFont {
         VariableFont.resolve(postScriptName: "Fredoka-Light", weight: 600, size: size)
     }
 
+    /// Baloo 2 at its default weight (400). The Settings page title ("Setting") is set in this in
+    /// Figma — a rounded, single-storey-`g` face, distinctly not Inter and lighter than `logo`'s
+    /// Fredoka 600. Baloo2's `wght` axis defaults to 400 so `Font.custom` resolves it directly,
+    /// unlike Fredoka (whose only named instance forced the CoreText path above).
+    static func displayRound(_ size: CGFloat) -> Font {
+        .custom("Baloo2-Regular", size: size)
+    }
+
     /// Bold — major section headings ("POPULAR THEMES", "FONT COLLECTION", page titles) and pill
     /// labels ("FONTS" / "THEMES" toggle).
     static func title(_ size: CGFloat = 22) -> Font {

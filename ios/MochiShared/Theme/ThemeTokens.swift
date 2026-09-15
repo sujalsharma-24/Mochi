@@ -165,6 +165,18 @@ enum KeyRole: String, Codable, Equatable, CaseIterable {
     case space
 }
 
+/// The cap's outer silhouette.
+///
+/// Separate from `cornerRadiusOverride`, which only ever bends a rectangle rounder or squarer — a
+/// hexagon is a different polygon, not an extreme radius, and needs its own mask rather than a
+/// number. `KeyView` only allocates the extra `CAShapeLayer` masks a non-rectangular shape needs
+/// when one is actually in play, so every existing rounded-rect theme (which is all of them today)
+/// pays nothing for this case existing.
+enum KeyCapShape: String, Codable, Equatable, CaseIterable {
+    case roundedRect
+    case hexagon
+}
+
 /// How one key role looks, in both its resting and pressed states.
 struct KeyStyle: Codable, Equatable {
     var fill: ThemeFill
@@ -191,6 +203,13 @@ struct KeyStyle: Codable, Equatable {
     /// meant to read as paint rather than glass.
     var glass: KeyGlass?
 
+    /// `nil` decodes as `.roundedRect` — see `resolvedCapShape`. Optional rather than defaulted in
+    /// a custom decoder so every existing stored theme (none of which have ever heard of a
+    /// non-rectangular cap) keeps decoding through the compiler-synthesised `Codable` unchanged.
+    var capShape: KeyCapShape?
+
+    var resolvedCapShape: KeyCapShape { capShape ?? .roundedRect }
+
     init(
         fill: ThemeFill,
         labelColor: ThemeColor,
@@ -200,7 +219,8 @@ struct KeyStyle: Codable, Equatable {
         shadow: ThemeShadow = .none,
         topHighlight: ThemeColor? = nil,
         cornerRadiusOverride: Double? = nil,
-        glass: KeyGlass? = nil
+        glass: KeyGlass? = nil,
+        capShape: KeyCapShape? = nil
     ) {
         self.fill = fill
         self.labelColor = labelColor
@@ -211,6 +231,7 @@ struct KeyStyle: Codable, Equatable {
         self.topHighlight = topHighlight
         self.cornerRadiusOverride = cornerRadiusOverride
         self.glass = glass
+        self.capShape = capShape
     }
 
     /// The pressed appearance, derived when the theme does not author one.
@@ -413,8 +434,14 @@ struct KeyArtPlacement: Codable, Equatable {
     /// placement that only moves a motif from silently pinning its opacity to whatever the set
     /// happened to be at the time it was authored.
     var opacity: Double?
+    /// -1...1, 0 (or `nil`) is unchanged. Positive lightens the illustration (a white overlay,
+    /// screen-like), negative darkens it (a black overlay, multiply-like). A cheap alpha-blend
+    /// rather than a true Core Image brightness filter — this is a per-key cosmetic knob dialled
+    /// once at authoring time, not a per-frame effect, and the extension's memory ceiling rules
+    /// out routing every key through Core Image just for this.
+    var brightness: Double?
 
-    init(offsetX: Double = 0, offsetY: Double = 0, scale: Double = 1, opacity: Double? = nil) {
+    init(offsetX: Double = 0, offsetY: Double = 0, scale: Double = 1, opacity: Double? = nil, brightness: Double? = nil) {
         // Clamped rather than trusted. These come from a slider in the tweak lab and end up in a
         // stored document; a scale of 0 would silently delete an illustration and a scale of 40
         // would decode a bitmap large enough to matter under the extension's memory ceiling.
@@ -422,6 +449,7 @@ struct KeyArtPlacement: Codable, Equatable {
         self.offsetY = min(1, max(-1, offsetY))
         self.scale = min(3, max(0.2, scale))
         self.opacity = opacity.map { min(1, max(0, $0)) }
+        self.brightness = brightness.map { min(1, max(-1, $0)) }
     }
 
     static let identity = KeyArtPlacement()
@@ -514,6 +542,12 @@ struct KeyArtSet: Codable, Equatable {
     /// The opacity `identity` actually draws at, after any per-key override.
     func resolvedOpacity(for identity: String) -> Double {
         placement(for: identity).opacity ?? opacity
+    }
+
+    /// The brightness `identity` actually draws at. No set-wide default exists — every key is
+    /// unadjusted (0) unless its own placement says otherwise.
+    func resolvedBrightness(for identity: String) -> Double {
+        placement(for: identity).brightness ?? 0
     }
 }
 
