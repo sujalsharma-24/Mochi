@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_starlit_disco_reverie.jpg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

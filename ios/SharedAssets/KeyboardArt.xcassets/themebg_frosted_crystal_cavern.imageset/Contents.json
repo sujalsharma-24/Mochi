@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_frosted_crystal_cavern.jpg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_dragonlight_valley.jpg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

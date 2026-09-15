@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_whispering_moon_harbor.jpg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_magenta_midnight_glow.jpg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

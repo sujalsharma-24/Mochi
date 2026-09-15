@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_pixel_pet_dreams.heic",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_ruins_and_relics.heic",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

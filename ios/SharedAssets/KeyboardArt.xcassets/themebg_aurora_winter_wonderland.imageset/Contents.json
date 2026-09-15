@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_aurora_winter_wonderland.jpg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}

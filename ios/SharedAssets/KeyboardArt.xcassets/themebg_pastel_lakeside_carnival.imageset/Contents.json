@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "themebg_pastel_lakeside_carnival.jpg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "compression-type": "lossless"
+  }
+}
