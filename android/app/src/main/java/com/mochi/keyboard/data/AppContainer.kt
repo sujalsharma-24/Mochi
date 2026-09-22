@@ -20,6 +20,7 @@ class AppContainer(
     val themeRepository: ThemeRepository = ThemeRepository(firestore)
     val wallpaperRepository: WallpaperRepository = WallpaperRepository(firestore)
     val wallpaperLibraryRepository: WallpaperLibraryRepository = WallpaperLibraryRepository(context)
+    val wallpaperApplier: WallpaperApplier = WallpaperApplier(context)
     val likeRepository: LikeRepository = LikeRepository(firestore)
     val followRepository: FollowRepository = FollowRepository(firestore)
     val blockRepository: BlockRepository = BlockRepository(firestore)
@@ -27,6 +28,8 @@ class AppContainer(
     val createRepository: CreateRepository = CreateRepository(firestore)
     val storageRepository: StorageRepository = StorageRepository(storage)
     val settingsRepository: SettingsRepository = SettingsRepository(context)
+    val fontStyleRepository: FontStyleRepository = FontStyleRepository(context)
+    val appliedThemeRepository: AppliedThemeRepository = AppliedThemeRepository(context)
     val searchHistoryRepository: SearchHistoryRepository = SearchHistoryRepository(context)
     val billingRepository: BillingRepository = BillingRepository(context).apply {
         configure(appUserId = auth.currentUser?.uid)

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -61,10 +62,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mochi.keyboard.R
 import com.mochi.keyboard.components.FunnelGlyph
 import com.mochi.keyboard.components.PencilGlyph
@@ -72,6 +75,7 @@ import com.mochi.keyboard.components.SlidersGlyph
 import com.mochi.keyboard.components.SparkleCluster
 import com.mochi.keyboard.components.SparkleField
 import com.mochi.keyboard.components.TripleDot
+import com.mochi.keyboard.data.rememberMochiViewModelFactory
 import com.mochi.keyboard.designsystem.FontsMetrics
 import com.mochi.keyboard.designsystem.FontsType
 import com.mochi.keyboard.designsystem.MochiColor
@@ -83,7 +87,12 @@ import com.mochi.keyboard.model.FontItem
 @Preview(showBackground = true, widthDp = 393, heightDp = 3000)
 @Composable
 private fun FontsScreenPreview() {
-    FontsScreen()
+    FontsScreenContent(
+        appliedStyleId = null,
+        ownedStyleIds = MockData.fontCollection.map { it.id }.toSet(),
+        onApply = {},
+        styledPreview = { _, text -> text }
+    )
 }
 
 /** Figma spells the sort control "Soft by" — corrected to "Sort by" like iOS's own port does
@@ -135,13 +144,43 @@ private fun ShrinkToFitText(text: String, style: TextStyle, color: Color, minSca
 /** Ported from ios/MochiApp/Features/Fonts/FontsView.swift against docs/figma/5.png. Geometry
  * lives in FontsMetrics/FontsType (designsystem/FontsMetrics.kt), not here. The preview scale
  * slider and sample-text field are wired to local state but — matching iOS exactly — neither
- * actually resizes the letter grid or changes the static "100%" label; both are cosmetic there. */
+ * actually resizes the letter grid or changes the static "100%" label; both are cosmetic there.
+ *
+ * Real since this slice: [FontsViewModel] backs which style is applied to the live keyboard (the
+ * same [com.mochi.keyboard.data.FontStyleRepository] `MochiInputMethodService` reads) and which
+ * styles are "owned" — previously both were pure UI state with Apply/Preview doing nothing. */
 @Composable
-fun FontsScreen(modifier: Modifier = Modifier, onSearchClick: () -> Unit = {}) {
+fun FontsScreen(
+    modifier: Modifier = Modifier,
+    onSearchClick: () -> Unit = {},
+    viewModel: FontsViewModel = viewModel(factory = rememberMochiViewModelFactory())
+) {
+    val appliedStyleId by viewModel.appliedStyleId.collectAsState()
+    val ownedStyleIds by viewModel.ownedStyleIds.collectAsState()
+    FontsScreenContent(
+        modifier = modifier,
+        onSearchClick = onSearchClick,
+        appliedStyleId = appliedStyleId,
+        ownedStyleIds = ownedStyleIds,
+        onApply = viewModel::applyFont,
+        styledPreview = viewModel::styledPreview
+    )
+}
+
+@Composable
+private fun FontsScreenContent(
+    modifier: Modifier = Modifier,
+    onSearchClick: () -> Unit = {},
+    appliedStyleId: String?,
+    ownedStyleIds: Set<String>,
+    onApply: (String) -> Unit,
+    styledPreview: (id: String, text: String) -> String
+) {
     var category by remember { mutableStateOf(FontCategory.ALL) }
     var liked by remember { mutableStateOf(MockData.fontCollection.map { it.id }.toSet()) }
     var sampleText by remember { mutableStateOf("") }
     var previewScale by remember { mutableFloatStateOf(0.45f) }
+    var previewFontId by remember { mutableStateOf(appliedStyleId ?: MockData.fontCollection.first().id) }
 
     Box(modifier = modifier.fillMaxSize()) {
         Image(
@@ -171,18 +210,23 @@ fun FontsScreen(modifier: Modifier = Modifier, onSearchClick: () -> Unit = {}) {
             SortRow()
 
             Spacer(modifier = Modifier.height(FontsMetrics.sortToGrid))
-            CardGrid(themes = MockData.fontCollection, liked = liked, onToggleLike = { id ->
-                liked = if (id in liked) liked - id else liked + id
-            })
+            CardGrid(
+                themes = MockData.fontCollection,
+                liked = liked,
+                onToggleLike = { id -> liked = if (id in liked) liked - id else liked + id },
+                appliedStyleId = appliedStyleId,
+                onPreview = { previewFontId = it },
+                onApply = { onApply(it); previewFontId = it }
+            )
 
             Spacer(modifier = Modifier.height(FontsMetrics.gridToPanel))
-            FontPreviewPanel(sampleText, { sampleText = it }, previewScale) { previewScale = it }
+            FontPreviewPanel(sampleText, { sampleText = it }, previewScale, { previewScale = it }, previewFontId, styledPreview)
 
             Spacer(modifier = Modifier.height(FontsMetrics.panelToApply))
-            ApplyPanel()
+            ApplyPanel(isApplied = previewFontId == appliedStyleId, onApply = { onApply(previewFontId) })
 
             Spacer(modifier = Modifier.height(FontsMetrics.applyToDownloads))
-            DownloadedSection(MockData.downloadedFonts)
+            DownloadedSection(MockData.fontCollection.filter { it.id in ownedStyleIds })
         }
     }
 }
@@ -396,18 +440,41 @@ private fun SortRow() {
 // region Card grid
 
 @Composable
-private fun CardGrid(themes: List<FontItem>, liked: Set<String>, onToggleLike: (String) -> Unit) {
+private fun CardGrid(
+    themes: List<FontItem>,
+    liked: Set<String>,
+    onToggleLike: (String) -> Unit,
+    appliedStyleId: String?,
+    onPreview: (String) -> Unit,
+    onApply: (String) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(FontsMetrics.cardGap)) {
         themes.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(FontsMetrics.cardGap)) {
-                row.forEach { font -> FontGridCard(font, isLiked = font.id in liked, onToggleLike = { onToggleLike(font.id) }) }
+                row.forEach { font ->
+                    FontGridCard(
+                        font,
+                        isLiked = font.id in liked,
+                        onToggleLike = { onToggleLike(font.id) },
+                        isApplied = font.id == appliedStyleId,
+                        onPreview = { onPreview(font.id) },
+                        onApply = { onApply(font.id) }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FontGridCard(font: FontItem, isLiked: Boolean, onToggleLike: () -> Unit) {
+private fun FontGridCard(
+    font: FontItem,
+    isLiked: Boolean,
+    onToggleLike: () -> Unit,
+    isApplied: Boolean,
+    onPreview: () -> Unit,
+    onApply: () -> Unit
+) {
     Column(
         modifier = Modifier
             .width(FontsMetrics.cardWidth)
@@ -479,7 +546,8 @@ private fun FontGridCard(font: FontItem, isLiked: Boolean, onToggleLike: () -> U
                         .height(FontsMetrics.cardButtonHeight)
                         .clip(CircleShape)
                         .background(Color.White)
-                        .border(FontsMetrics.hairline, MochiColor.logoSolid, CircleShape),
+                        .border(FontsMetrics.hairline, MochiColor.logoSolid, CircleShape)
+                        .clickable(onClick = onPreview),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = "Preview", style = MochiFont.body(FontsType.cardButton), color = MochiColor.textPrimary)
@@ -489,10 +557,11 @@ private fun FontGridCard(font: FontItem, isLiked: Boolean, onToggleLike: () -> U
                         .weight(1f)
                         .height(FontsMetrics.cardButtonHeight)
                         .clip(CircleShape)
-                        .background(MochiGradient.fontsAccent),
+                        .background(MochiGradient.fontsAccent)
+                        .clickable(enabled = !isApplied, onClick = onApply),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "Apply", style = MochiFont.body(FontsType.cardButton), color = MochiColor.textPrimary)
+                    Text(text = if (isApplied) "Applied" else "Apply", style = MochiFont.body(FontsType.cardButton), color = MochiColor.textPrimary)
                 }
             }
 
@@ -523,7 +592,14 @@ private fun FontsTierChip(isPremium: Boolean, size: androidx.compose.ui.unit.Tex
 // region Font preview panel
 
 @Composable
-private fun FontPreviewPanel(text: String, onTextChange: (String) -> Unit, scale: Float, onScaleChange: (Float) -> Unit) {
+private fun FontPreviewPanel(
+    text: String,
+    onTextChange: (String) -> Unit,
+    scale: Float,
+    onScaleChange: (Float) -> Unit,
+    previewFontId: String,
+    styledPreview: (id: String, text: String) -> String
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -567,7 +643,7 @@ private fun FontPreviewPanel(text: String, onTextChange: (String) -> Unit, scale
 
         Spacer(modifier = Modifier.height(FontsMetrics.headingToGrid))
 
-        LetterGrid()
+        LetterGrid(previewFontId, styledPreview)
 
         Spacer(modifier = Modifier.height(FontsMetrics.gridToSlider))
 
@@ -586,10 +662,13 @@ private fun FontPreviewPanel(text: String, onTextChange: (String) -> Unit, scale
     }
 }
 
-/** A-Z then a-z over four rows of thirteen, each in an outlined cell, set in the *previewed* font
- * (Kaushan Script) rather than the UI face. */
+/** A-Z then a-z over four rows of thirteen, each in an outlined cell, run through the real
+ * [FontStyleCatalog] transform for [previewFontId] — the exact table the keyboard emits through,
+ * not a decorative look-alike. The system font face (not the app's downloaded UI fonts, which don't
+ * carry glyphs for these Unicode blocks) is used deliberately so the real substitute characters
+ * render instead of tofu. */
 @Composable
-private fun LetterGrid() {
+private fun LetterGrid(previewFontId: String, styledPreview: (id: String, text: String) -> String) {
     val letters = ('A'..'Z').map { it.toString() } + ('a'..'z').map { it.toString() }
     LazyVerticalGrid(
         columns = GridCells.Fixed(FontsMetrics.letterColumns),
@@ -608,7 +687,11 @@ private fun LetterGrid() {
                     .border(0.6.dp, MochiColor.logoSolid, RoundedCornerShape(FontsMetrics.letterCellRadius)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = letter, style = MochiFont.script(FontsType.letter), color = MochiColor.textPrimary)
+                Text(
+                    text = styledPreview(previewFontId, letter),
+                    style = MochiFont.script(FontsType.letter).copy(fontFamily = FontFamily.Default),
+                    color = MochiColor.textPrimary
+                )
             }
         }
     }
@@ -657,7 +740,7 @@ private fun ScaleSlider(value: Float, onValueChange: (Float) -> Unit, modifier: 
 // region Apply panel
 
 @Composable
-private fun ApplyPanel() {
+private fun ApplyPanel(isApplied: Boolean, onApply: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -696,6 +779,7 @@ private fun ApplyPanel() {
                 .height(FontsMetrics.applyButton.height)
                 .clip(RoundedCornerShape(FontsMetrics.applyButton.height * 0.24f))
                 .background(MochiGradient.fontsAccent)
+                .clickable(enabled = !isApplied, onClick = onApply)
                 .padding(
                     start = FontsMetrics.applyButton.height * 0.41f,
                     end = FontsMetrics.applyButton.height * 0.52f
@@ -717,7 +801,7 @@ private fun ApplyPanel() {
                     modifier = Modifier.size(FontsMetrics.applyButton.height * 0.30f)
                 )
             }
-            Text(text = "Apply Font", style = MochiFont.itemName(FontsType.applyButton), color = MochiColor.textPrimary, maxLines = 1)
+            Text(text = if (isApplied) "Font Applied" else "Apply Font", style = MochiFont.itemName(FontsType.applyButton), color = MochiColor.textPrimary, maxLines = 1)
         }
     }
 }

@@ -5,10 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -71,7 +73,12 @@ fun CreatorAvatar(assetName: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun ThemeArt(assetName: String, seed: String, modifier: Modifier = Modifier, cornerRadius: Dp = MochiRadius.card) {
-    val resId = knownThemeArt[assetName]
+    val context = LocalContext.current
+    // Falls through to a dynamic-by-name lookup for the 137 machine-ported built-in themes'
+    // thumbnails, which are far too many to hand-list in knownThemeArt above.
+    val resId = knownThemeArt[assetName] ?: remember(assetName) {
+        context.resources.getIdentifier(assetName, "drawable", context.packageName).takeIf { it != 0 }
+    }
     val shape = RoundedCornerShape(cornerRadius)
     val shadowed = modifier.shadow(6.dp, shape, ambientColor = MochiColor.purpleDark.copy(alpha = 0.14f), spotColor = MochiColor.purpleDark.copy(alpha = 0.14f))
     if (resId != null) {

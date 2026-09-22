@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Required at runtime on API 33+ to actually show a notification; requested in MainActivity. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Normal permission (no runtime prompt) - lets WallpaperApplier set the device wallpaper
+         directly via WallpaperManager, the real capability iOS has no equivalent public API for. -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <!-- Scoped storage (MediaStore) needs no permission on API 29+; only pre-29 devices need this
+         for "Save to gallery", and minSdk is 26. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:name=".MochiApplication"

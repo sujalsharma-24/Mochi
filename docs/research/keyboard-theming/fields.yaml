@@ -1,0 +1,167 @@
+categories:
+  - name: Rendering Approach
+    fields:
+      - name: rendering_approach
+        description: >
+          Is the theme applied via per-key drawing (each key has its own
+          background drawable/state), a whole-image background paste behind
+          transparent keys, or a hybrid (image background + per-key overlay
+          states)? State which, explicitly.
+        detail_level: detailed
+
+      - name: selector_and_state_model
+        description: >
+          What can a theming rule target beyond normal/pressed — key code,
+          shift/caps state, disabled, focus, key role (normal/functional/
+          action/spacebar)? Give concrete rule syntax/examples if available.
+        detail_level: detailed
+
+      - name: rendering_pipeline
+        description: >
+          Canvas/Drawable vs Compose vs SwiftUI vs custom view; note any
+          per-keystroke recomposition/invalidation cost or platform-specific
+          blockers (e.g. Compose lifecycle owners inside InputMethodService).
+        detail_level: moderate
+
+      - name: compositing_scrim_model
+        description: >
+          How background image, dim/brightness overlay, blur, gradient, and
+          the key layer stack on top of each other. Include concrete values
+          (e.g. default scrim opacity) where documented.
+        detail_level: detailed
+
+  - name: Assets and Format
+    fields:
+      - name: asset_types
+        description: >
+          What asset formats are used for key art and backgrounds — 9-patch
+          PNG, vector/SVG drawables, XML shape drawables, Lottie, plain
+          raster. Note density-bucketing (mdpi/xhdpi/etc) if relevant.
+        detail_level: moderate
+
+      - name: theme_package_manifest_format
+        description: >
+          The actual schema/file structure of a theme package — manifest
+          filename and format (json/ini/xml), what fields it holds, folder
+          layout, packaging (zip, apk, bundled resources). Give a concrete
+          example structure if the source shows one.
+        detail_level: detailed
+
+      - name: token_count_tiering
+        description: >
+          How many distinct style tokens/properties a theme exposes, and
+          whether there's a simple vs advanced tier. Give the actual number(s)
+          if documented.
+        detail_level: moderate
+
+      - name: theme_versioning_forward_compat
+        description: >
+          Whether the manifest carries a schema version, how unknown/missing
+          properties are handled, and whether adding tokens over time breaks
+          older theme files.
+        detail_level: brief
+
+  - name: Color and Legibility
+    fields:
+      - name: color_extraction_dynamic_tinting
+        description: >
+          Use of dynamic color extraction (e.g. Android Palette API,
+          Material You / Android 12+ wallpaper color) versus fully pre-baked
+          color values in the theme file.
+        detail_level: moderate
+
+      - name: contrast_enforcement_accessibility
+        description: >
+          Whether label/icon colors are validated against the composited
+          background (WCAG/APCA or similar), whether there's a high-contrast
+          or key-border escape hatch, and whether this is automatic or left to
+          the theme author.
+        detail_level: detailed
+
+      - name: background_geometry_adaptation
+        description: >
+          How a single background image survives variable keyboard height,
+          portrait/landscape, floating mode, split/one-handed mode, and tablet
+          layouts.
+        detail_level: detailed
+
+      - name: layout_locale_independence
+        description: >
+          Whether theme art/rules survive a different key count or layout —
+          number row on/off, non-QWERTY layouts, RTL, split layouts.
+        detail_level: moderate
+
+  - name: Surface Coverage
+    fields:
+      - name: non_key_surface_coverage
+        description: >
+          Which non-key-cap surfaces the theme covers — suggestion/prediction
+          strip, toolbar, emoji/sticker panel, key-preview popup, long-press
+          mini-keyboard, clipboard/settings sheets, system nav bar color.
+        detail_level: moderate
+
+      - name: sound_haptic_theming
+        description: >
+          Whether/how key sounds and haptic feedback are themed or made
+          swappable, and what platform APIs are used.
+        detail_level: brief
+
+  - name: Platform and Delivery
+    fields:
+      - name: platform_apis_frameworks
+        description: Concrete platform APIs/frameworks used for theming on this item's platform(s).
+        detail_level: moderate
+
+      - name: delivery_installation_pipeline
+        description: >
+          How themes reach the running keyboard — bundled in the app/APK,
+          downloadable signed zip, legacy plugin APK, iOS app-group shared
+          container. Where assets land on disk.
+        detail_level: detailed
+
+      - name: permission_store_policy_surface
+        description: >
+          Platform permission requirements (e.g. iOS Full Access /
+          RequestsOpenAccess) and any relevant app-store review policy
+          implications for downloadable theme content.
+        detail_level: moderate
+
+      - name: memory_performance_budget
+        description: >
+          Explicit memory ceilings or budgets encountered (e.g. iOS keyboard
+          extension ~40-60MB), and concrete mitigation: max decoded bitmap
+          size, downsampling, bitmap caching/eviction, whether animation is
+          permitted.
+        detail_level: detailed
+
+      - name: untrusted_theme_validation_security
+        description: >
+          Any handling of untrusted/downloaded theme content — zip-slip
+          protection, safe image decoding limits, malformed-manifest handling.
+        detail_level: brief
+
+  - name: Business and Ecosystem
+    fields:
+      - name: open_source_reference_availability
+        description: Whether source code is available to study, and a link/pointer to the relevant theming module if so.
+        detail_level: brief
+
+      - name: authoring_tooling_preview_generation
+        description: >
+          In-app or external theme editor/authoring tooling, live preview
+          support, and requirements for store thumbnail/preview generation
+          (e.g. multiple preview variants).
+        detail_level: brief
+
+      - name: cross_platform_token_parity
+        description: Whether one theme definition renders on both iOS and Android, and which properties are inherently platform-bound.
+        detail_level: brief
+
+      - name: animation_budget
+        description: >
+          If animated themes are supported: format (Lottie/GIF/video), any
+          frame-rate cap, and whether animation pauses when idle. Flag as an
+          open/weakly-documented question if sources are thin.
+        detail_level: brief
+
+uncertain: []

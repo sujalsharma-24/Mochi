@@ -9,12 +9,14 @@ import com.mochi.keyboard.MochiApplication
 import com.mochi.keyboard.features.auth.AuthViewModel
 import com.mochi.keyboard.features.community.CommunityViewModel
 import com.mochi.keyboard.features.create.CreateThemeViewModel
+import com.mochi.keyboard.features.fonts.FontsViewModel
 import com.mochi.keyboard.features.home.HomeViewModel
 import com.mochi.keyboard.features.leaderboard.LeaderboardViewModel
 import com.mochi.keyboard.features.paywall.PaywallViewModel
 import com.mochi.keyboard.features.search.SearchViewModel
 import com.mochi.keyboard.features.settings.SettingsViewModel
 import com.mochi.keyboard.features.themes.ThemesViewModel
+import com.mochi.keyboard.features.wallpapers.WallpaperExploreViewModel
 import com.mochi.keyboard.features.wallpapers.WallpaperViewModel
 
 /** One factory for every ViewModel, since there's no DI framework wiring `@Inject` constructors —
@@ -58,9 +60,15 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
                 container.followRepository,
                 container.authRepository
             ) as T
+            FontsViewModel::class.java -> FontsViewModel(container.fontStyleRepository) as T
             WallpaperViewModel::class.java -> WallpaperViewModel(
                 container.wallpaperRepository,
                 container.wallpaperLibraryRepository,
+                container.billingRepository
+            ) as T
+            WallpaperExploreViewModel::class.java -> WallpaperExploreViewModel(
+                container.wallpaperLibraryRepository,
+                container.wallpaperApplier,
                 container.billingRepository
             ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

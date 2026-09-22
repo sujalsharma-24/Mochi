@@ -14,7 +14,12 @@ data class KeyboardTheme(
     val creatorUid: String = "",
     /** 0 for MockData entries - only ThemeDocument.toKeyboardTheme() (real Firestore themes)
      * populates this, mirroring likeCount's split. */
-    val downloadCount: Int = 0
+    val downloadCount: Int = 0,
+    /** Which pill this theme sits under on the Themes screen, shown again in Theme Detail's info
+     * row — ported from iOS's `KeyboardTheme.category` (`ThemeCategory`, default "Other"). Plain
+     * String rather than an enum since almost every real (Firestore/built-in) theme lands on the
+     * default anyway; only a few curated MockData entries assign anything more specific. */
+    val category: String = "Other"
 ) {
     val likeCountFormatted: String get() = likeCount.formattedCompact()
 }

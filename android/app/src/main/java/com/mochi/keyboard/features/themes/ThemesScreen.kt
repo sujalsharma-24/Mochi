@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,10 +58,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mochi.keyboard.R
 import com.mochi.keyboard.components.DownloadGlyph
 import com.mochi.keyboard.components.FunnelGlyph
+import com.mochi.keyboard.components.KeyboardPreviewPlaceholder
 import com.mochi.keyboard.components.PencilGlyph
 import com.mochi.keyboard.components.SlidersGlyph
 import com.mochi.keyboard.components.SparkleField
 import com.mochi.keyboard.components.TripleDot
+import com.mochi.keyboard.data.BuiltInThemeBridge
 import com.mochi.keyboard.data.rememberMochiViewModelFactory
 import com.mochi.keyboard.designsystem.MochiColor
 import com.mochi.keyboard.designsystem.MochiFont
@@ -108,8 +111,17 @@ private val themesArt: Map<String, Int> = mapOf(
 
 @Composable
 private fun ThemesArtImage(assetName: String, modifier: Modifier = Modifier) {
-    val resId = themesArt[assetName] ?: return
-    Image(painter = painterResource(resId), contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
+    val context = LocalContext.current
+    // Falls through to a dynamic-by-name lookup for the 137 machine-ported built-in themes'
+    // thumbnails - far too many to hand-list in themesArt above, same fix as ThemeArt's.
+    val resId = themesArt[assetName] ?: remember(assetName) {
+        context.resources.getIdentifier(assetName, "drawable", context.packageName).takeIf { it != 0 }
+    }
+    if (resId != null) {
+        Image(painter = painterResource(resId), contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
+    } else {
+        KeyboardPreviewPlaceholder(seed = assetName, modifier = modifier, cornerRadius = 0.dp)
+    }
 }
 
 /** Ported from ios/MochiApp/Features/Themes/ThemesView.swift against docs/figma/8.png. Geometry
@@ -127,7 +139,10 @@ fun ThemesScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     // Real Firestore data only replaces the grid once it's actually loaded - Loading/Empty/Error
     // fall back to MockData rather than showing a blank/broken grid, same pattern as HomeScreen.
-    val themes = (uiState as? ThemesUiState.Data)?.themes ?: MockData.shopThemes
+    // The 137 real built-in themes (com.mochi.keyboard.data.BuiltInThemeBridge) are appended in
+    // either case - they're bundled with the app, not backend content, so they're always available
+    // and always real (full live keyboard preview), matching iOS's own always-present catalog.
+    val themes = ((uiState as? ThemesUiState.Data)?.themes ?: MockData.shopThemes) + BuiltInThemeBridge.catalog
     ThemesScreenContent(modifier, themes, onSearchClick, onWallpapersClick, onThemeClick)
 }
 
@@ -409,6 +424,10 @@ private fun ThemeGridCard(theme: KeyboardTheme, onClick: () -> Unit) {
         modifier = Modifier
             .width(ThemesMetrics.cardWidth)
             .clip(RoundedCornerShape(ThemesMetrics.cardRadius))
+            // onClick was accepted but never actually wired to anything - tapping a card in the
+            // Themes grid did nothing at all. Real navigation to Theme Detail now that every
+            // theme (including the 134 new built-in ones) has a real page worth reaching.
+            .clickable(onClick = onClick)
     ) {
         Box {
             ThemesArtImage(

@@ -1,0 +1,129 @@
+topic: >
+  How keyboard apps actually implement visual themes (per-key rendering, asset
+  formats, compositing, color adaptation) versus pasting a static background
+  image — what Mochi's Android/iOS keyboard needs to make theming work well.
+
+context: >
+  Mochi generated theme preview images and pasted them as the keyboard
+  background; it looked bad. This research determines whether the images are
+  the right asset at all, and if so what additional layer(s) (compositing,
+  per-key rendering, color/contrast adaptation, manifest format) are needed to
+  make a theme look intentional rather than like a stretched wallpaper behind
+  keys.
+
+items:
+  - name: Gboard (Google Keyboard)
+    category: production_closed_source
+    description: >
+      Android market leader. Reference case for "static background image done
+      right" — crop/scale UI, brightness scrim, key-border toggle, fixed
+      white labels, floating keyboard in landscape.
+
+  - name: Microsoft SwiftKey
+    category: production_closed_source
+    description: >
+      Android/iOS. Photo Themes feature (pinch-crop, brightness slider
+      defaulting ~45%, key-border/symbol toggles). Real theme package format
+      documented via community tooling (rwiftkey-themes): .rwift/.zip with
+      themelist.json manifest + density-bucketed PNGs.
+
+  - name: Samsung Keyboard
+    category: production_closed_source
+    description: Android OEM keyboard theming; closed-source, worth a brief pass for UX patterns only.
+
+  - name: Facemoji Keyboard
+    category: production_closed_source
+    description: >
+      Theme-marketplace business model closest to Mochi's own. Closed source
+      — internals only reachable by decompiling a theme APK/package.
+
+  - name: Chrooma Keyboard
+    category: production_closed_source
+    description: Adaptive/dynamic-color keyboard, useful as a lightweight (non-image-heavy) theming example.
+
+  - name: FlorisBoard — Snygg theme engine
+    category: open_source_reference
+    description: >
+      Open-source Android IME. CSS-like stylesheet DSL compiled to a
+      runtime-queryable SnyggTheme. Rules target key/key:pressed/key[code=..],
+      with specificity ordering and inherit cascade. The clearest example of
+      genuine per-key selector-based theming (not per-key bitmaps).
+
+  - name: FUTO Keyboard (futo-org/android-keyboard)
+    category: open_source_reference
+    description: >
+      Modern LatinIME fork. DynamicThemeProvider/BasicThemeProvider abstract
+      static XML vs Material You vs user themes; VisualStyleDescriptor for
+      per-key-role state styling; ShaderRenderer composites gradients + image
+      bitmaps with opacity/blur under keys. Themes ship as .zip + JSON
+      metadata. Best available answer to "background image done properly."
+
+  - name: HeliBoard
+    category: open_source_reference
+    description: >
+      Actively maintained OpenBoard successor. Tiers theming explicitly: 7
+      "main colors" / 10 "more colors" / 41+ "all colors," documenting the
+      forward-compatibility tradeoff of more tokens. Background image +
+      day/night + Android 12+ dynamic color support.
+
+  - name: KeyboardKit / KeyboardKit Pro (iOS)
+    category: open_source_reference
+    description: >
+      De facto SwiftUI framework for iOS keyboard extensions. Explicit theme
+      engine; as of 9.x, KeyboardStyleService is deprecated in favor of
+      view-modifier-based styling — the current correct shape for iOS
+      theming design.
+
+  - name: Fleksy Keyboard SDK
+    category: commercial_sdk
+    description: >
+      Commercial white-label keyboard SDK with documented theming (colors,
+      fonts, background, sounds) and explicit support for hot-swapping themes
+      while the keyboard is running.
+
+  - name: Tappa Android Keyboard Theme SDK
+    category: commercial_sdk
+    description: >
+      Publicly published theme manifest spec: single KBThemes.json with an
+      array of themes, ~19 hex colors each, plus bordered/borderless preview
+      images at two sizes and separate portrait/landscape wallpapers, assets
+      across mdpi-xxxhdpi.
+
+  - name: Sogou IME — .ssf skin format
+    category: legacy_reference
+    description: >
+      ~20-year-old production, fully image-driven skin format: renamed zip
+      containing skin.ini/config.ini plus a PNG atlas and audio, config drives
+      precise per-element coordinate mapping. Studied as "config + coordinate
+      map + image atlas" pattern and as a cautionary example (breaks under
+      variable layouts).
+
+  - name: Theme-as-plugin-APK pattern (Xlythe ThemeEngine)
+    category: legacy_reference
+    description: >
+      Legacy GO/Kika/TouchPal-era architecture: a resource-only APK whose
+      drawables/colors share names with the host, loaded via
+      createPackageContext. Included to rule out — Play policy, scoped
+      storage, and install friction make it obsolete versus downloadable
+      signed zips.
+
+  - name: iOS App Groups + Full Access delivery pipeline
+    category: platform_constraint
+    description: >
+      Not an app but a mandatory architectural constraint: without
+      RequestsOpenAccess ("Full Access"), a keyboard extension has no network
+      and no shared-container access, so it cannot fetch/read downloaded theme
+      assets. Also a documented App Store review sensitivity.
+
+  - name: Jetpack Compose inside InputMethodService
+    category: platform_constraint
+    description: >
+      Rendering-pattern constraint: InputMethodService provides no
+      LifecycleOwner/ViewModelStoreOwner/SavedStateRegistryOwner, so
+      AbstractComposeView won't attach without hand-rolling those owners.
+      Directly decides whether a Compose-first keyboard UI is viable.
+
+execution:
+  batch_size: 3
+  items_per_agent: 3
+  output_dir: ./results

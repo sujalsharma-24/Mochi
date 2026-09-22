@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
+import com.mochi.keyboard.data.BuiltInThemeBridge
 import com.mochi.keyboard.data.ThemeCache
 import com.mochi.keyboard.features.auth.AuthScreen
 import com.mochi.keyboard.features.leaderboard.LeaderboardScreen
@@ -79,9 +80,13 @@ fun AppNavHost() {
             arguments = listOf(navArgument("themeId") { type = NavType.StringType })
         ) { backStackEntry ->
             val themeId = backStackEntry.arguments?.getString("themeId")
-            // Real Firestore-backed themes (from Home) live in ThemeCache, not MockData -
-            // check there first and fall back to MockData for screens not yet converted off it.
+            // Real Firestore-backed themes (from Home/Community/Search/Profile) live in ThemeCache,
+            // not MockData - check there first. The 140 built-in catalog themes (Themes tab grid)
+            // are never put into ThemeCache - they're a static bundled list, not fetched, so they're
+            // looked up directly here instead. MockData is the last resort for screens not yet
+            // converted off it.
             val theme = themeId?.let(ThemeCache::get)
+                ?: BuiltInThemeBridge.catalog.firstOrNull { it.id == themeId }
                 ?: MockData.allThemes.firstOrNull { it.id == themeId }
                 ?: MockData.popularThemes.first()
             ThemeDetailScreen(

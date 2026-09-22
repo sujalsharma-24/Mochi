@@ -31,6 +31,16 @@ class WallpaperLibraryRepository(private val context: Context) {
         }
     }
 
+    /** Removes a wallpaper from the downloaded set (idempotent) - the bundled-catalog Wallpapers
+     * page's heart/checkmark toggle needs to undo a download, unlike `liveWallpapers`' one-way
+     * "download" action which this repository originally shipped for. */
+    suspend fun removeDownloaded(wallpaperId: String) {
+        context.wallpaperLibraryDataStore.edit { prefs ->
+            val existing = prefs[KEY_DOWNLOADED]?.split(SEPARATOR)?.filter { it.isNotBlank() } ?: emptyList()
+            prefs[KEY_DOWNLOADED] = existing.filterNot { it == wallpaperId }.joinToString(SEPARATOR)
+        }
+    }
+
     private companion object {
         val KEY_DOWNLOADED = stringPreferencesKey("downloaded_wallpaper_ids")
         const val SEPARATOR = "␟"
